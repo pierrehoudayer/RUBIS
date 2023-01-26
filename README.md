@@ -1,3 +1,3 @@
 # Rotation code Using Barotropy conservation over Isopotential Surfaces (*RUBIS*)
 
-Add some description.
+![plot](./Logo/RUBIS_logo_filtre.png)
