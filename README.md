@@ -1,3 +1,5 @@
 # Rotation code Using Barotropy conservation over Isopotential Surfaces (*RUBIS*)
 
-<img src="./Logo/RUBIS_logo_filtre.png" width="200" />
+<p align="center">
+  <img src="./Logo/RUBIS_logo_filtre.png" width="400" />
+</p>
