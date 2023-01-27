@@ -19,16 +19,16 @@ def lnxn(x, n=1, a=1.) :
 
     Parameters
     ----------
-    x : FLOAT or ARRAY
+    x : float or array_like
         Input value
     n : INT, optional
         Logarithm exponent value. The default is 1.
-    a : FLOAT, optional
+    a : float, optional
         Polynamial exponent value (can be real). The default is 1.0.
 
     Returns
     -------
-    y : FLOAT or ARRAY (same shape as x)
+    y : float or array_like (same shape as x)
         Output value
 
     """
@@ -48,19 +48,19 @@ def expinv(x, k=1, a=1) :
 
     Parameters
     ----------
-    x : FLOAT or ARRAY
+    x : float or array_like
         Input value
-    k : FLOAT, optional
+    k : float, optional
         Exponent value, it can theoritically be a real but must
         be an integer if one want to compute the analytical
         primitive of the function (multivalued otherwise). 
         The default is 1.
-    a : FLOAT, optional
+    a : float, optional
         Add an optional homotesy to the axis. The default is 1.
 
     Returns
     -------
-    y : FLOAT or ARRAY (same shape as x)
+    y : float or array_like (same shape as x)
         Output value
 
     """
@@ -81,16 +81,16 @@ def expI(x, k=1, a=1) :
 
     Parameters
     ----------
-    x : FLOAT or ARRAY
+    x : float or array_like
         Input value
     k : INT, optional
         Argument of expinv(x, k). The default is 1.
-    a : FLOAT, optional
+    a : float, optional
         Add an optional homotesy to the axis. The default is 1.
 
     Returns
     -------
-    y : FLOAT or ARRAY (same shape as x)
+    y : float or array_like (same shape as x)
         Output value
 
     """
@@ -105,16 +105,16 @@ def del_u_over_v(du, dv, der) :
 
     Parameters
     ----------
-    du : LIST of FLOAT or ARRAY
+    du : list of float or array_like
         derivatives of u.
-    dv : LIST of FLOAT or ARRAY
+    dv : list of float or array_like
         derivatives of v.
     der : INT in {0, 1, 2}
         Derivative order.
 
     Returns
     -------
-    y : FLOAT or ARRAY 
+    y : float or array_like 
         Output value
 
     """
@@ -144,11 +144,11 @@ def integrate(x, y, a=None, b=None, k=3) :
 
     Parameters
     ----------
-    x : ARRAY (N, )
+    x : array_like, shape (N, )
         x values on which to integrate.
-    y : ARRAY (N, )
+    y : array_like, shape (N, )
         y values to integrate.
-    a, b : FLOATS, optional
+    a, b : floats, optional
         Lower and upper bounds used to compute the integral. 
         The default is None.
     k : INT, optional
@@ -157,7 +157,7 @@ def integrate(x, y, a=None, b=None, k=3) :
 
     Returns
     -------
-    integral : FLOAT
+    integral : float
         Result of the integration.
 
     """
@@ -178,9 +178,9 @@ def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
 
     Parameters
     ----------
-    x : ARRAY (N, )
+    x : array_like, shape (N, )
         x values on which to integrate.
-    y : ARRAY (N, )
+    y : array_like, shape (N, )
         y values to integrate.
     der : INT, optional
         Order of the derivative. 
@@ -188,10 +188,10 @@ def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
     k : INT, optional
         Degree of the B-splines used to compute the integral. 
         The default is 3.
-    s : FLOAT, optional
+    s : float, optional
         Smoothing parameter. 
         The default is 0.
-    prim_cond : ARRAY (2, ), optional
+    prim_cond : array_like, shape (2, ), optional
         Conditions to specify the constant to add to the
         primitive function if der = -1. The first value 
         is an integer i, such that F(x[i]) = second value.
@@ -199,7 +199,7 @@ def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
 
     Returns
     -------
-    func : FUNC(x_eval)
+    func : function(x_eval)
         Interpolation function of x_eval.
 
     """
@@ -297,7 +297,7 @@ def find_root_i(i, t_i, c_i, order) :
         
     Returns
     -------
-    root_i : FLOAT
+    root_i : float
         Adequate polynomial root
     """
     deriv_roots = Polynomial(c_i).roots()
@@ -378,7 +378,7 @@ def lagrange_matrix_F(x, order=2) :
 
     Parameters
     ----------
-    x : ARRAY (N, )
+    x : array_like, shape (N, )
         Initial grid from which one interpolates/derives
     order : INT, optional
         Scheme order from the lagrange interpolation/derivation.
@@ -388,7 +388,7 @@ def lagrange_matrix_F(x, order=2) :
 
     Returns
     -------
-    mat : ARRAY(N-1, N, 2)
+    mat : array_like, shape(N-1, N, 2)
         Contains the interpolation (mat[...,0]) and
         the derivation (mat[...,1]) matrices.
 
@@ -404,18 +404,18 @@ def app_list(val, idx, func=lambda x: x, args=None) :
 
     Parameters
     ----------
-    val : LIST
+    val : list
         Values on which func is applied
-    idx : LIST
+    idx : list
         val ordering.
-    func : FUNC or LIST of FUNC, optional
+    func : function or list of function, optional
         functions to be applied on val. The default is lambda x: x (identity).
-    args : LIST, optional
+    args : list, optional
         list of function arguments. The default is None.
 
     Returns
     -------
-    ARRAY
+    array_like
         The function applied to val with corresponding args.
 
     """

@@ -195,7 +195,7 @@ def la_bidouille(fname, smoothing=0, return_profile=False) :
 
     Returns
     -------
-    phi_c_func or w_func : FUNC(r, cth, omega)
+    phi_c_func or w_func : function(r, cth, omega)
         cf. below
 
     """
