@@ -96,7 +96,7 @@ def set_params() :
 
     """
     #### MODEL CHOICE ####
-    model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = "1Dmodel_1.977127_G1.txt"     
     # model_choice = DotDict(
     #     index=3.0, surface_pressure=0.0, radius=1.0, mass=1.0, res=1001
     #     )
@@ -104,8 +104,8 @@ def set_params() :
     #### RAD PARAMETERS ####      
     rotation_target = 0.8
     full_rate = 1
-    rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
-    # rotation_profile = solid
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    rotation_profile = solid
     central_diff_rate = 6.3
     rotation_scale = 0.1
     mapping_precision = 1e-12
@@ -1017,7 +1017,7 @@ if __name__ == '__main__' :
     dphi_eff *= G * mass    / radius**2
     P        *= G * mass**2 / radius**4
     
-    # # Model writing
-    # write_model(SAVE, map_n, P, rho_n)
+    # Model writing
+    write_model(SAVE, map_n, r, P, rho_n, phi_eff)
     
         
