@@ -13,6 +13,37 @@ from scipy.integrate import solve_ivp
 from dotdict import DotDict
 
 def polytrope(N, P0, R=1.0, M=1.0, res=1001) :
+    """
+    Generate a polytrope of given radius, mass and surface
+    pressure.
+    
+    Parameters
+    ----------
+    N : int
+        Polytrope index
+    P0 : float
+        Surface pressure
+    R : float, optional
+        Polytrope radius. The default value is 1.0
+    M : float, optional
+        Polytrope mass. The default value is 1.0
+    res : int, optional
+        Number of points. The default value is 1001
+        
+    Returns
+    -------
+    model : Dotdict instance
+        Dictionary containing the model variables : {
+            r : array_like, shape (res, )
+                Radial coordinate
+            P : array_like, shape (res, )
+                Pressure
+            rho : array_like, shape (res, )
+                Density
+            g : array_like, shape (res, )
+                Gravity
+        }
+    """
     
     
     # Solver arguments
@@ -45,7 +76,7 @@ def polytrope(N, P0, R=1.0, M=1.0, res=1001) :
         Xo *= 2.0
         
     # Scales determination
-    G = 6.6743e-11
+    G = 6.67384e-8                      # Gravitational constant
     x0, g0 = sol.t[-1], -(N+1) * sol.y[0, -1]
     L_scale = R / x0
     G_scale = (G*M/R**2) / g0
@@ -54,8 +85,9 @@ def polytrope(N, P0, R=1.0, M=1.0, res=1001) :
     pc   = rhoc * hc
     
     # Rescaling
-    # x  = np.linspace(0, sol.t[-1], res)
-    x  = sol.t[-1] * np.sin(np.linspace(0, np.pi/2, res))
+    x  = sol.t[-1] * np.sin(            # Denser grid on surface
+        np.linspace(0, np.pi/2, res)
+    )
     h  = np.abs(sol.sol(x)[1])
     dh = sol.sol(x)[0]
     
