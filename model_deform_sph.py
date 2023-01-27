@@ -24,7 +24,7 @@ from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
 from numerical_routines     import (
-    integrate, interpolate_func, app_list, lagrange_matrix, lnxn, del_u_over_v
+    integrate, interpolate_func, app_list, lagrange_matrix_P, lnxn, del_u_over_v
     )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
 from generate_polytrope     import polytrope     
@@ -1086,7 +1086,7 @@ def find_sparse_matrices_per_domain() :
     for D in dom.ranges : 
         
         # Find the lagrange matrices per domain
-        lag_mat = lagrange_matrix(zeta[D], order=KLAG)
+        lag_mat = lagrange_matrix_P(zeta[D], order=KLAG)
         
         # Define sparse matrices 
         Lsp.append(sps.dia_matrix(lag_mat[..., 0]))
@@ -1418,7 +1418,7 @@ if __name__ == '__main__' :
     P        *= G * mass**2 / radius**4
     
     # Model writing
-    write_model(SAVE, map_n, P, rho_n, phi_eff[:N])
+    # write_model(SAVE, map_n, P, rho_n, phi_eff[:N])
     
         
     

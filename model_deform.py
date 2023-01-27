@@ -21,7 +21,7 @@ from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
 from numerical_routines     import (
-    integrate, interpolate_func, app_list, lagrange_matrix
+    integrate, interpolate_func, app_list, lagrange_matrix_P
     )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
 from generate_polytrope     import polytrope
@@ -936,7 +936,7 @@ if __name__ == '__main__' :
     eval_phi_c = init_phi_c()
     
     # Find the lagrange matrix
-    lag_mat = lagrange_matrix(r**2, order=KLAG)
+    lag_mat = lagrange_matrix_P(r**2, order=KLAG)
     
     # Define sparse matrices 
     Lsp = sps.dia_matrix(lag_mat[..., 0])
@@ -1018,6 +1018,6 @@ if __name__ == '__main__' :
     P        *= G * mass**2 / radius**4
     
     # Model writing
-    write_model(SAVE, map_n, r, P, rho_n, phi_eff)
+    # write_model(SAVE, map_n, r, P, rho_n, phi_eff)
     
         
