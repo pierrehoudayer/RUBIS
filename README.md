@@ -73,8 +73,7 @@
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+Get a local copy of **RUBIS** by following the following steps.
 
 ### Prerequisites
 
@@ -144,7 +143,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - pierre.houdayer@obspm.fr
+Pierre Houdayer - pierre.houdayer@obspm.fr
 
 Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierrehoudayer/RUBIS)
 
