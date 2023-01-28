@@ -160,6 +160,8 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierr
 <!-- CITING RUBIS -->
 ## Citing RUBIS
 
+Add reference to the article
+
 
 
 
