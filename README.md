@@ -192,5 +192,5 @@ ACKNOWLEDGMENTS
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
-[ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen
+[ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen?style=flat
 [ORCID-url]: https://orcid.org/0000-0002-1245-9148
