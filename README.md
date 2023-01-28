@@ -40,9 +40,6 @@
   <ol>
     <li>
       <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
     </li>
     <li>
       <a href="#getting-started">Getting Started</a>
@@ -55,7 +52,7 @@
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
   </ol>
 </details>
 
@@ -81,7 +78,7 @@ To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
 
-RUBIS has been written in such a way that it only depends on the standard Python libraries: [!NumPy][numpy-url]
+RUBIS has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The 'setup.py' is only used to ensure that these libraries are up to date.
 
 ### Installation
 
@@ -89,9 +86,9 @@ RUBIS has been written in such a way that it only depends on the standard Python
    ```sh
    git clone https://github.com/pierrehoudayer/RUBIS.git
    ```
-2. Install NPM packages
+2. Make sure that the standard libraries are up to date running the 'setup.py'
    ```sh
-   npm install
+   python setup.py install
    ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -101,7 +98,7 @@ RUBIS has been written in such a way that it only depends on the standard Python
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Add usage
+Give an example
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -110,10 +107,7 @@ Add usage
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+List the forthcomming features.
 
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a full list of proposed features (and known issues).
 
@@ -181,6 +175,7 @@ ACKNOWLEDGMENTS
 [stars-url]: https://github.com/pierrehoudayer/RUBIS/stargazers
 [issues-shield]: https://img.shields.io/github/issues/pierrehoudayer/RUBIS.svg?style=for-the-badge
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
-[product-screenshot]: images/screenshot.png
+[plot-example]: Plots/example.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
+[matplotlib-url]: https://github.com/matplotlib/matplotlib
