@@ -78,7 +78,7 @@ To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
 
-RUBIS has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The 'setup.py' is only used to ensure that these libraries are up to date.
+RUBIS has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only used to ensure that these libraries are up to date.
 
 ### Installation
 
@@ -86,7 +86,7 @@ RUBIS has been written in such a way that it only depends on the standard Python
    ```sh
    git clone https://github.com/pierrehoudayer/RUBIS.git
    ```
-2. Make sure that the standard libraries are up to date running the 'setup.py'
+2. Make sure that the standard libraries are up to date running the `setup.py`
    ```sh
    python setup.py install
    ```
