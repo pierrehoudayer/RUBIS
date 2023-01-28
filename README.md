@@ -53,6 +53,7 @@
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#contact">Contact</a></li>
     <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
+    <li><a href="#citing">Citing RUBIS</a></li>
   </ol>
 </details>
 
@@ -169,8 +170,7 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierr
 
 Add reference to the article
 
-
-
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 <!-- 
