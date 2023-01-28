@@ -16,12 +16,12 @@
     <img src="Logo/RUBIS_logo_filtre.png" alt="Logo" width="400">
   </a>
 
-<h3 align="center">Rotation code Using Barotropy conservation over Isopotential Surfaces (*RUBIS*)</h3>
+<h3 align="center">Rotation code Using Barotropy conservation over Isopotential Surfaces (RUBIS)</h3>
 
   <p align="center">
     Write project description.
     <br />
-    <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs</strong></a>
     <br />
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS">View Demo</a>
@@ -61,7 +61,8 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+[![Example 1][plot-example-1]]
+[![Example 2][plot-example-2]]
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -73,11 +74,11 @@
 <!-- GETTING STARTED -->
 ## Getting Started
 
-Get a local copy of **RUBIS** by following the following steps.
+Get a local copy of *RUBIS* by following the following steps.
 
 ### Prerequisites
 
-RUBIS has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only used to ensure that these libraries are up to date.
+*RUBIS* has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only used to ensure that these libraries are up to date.
 
 ### Installation
 
@@ -117,7 +118,7 @@ See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a full
 <!-- CONTRIBUTING -->
 ## Contributing
 
-RUBIS is in stage of early development. If you have a suggestion to improve this repository, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement". Any contribution is welcome and **greatly appreciated**!
+*RUBIS* is in stage of early development. If you have a suggestion to improve this repository, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement". Any contribution is welcome and **greatly appreciated**!
 
 1. Fork the Project
 2. Create a Feature Branch (`git checkout -b feature-feature_description`)
@@ -174,7 +175,8 @@ ACKNOWLEDGMENTS
 [stars-url]: https://github.com/pierrehoudayer/RUBIS/stargazers
 [issues-shield]: https://img.shields.io/github/issues/pierrehoudayer/RUBIS.svg?style=for-the-badge
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
-[plot-example]: Plots/example.png
+[plot-example-1]: Plots/example_poly3_deform_at_99.99.png
+[plot-example-2]: Plots/example_poly1_deform_at_99.99.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
