@@ -61,8 +61,8 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Example 1][plot-example-1]]
-[![Example 2][plot-example-2]]
+![Example 1][plot-example-1]
+![Example 2][plot-example-2]
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -93,6 +93,13 @@ Get a local copy of *RUBIS* by following the following steps.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+<!-- SHORT INTRODUCTION -->
+## Short introduction
+
+Here is the intro
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 <!-- USAGE EXAMPLES -->
@@ -144,11 +151,16 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Pierre Houdayer - pierre.houdayer@obspm.fr
+Pierre Houdayer - [![ORCID][ORCID-shield]][ORCID-url] -  pierre.houdayer@obspm.fr
 
 Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierrehoudayer/RUBIS)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- CITING RUBIS -->
+## Citing RUBIS
+
+
 
 
 
@@ -180,3 +192,5 @@ ACKNOWLEDGMENTS
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
+[ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen?style=for-the-badge
+[ORCID-url]: https://orcid.org/0000-0002-1245-9148
