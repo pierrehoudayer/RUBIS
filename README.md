@@ -61,6 +61,12 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
+<div align="center">
+  <img src=plot-example-1 alt="Example-1" width="400">
+  
+<div align="center">
+  <img src=plot-example-2 alt="Example-2" width="400">
+
 ![Example 1][plot-example-1]
 ![Example 2][plot-example-2]
 
@@ -151,7 +157,9 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Pierre Houdayer - [![ORCID][ORCID-shield]][ORCID-url] -  pierre.houdayer@obspm.fr
+Pierre Houdayer -  pierre.houdayer@obspm.fr
+
+[![ORCID][ORCID-shield]][ORCID-url]
 
 Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierrehoudayer/RUBIS)
 
