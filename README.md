@@ -61,14 +61,13 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-<div align="center">
-  <img src=plot-example-1 alt="Example-1" width="400">
+| ![Example 1][plot-example-1] | 
+|:--:| 
+| *Deformation of a polytropic structure with index N=3 at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right* |
   
-<div align="center">
-  <img src=plot-example-2 alt="Example-2" width="400">
-
-![Example 1][plot-example-1]
-![Example 2][plot-example-2]
+| ![Example 2][plot-example-2] | 
+|:--:| 
+| *Idem for a N=1 polytrope.*  |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
