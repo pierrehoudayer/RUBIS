@@ -50,13 +50,13 @@ def set_params() :
             res : integer
                 Radial resolution of the model
             }
-    rotation_target : float
-        Target for the rotation rate.
     rotation_profile : function(r, cth, omega)
         Function used to compute the centrifugal potential and its 
         derivative. Possible choices are {solid, lorentzian, plateau}.
         Explanations regarding this profiles are available in the 
         corresponding functions.
+    rotation_target : float
+        Target for the rotation rate.
     rate_difference : float
         The rotation rate difference between the centre and equator in the
         cylindrical rotation profile. For instance, rate_difference = 0.0
@@ -67,6 +67,12 @@ def set_params() :
     rotation_scale : float
         Homotesy factor on the x = r*sth / Req axis for the rotation profile.
         Only appear in the plateau rotation profile.
+    max_degree : integer
+        Maximum l degree to be considered in order to do the
+        harmonic projection.
+    angular_resolution : integer
+        Angular resolution for the mapping. Better to take an odd number 
+        in order to include the equatorial radius.
     full_rate : integer
         Number of iterations before reaching full rotation rate. As a 
         rule of thumb, ~ 1 + int(-np.log(1-rotation_target)) iterations
@@ -75,20 +81,14 @@ def set_params() :
         Precision target for the convergence criterion on the mapping.
     newton_precision : float
         Precision target for Newton's method.
-    spline_order : integer
-        Choice of B-spline order in integration / interpolation
-        routines. 
-        3 is recommanded (must be odd in anycase).
     lagrange_order : integer
         Choice of Lagrange polynomial order in integration / interpolation
         routines. 
         2 should be enough.
-    max_degree : integer
-        Maximum l degree to be considered in order to do the
-        harmonic projection.
-    angular_resolution : integer
-        Angular resolution for the mapping. Better to take an odd number 
-        in order to include the equatorial radius.
+    spline_order : integer
+        Choice of B-spline order in integration / interpolation
+        routines. 
+        3 is recommanded (must be odd in anycase).
     plot_resolution : integer
         Angular resolution for the mapping plot.
     save_name : string
@@ -100,19 +100,19 @@ def set_params() :
     model_choice = DotDict(index=3.0)
 
     #### ROTATION PARAMETERS ####      
-    rotation_target = 0.9
-    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
     rotation_profile = solid
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    rotation_target = 0.9
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 101
     full_rate = 3
     mapping_precision = 1e-12
     newton_precision = 1e-12
-    spline_order = 3
     lagrange_order = 2
-    max_degree = angular_resolution = 101
+    spline_order = 3
     
     #### OUTPUT PARAMETERS ####
     plot_resolution = 501
