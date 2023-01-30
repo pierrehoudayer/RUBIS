@@ -65,7 +65,7 @@
 
 *RUBIS* (standing for *Rotation code Using Barotropy conservation over Isopotential Surfaces*) is a centrifugal deformation program that takes as input a 1D model (with spherical symmetry) and returns its deformed version by applying a conservative rotation profile specified by the user. More specifically, the code only needs the density as a function of radial distance, $\rho(r)$, from the reference model in addition to the surface pressure to be imposed, $P_0$, in order to perform the deformation. This lightness is made possible by the central procedure assumption which consists in preserving the relation between density and pressure when going from the 1D to the 2D structure. The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacDregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state. 
 
-As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. Another feature of the method is its excellent stability, which allows for the deformation of models at speeds very close to the critical rotation rate (cf. figures [1][plot-example-1] & [2][plot-example-2] below).
+As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. Another feature of the method is its excellent stability, which allows for the deformation of models at speeds very close to the critical rotation rate (cf. figures [1][plot-example-1] & [2][plot-example-2] below). Finally, the code has been designed to allow both stellar and planetary models to be deformed, thereby dealing with potential discontinuities in the density profile. This is made possible by solving Poisson's equation in spheroidal rather than spherical coordinates whenever a discontinuity is present. More details regarding the <a href="#deformation-method">Deformation Method</a> can be found below.
 
 | ![Example 1][plot-example-1] | 
 |:--:| 
@@ -97,7 +97,7 @@ Get a local copy of *RUBIS* by following the following steps.
    ```sh
    git clone https://github.com/pierrehoudayer/RUBIS.git
    ```
-2. Make sure that the standard libraries are up to date running the `setup.py`
+2. Make sure that the standard libraries are up to date by running the `setup.py`
    ```sh
    python setup.py install
    ```
