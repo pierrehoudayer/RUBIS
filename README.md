@@ -249,7 +249,7 @@ Iteration n°29, R_pol = 0.708476121557
 Deformation done in 6.4703 sec
 ```
 
-I can see here that the deformation only took about $6$ seconds (and $29$ iterations). 
+I can see here that the deformation only took about 6 seconds (and 29 iterations). 
 A plot with the mapping and the density in the deformed model should also appear.
 The angular resolution of the plot can be modified with the `plot_resolution` parameter in the `set_params()` function and many more display options are available in the `plot_f_map` function.
 
