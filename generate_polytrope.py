@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from dotdict import DotDict
 
-def polytrope(N, P0, R=1.0, M=1.0, res=1001) :
+def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     """
     Generate a polytrope of given radius, mass and surface
     pressure.

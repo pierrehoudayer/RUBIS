@@ -112,98 +112,97 @@ def set_params() :
 
     Returns
     -------
-    model_choice : STR or DotDict instance
+    model_choice : string or DotDict instance
         Name of the file containing the 1D model or dictionary containing
         the information requiered to compute a polytrope of given
         index : {
-            index : FLOAT
+            index : float
                 Polytrope index
-            surface_pressure : FLOAT
+            surface_pressure : float
                 Surface pressure expressed in units of central
                 pressure, ex: 1e-12 => P0 = 1e-12 * PC
-            radius : FLOAT
+            radius : float
                 Radius of the model
-            mass : FLOAT
+            mass : float
                 Mass of the model
-            res : INT
+            res : integer
                 Radial resolution of the model
             }
-    rotation_target : FLOAT
+    rotation_target : float
         Target for the rotation rate.
-    full_rate : INT
-        Number of iterations before reaching full rotation rate. As a 
-        rule of thumb, ~ 1 + int(-np.log(1-rotation_target)) iterations
-        should be enough to ensure convergence (in the solid rotation case!).
-    rotation_profile : FUNC(r, cth, omega)
+    rotation_profile : function(r, cth, omega)
         Function used to compute the centrifugal potential and its 
         derivative. Possible choices are {solid, lorentzian, plateau}.
         Explanations regarding this profiles are available in the 
         corresponding functions.
-    rate_difference : FLOAT
+    rate_difference : float
         The rotation rate difference between the centre and equator in the
         cylindrical rotation profile. For instance, rate_difference = 0.0
         would corresond to a solid rotation profile while 
         rate_difference = 0.5 indicates that the star's centre rotates 50%
         faster than the equator.
         Only appears in cylindrical rotation profiles.
-    rotation_scale : FLOAT
+    rotation_scale : float
         Homotesy factor on the x = r*sth / Req axis for the rotation profile.
         Only appear in the plateau rotation profile.
-    mapping_precision : FLOAT
+    full_rate : integer
+        Number of iterations before reaching full rotation rate. As a 
+        rule of thumb, ~ 1 + int(-np.log(1-rotation_target)) iterations
+        should be enough to ensure convergence (in the solid rotation case!).
+    mapping_precision : float
         Precision target for the convergence criterion on the mapping.
-    newton_precision : FLOAT
+    newton_precision : float
         Precision target for Newton's method.
-    spline_order : INT
+    spline_order : integer
         Choice of B-spline order in integration / interpolation
         routines. 
         3 is recommanded (must be odd in anycase).
-    lagrange_order : INT
+    lagrange_order : integer
         Choice of Lagrange polynomial order in integration / interpolation
         routines. 
         2 should be enough.
-    max_degree : INT
+    max_degree : integer
         Maximum l degree to be considered in order to do the
         harmonic projection.
-    angular_resolution : INT
+    angular_resolution : integer
         Angular resolution for the mapping. Better to take an odd number 
         in order to include the equatorial radius.
-    save_resolution : INT
+    save_resolution : integer
         Angular resolution for saving the mapping.
-    save_name : STR
+    save_name : string
         Filename in which to scaled model will be saved.
         
-    external_domain_res : INT
+    external_domain_res : integer
         Radial resolution for the external domain
-    derivable_mapping : BOOL
+    derivable_mapping : boolean
         Allows to choose between two external mapping prescriptions
         (cf. find_external_mapping routine).
 
     """
     
     #### MODEL CHOICE ####
-    # model_choice = "unknown_model.txt"                      
-    # model_choice = "1Dmodel_1.971845.txt"           
-    # model_choice = "1Dmodel_1.977127.txt"   
-    # model_choice = "Jupiter.txt" 
-    model_choice = DotDict(
-        index=3.0, surface_pressure=0.0, radius=1.0, mass=1.0, res=1001
-        )
-    
-    #### RAD PARAMETERS ####
+    # model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = DotDict(index=3.0)
+
+    #### ROTATION PARAMETERS ####      
     rotation_target = 0.9
-    full_rate = 5
     rotation_profile = solid
-    central_diff_rate = 1.5
-    rotation_scale = 0.5
-    mapping_precision = 1e-8
-    newton_precision = 1e-13
+    central_diff_rate = 0.5
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    full_rate = 3
+    mapping_precision = 1e-10
+    newton_precision = 1e-12
     spline_order = 3
     lagrange_order = 2
-    max_degree = angular_resolution = 51
-    save_resolution = 501
+    max_degree = angular_resolution = 101
+    
+    #### OUTPUT PARAMETERS ####
+    plot_resolution = 501
     save_name = give_me_a_name(model_choice, rotation_target)
     
-    #### SPH PARAMETERS ####
+    #### EXT. MAPPING PARAMETERS ####
     external_domain_res = 1001
     derivable_mapping = False
     
@@ -211,8 +210,7 @@ def set_params() :
         model_choice, rotation_target, full_rate, rotation_profile,
         central_diff_rate, rotation_scale, mapping_precision,
         newton_precision, spline_order, lagrange_order, max_degree, 
-        angular_resolution, save_resolution, save_name,
-        
+        angular_resolution, plot_resolution, save_name,
         external_domain_res, derivable_mapping
         )
 
@@ -223,14 +221,14 @@ def give_me_a_name(model_choice, rotation_target) :
 
     Parameters
     ----------
-    model_choice : STR or Dotdict instance.
+    model_choice : string or Dotdict instance.
         File name or polytrope caracteristics.
-    rotation_target : FLOAT
+    rotation_target : float
         Final rotation rate on the equator.
 
     Returns
     -------
-    save_name : STR
+    save_name : string
         Output file name.
 
     """
@@ -251,34 +249,32 @@ def init_1D() :
 
     Returns
     -------
-    P0 : FLOAT
+    P0 : float
         Value of the surface pressure after normalisation.
-    N : INT
+    N : integer
         Radial resolution of the model.
-    M : FLOAT
+    M : float
         Total mass of the model.
-    R : FLOAT
+    R : float
         Radius of the model.
-    r : ARRAY (N, ), [GLOBAL VARIABLE]
+    r : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
-    zeta : ARRAY (N, ), [GLOBAL VARIABLE]
+    zeta : array_like, shape (N, ), [GLOBAL VARIABLE]
         Spheroidal coordinate
-    rho : ARRAY (N, )
+    rho : array_like, shape (N, )
         Radial density of the model after normalisation.
-    other_var : ARRAY(N, N_var)
+    other_var : array_like, shape (N, N_var)
         Additional variables found in 'MOD1D'.
 
     """
     if isinstance(MOD_1D, DotDict) :        
         # The model properties are user-defined
-        N = MOD_1D.res
-        M = MOD_1D.mass
-        R = MOD_1D.radius
+        N = MOD_1D.res    or 1001
+        M = MOD_1D.mass   or 1.0
+        R = MOD_1D.radius or 1.0
         
         # Polytrope computation
-        model = polytrope(
-            MOD_1D.index, MOD_1D.surface_pressure, R, M, N
-            )
+        model = polytrope(*MOD_1D.values())
         
         # Normalisation
         r   = model.r     /  R
@@ -327,11 +323,11 @@ def init_2D() :
 
     Returns
     -------
-    cth : ARRAY (M, ), [GLOBAL VARIABLE]
+    cth : array_like, shape (M, ), [GLOBAL VARIABLE]
         Angular coordinate (equivalent to cos(theta)). 
-    weights : ARRAY (M, ), [GLOBAL VARIABLE]
+    weights : array_like, shape (M, ), [GLOBAL VARIABLE]
         Angular weights for the Legendre quadrature.
-    map_n : ARRAY (N, M)
+    map_n : array_like, shape (N, M)
         Isopotential mapping 
         (given by r(phi_eff, theta) = r for now).
     """
@@ -346,7 +342,7 @@ def init_phi_c() :
 
     Returns
     -------
-    phi_c : FUNC(r, cth, omega)
+    phi_c : function(r, cth, omega)
         Centrifugal potential
 
     """
@@ -362,12 +358,12 @@ def find_r_eq(map_n) :
 
     Parameters
     ----------
-    map_n : ARRAY (N, M)
+    map_n : array_like, shape (N, M)
         Isopotential mapping.
 
     Returns
     -------
-    r_eq : FLOAT
+    r_eq : float
         Equatorial radius.
 
     """
@@ -380,12 +376,12 @@ def find_r_pol(map_n) :
 
     Parameters
     ----------
-    map_n : ARRAY (N, M)
+    map_n : array_like, shape (N, M)
         Isopotential mapping.
 
     Returns
     -------
-    r_eq : FLOAT
+    r_eq : float
         Equatorial radius.
 
     """
@@ -399,14 +395,14 @@ def find_mass(map_n, rho_n) :
 
     Parameters
     ----------
-    map_n : ARRAY (N, M)
+    map_n : array_like, shape (N, M)
         Isopotential mapping.
-    rho_n : ARRAY (N, )
+    rho_n : array_like, shape (N, )
         Density profile (the same in each direction).
         
     Returns
     -------
-    mass_tot : FLOAT
+    mass_tot : float
         Total mass integrated of map_n.
 
     """
@@ -427,14 +423,14 @@ def find_pressure(rho, dphi_eff) :
 
     Parameters
     ----------
-    rho : ARRAY (N, )
+    rho : array_like, shape (N, )
         Density profile.
-    dphi_eff : ARRAY (N, )
+    dphi_eff : array_like, shape (N, )
         Effective potential derivative with respect to zeta.
 
     Returns
     -------
-    P : ARRAY (N, )
+    P : array_like, shape (N, )
         Pressure profile.
 
     """
@@ -452,12 +448,12 @@ def pl_project_2D(f) :
 
     Parameters
     ----------
-    f : ARRAY (N, M)
+    f : array_like, shape (N, M)
         function to project.
 
     Returns
     -------
-    f_l : ARRAY (N, L)
+    f_l : array_like, shape (N, L)
         The projection of f over the legendre polynomials
         for each radial value.
 
@@ -477,19 +473,19 @@ def pl_eval_2D(f_l, t, der=0) :
 
     Parameters
     ----------
-    f_l : ARRAY(N, L)
+    f_l : array_like, shape (N, L)
         The projection of f over the legendre polynomials.
-    t : ARRAY(N_t, )
+    t : array_like, shape (N_t, )
         The points on which to evaluate f.
-    der : INT in {0, 1, 2}
+    der : integer in {0, 1, 2}
         The upper derivative order. The default value is 0.
     Returns
     -------
-    f : ARRAY(N, N_t)
+    f : array_like, shape (N, N_t)
         The evaluation of f over t.
-    df : ARRAY(N, N_t), optional
+    df : array_like, shape (N, N_t), optional
         The evaluation of the derivative f over t.
-    d2f : ARRAY(N, N_t), optional
+    d2f : array_like, shape (N, N_t), optional
         The evaluation of the 2nd derivative of f over t.
 
     """
@@ -530,11 +526,11 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
 
     Parameters
     ----------
-    map_n : ARRAY(N, M)
+    map_n : array_like, shape (N, M)
         Current mapping.
-    rho_n : ARRAY(N, )
+    rho_n : array_like, shape (N, )
         Current density on each equipotential.
-    phi_eff : ARRAY(N, ), optional
+    phi_eff : array_like, shape (N, ), optional
         If given, the current effective potential on each 
         equipotential. If not given, it will be calculated inside
         this fonction. The default is None.
@@ -546,11 +542,11 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
 
     Returns
     -------
-    phi_g_l : ARRAY(N, L), optional
+    phi_g_l : array_like, shape (N, L), optional
         Gravitation potential harmonics.
-    phi_eff : ARRAY(N, )
+    phi_eff : array_like, shape (N, )
         Effective potential on each equipotential.
-    dphi_eff : ARRAY(N, ), optional
+    dphi_eff : array_like, shape (N, ), optional
         Effective potential derivative with respect to zeta.
 
     """    
@@ -659,21 +655,21 @@ def find_centrifugal_potential(r, cth, omega, dim=False) :
 
     Parameters
     ----------
-    r : FLOAT or ARRAY(Nr, )
+    r : float or array_like, shape (Nr, )
         Radial value(s).
-    cth : FLOAT
+    cth : float
         Value of cos(theta).
-    omega : FLOAT
+    omega : float
         Rotation rate.
-    dim : BOOL, optional
+    dim : boolean, optional
         Set to true for the omega computation. 
         The default is False.
 
     Returns
     -------
-    phi_c : FLOAT or ARRAY(Nr, )
+    phi_c : float or array_like, shape (Nr, )
         Centrifugal potential.
-    dphi_c : FLOAT or ARRAY(Nr, )
+    dphi_c : float or array_like, shape (Nr, )
         Centrifugal potential derivative with respect to r.
 
     """
@@ -691,16 +687,16 @@ def estimate_omega(phi_g, target, omega_n) :
 
     Parameters
     ----------
-    phi_g : FUNC(r_eval)
+    phi_g : function(r_eval)
         Gravitational potential along the equatorial cut.
-    target : FLOAT
+    target : float
         Value to reach for the effective potential.
-    omega_n : FLOAT
+    omega_n : float
         Current rotation rate.
 
     Returns
     -------
-    omega_n_new : FLOAT
+    omega_n_new : float
         New rotation rate.
 
     """    
@@ -756,22 +752,22 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
 
     Parameters
     ----------
-    map_n : ARRAY(N, M)
+    map_n : array_like, shape (N, M)
         Current mapping.
-    omega_n : FLOAT
+    omega_n : float
         Current rotation rate.
-    phi_g_l : ARRAY(N, L)
+    phi_g_l : array_like, shape (N, L)
         Gravitation potential harmonics.
-    dphi_g_l : ARRAY(N, L)
+    dphi_g_l : array_like, shape (N, L)
         Gravitation potential derivative harmonics.
-    phi_eff : ARRAY(N, )
+    phi_eff : array_like, shape (N, )
         Effective potential on each equipotential.
 
     Returns
     -------
-    map_n_new : ARRAY(N, M)
+    map_n_new : array_like, shape (N, M)
         Updated mapping.
-    omega_n_new : FLOAT
+    omega_n_new : float
         Updated rotation rate.
 
     """
@@ -869,32 +865,32 @@ def plot_f_map(map_n, f, phi_eff,
 
     Parameters
     ----------
-    map_n : ARRAY(N, M)
+    map_n : array_like, shape (N, M)
         2D Mapping.
-    f : ARRAY(N, )
+    f : array_like, shape (N, )
         Function value on the surface levels.
-    phi_eff : ARRAY(N, )
+    phi_eff : array_like, shape (N, )
         Value of the effective potential on each isopotential.
         Serves the colormapping if show_surfaces=True.
-    levels : INTEGER, optional
+    levels : integer, optional
         Number of color levels on the plot. The default is 100.
     cmap : cm.cmap instance, optional
         Colormap for the plot. The default is cm.Blues.
-    size : INTEGER, optional
+    size : integer, optional
         Fontsize. The default is 16.
-    label : STR, optional
+    label : string, optional
         Name of the f variable. The default is r"$f$"
-    show_surfaces : BOOL, optional
+    show_surfaces : boolean, optional
         Show the isopotentials on the left side if set to True.
         The default is False.
-    n_lines : INTEGER, optional
+    n_lines : integer, optional
         Number of equipotentials on the plot. The default is 50.
     cmap_lines : cm.cmap instance, optional
         Colormap used for the isopotential plot. 
         The default is cm.BuPu.
-    map_ext : ARRAY(Ne, M), optional
+    map_ext : array_like, shape (Ne, M), optional
         Used to show the external mapping, if given.
-    n_lines_ext : INTEGER, optional
+    n_lines_ext : integer, optional
         Number of level surfaces in the external mapping. The default is 20.
 
     Returns
@@ -984,9 +980,9 @@ def write_model(fname, map_n, *args) :
 
     Parameters
     ----------
-    fname : STR
+    fname : string
         File name
-    map_n : ARRAY(N, M)
+    map_n : array_like, shape (N, M)
         level surfaces mapping.
     args : TUPLE with N_args elements
         Variables to be saved in addition to map_n.
@@ -1011,27 +1007,27 @@ def find_domains() :
     -------
     dom : DotDict instance.
         Domains informations : {
-            Nd : INT
+            Nd : integer
                 Number of domains.
-            bounds : ARRAY(Nd-1, )
+            bounds : array_like, shape (Nd-1, )
                 Zeta values at boundaries.
-            interfaces : LIST of tuple
+            interfaces : list of tuple
                 Successives indices of domain interfaces
-            beg, end : ARRAY(Nd-1, ) of INT
+            beg, end : array_like, shape (Nd-1, ) of integer
                 First (resp. last) domain indices.
-            edges : ARRAY(Nd+1, ) of INT
+            edges : array_like, shape (Nd+1, ) of integer
                 All edge indices (corresponds to beg + origin + last).
-            ranges : LIST of range()
+            ranges : list of range()
                 All domain index ranges.
-            sizes : LIST of INT
+            sizes : list of integers
                 All domain sizes
-            id : ARRAY(N+Ne, ) of INT
+            id : array_like, shape (N+Ne, ) of integer
                 Domain identification number. 
-            id_val : ARRAY(Nd, ) of INT
+            id_val : array_like, shape (Nd, ) of integer
                 The id values.
-            int, ext : ARRAY(N+Ne, ) of BOOL
+            int, ext : array_like, shape (N+Ne, ) of boolean
                 Interior (resp. exterior, i.e. if rho = 0) domain.
-            unq : ARRAY(N+Ne-(Nd-1), ) of INT
+            unq : array_like, shape (N+Ne-(Nd-1), ) of integer
                 Unique indices through the domains.
             }
 
@@ -1078,7 +1074,7 @@ def find_sparse_matrices_per_domain() :
 
     Returns
     -------
-    Lsp, Dsp : LIST of ARRAY(size_domain - 1, size_domain)
+    Lsp, Dsp : list of array_like, shape (size_domain - 1, size_domain)
         Interpolation and derivation matrices.
 
     """
@@ -1102,7 +1098,7 @@ def find_metric_terms(map_n) :
 
     Parameters
     ----------
-    map_n : ARRAY(N, M)
+    map_n : array_like, shape (N, M)
         Isopotential mapping.
 
     Returns
@@ -1222,15 +1218,15 @@ def Legendre_coupling(f, der=(0, 0)) :
     
     Parameters
     ----------
-    f : ARRAY(..., M)
+    f : array_like, shape (..., M)
         Input function discretised on the mapping.
-    der : tuple of INT, optional
+    der : tuple of integer, optional
         Derivative orders for the Legendre polynomials. 
         The default is (0, 0).
 
     Returns
     -------
-    Pll : ARRAY(..., L, L)
+    Pll : array_like, shape (..., L, L)
         Harmonic couplings of f.
 
     """    
@@ -1281,13 +1277,13 @@ def find_all_couplings(dr) :
     Pll : DotDict instance
         Harmonic couplings. They are caracterised by their related 
         metric term : {
-            zz : ARRAY(N+Ne, Nl, Nl)
+            zz : array_like, shape (N+Ne, Nl, Nl)
                 coupling associated to phi_zz,
-            zt : ARRAY(N+Ne, Nl, Nl)
+            zt : array_like, shape (N+Ne, Nl, Nl)
                             //         phi_zt,
-            tt : ARRAY(N+Ne, Nl, Nl)
+            tt : array_like, shape (N+Ne, Nl, Nl)
                             //         phi_tt,
-            BC : ARRAY(N+Ne, Nl, Nl)
+            BC : array_like, shape (N+Ne, Nl, Nl)
                 coupling used to ensure the gradient continuity.
             }
 
@@ -1371,7 +1367,7 @@ if __name__ == '__main__' :
         # Update the mapping
         map_n, omega_n = find_new_mapping(
             map_n, omega_n, phi_g_l, dphi_g_l, phi_eff
-            )        
+        )        
 
         # Renormalisation
         r_corr    = find_r_eq(map_n)
@@ -1408,7 +1404,7 @@ if __name__ == '__main__' :
         show_surfaces=True, map_ext=dr._[N:],
         cmap=cm.Reds, cmap_lines=cm.PuRd, n_lines=40,
         n_lines_ext=15
-        )
+    )
     
     # Model scaling
     map_n    *=               radius
