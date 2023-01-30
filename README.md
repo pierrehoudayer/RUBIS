@@ -184,6 +184,93 @@ model_choice = DotDict(
 ``` 
 with `res` indicating the number of points in the radial direction.
 
+We now need to specify how we want to deform the model, i.e. the rotation profile to consider.
+In this simple example, I will just consider a solid rotation profile at rate $\Omega = 0.9 \Omega_K$ (with $\Omega_K$ the critical rotation rate):
+```py
+rotation_profile = solid
+rotation_target = 0.9
+``` 
+It is not necessary to modify the other rotation parameters `central_diff_rate` and `rotation_scale` which are only involved in the cylindrical rotation profiles `lorentzian` and `plateau`.
+
+Let's look at the parameters affecting the resolution itself. 
+The most important parameters are `max_degree` and `angular_resolution`. 
+To avoid complications, it is useful to set them to the same value (as is the case by default). 
+In our case the use of $101$ spherical harmonics should be more than sufficient.
+To avoid convergence problems, we will also include a transient period of 3 iterations at the beginning of the deformation to gradually reach the target velocity `rotation_target`.
+Since there should be no convergence difficulties in our example, we can require the resolution to be highly accurate by setting `mapping_precision` and `newton_precision` to `1e-12`.
+The first of these parameters establishes the convergence criterion mentioned above, while the second affects the determination of the isopotentials. 
+While `newton_precision` can generally be left at this value, it may be necessary to be a little more accommodating towards the program when choosing the value of `mapping_precision`. 
+Complex cases such as those involving deformation of a discontinuous model at high speed may sometimes not converge beyond `1e-10` or even `1e-8`.
+Finally, it is recommended not to alter too much the last two parameters which respectively impact the resolution of Poisson's equation and the interpolations involved in the program.
+The solver parameters now look like:
+```py
+max_degree = angular_resolution = 101
+full_rate = 3
+mapping_precision = 1e-12
+newton_precision = 1e-12
+spline_order = 3
+lagrange_order = 2
+``` 
+
+We can now run the code. 
+If all goes well, it should display the current iteration with the value of the polar radius (expressed in units of equatorial radius).
+Once the variation of the polar radius drops below `mapping_precision`, the program stops and displays the time required for the deformation:
+```sh
+In [1]: %run "/home/phoudayer/Documents/Codes/RUBIS/model_deform.py"
+Iteration n°1, R_pol = 0.956937799094
+Iteration n°2, R_pol = 0.846761689285
+Iteration n°3, R_pol = 0.709913784015
+Iteration n°4, R_pol = 0.708828786222
+Iteration n°5, R_pol = 0.70861078343
+Iteration n°6, R_pol = 0.708531257811
+Iteration n°7, R_pol = 0.708499118539
+Iteration n°8, R_pol = 0.708486263147
+Iteration n°9, R_pol = 0.708480591259
+Iteration n°10, R_pol = 0.70847808053
+Iteration n°11, R_pol = 0.708476988929
+Iteration n°12, R_pol = 0.708476505886
+Iteration n°13, R_pol = 0.708476291453
+Iteration n°14, R_pol = 0.708476196789
+Iteration n°15, R_pol = 0.708476154887
+Iteration n°16, R_pol = 0.708476136314
+Iteration n°17, R_pol = 0.708476128091
+Iteration n°18, R_pol = 0.708476124451
+Iteration n°19, R_pol = 0.708476122839
+Iteration n°20, R_pol = 0.708476122124
+Iteration n°21, R_pol = 0.708476121809
+Iteration n°22, R_pol = 0.708476121668
+Iteration n°23, R_pol = 0.708476121606
+Iteration n°24, R_pol = 0.708476121579
+Iteration n°25, R_pol = 0.708476121567
+Iteration n°26, R_pol = 0.70847612156
+Iteration n°27, R_pol = 0.708476121559
+Iteration n°28, R_pol = 0.708476121557
+Iteration n°29, R_pol = 0.708476121557
+Deformation done in 6.4703 sec
+```
+
+I can see here that the deformation only took about $6$ seconds (and $29$ iterations). 
+A plot with the mapping and the density in the deformed model should also appear.
+The angular resolution of the plot can be modified with the `plot_resolution` parameter in the `set_params()` function and many more display options are available in the `plot_f_map` function.
+
+Finally, the output model can be saved in order to be exploited externally using the `write_model()` function. 
+We only have to indicate the filename as `save_name` in the `set_params()` function.
+It is possible to use the command:
+```py
+save_name = give_me_a_name(model_choice, rotation_target)
+```
+which automatically construct an output filename from the input one.
+We then specify the variables to be saved as additional arguments in `write_model(fname, map_n, *args)` at the end of the file.
+For instance if I want to save the pressure and density (in addition to the mapping which is automatically saved), I will write:
+```
+write_model(SAVE, map_n, P, rho)
+```
+
+Note that additional variables in the input file are automatically passed through the program without alterations and returned at the end of the output file for file-writting convenience.  
+However, make sure that these variables are invariant on the isopotentials during the deformation or they will no longer correspond to the 2D structure of the model! 
+
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
