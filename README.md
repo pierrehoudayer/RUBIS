@@ -67,18 +67,20 @@
 
 As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. Another feature of the method is its excellent stability, which allows for the deformation of models at speeds very close to the critical rotation rate (cf. figures [1][plot-example-1] & [2][plot-example-2] below). Finally, the code has been designed to allow both stellar and planetary models to be deformed, thereby dealing with potential discontinuities in the density profile. This is made possible by solving Poisson's equation in spheroidal rather than spherical coordinates whenever a discontinuity is present. More details regarding the <a href="#deformation-method">Deformation Method</a> can be found below.
 
+Regarding the program itself, `RUBIS` is fully witten in `Python` since `v0.1.0`.
+
 | ![Example 1][plot-example-1] | 
 |:--:| 
-| Deformation of a polytropic structure with index $N=3$ at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right |
+| Deformation of a polytropic structure with index $N=3$ at $99.99$% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right |
   
 | ![Example 2][plot-example-2] | 
 |:--:| 
 | Idem for a $N=1$ polytrope.  |
 
-Regarding the program itself, `RUBIS` is fully witten in `Python` since `v0.1.0`.
-
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 
 
@@ -107,8 +109,17 @@ Get a local copy of `RUBIS` by following the following steps.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
+
+
+
+
+
 <!-- DEFORMATION METHOD -->
 ## Deformation Method
+
+As described in the flowchart, `RUBIS` uses an iterative approach to determine the deformation induced by the rotation profile. The method's central assumption is the preservation of the barotropic relation $\rho(P)$ over the isopotentials (surfaces that preserve the total potential, $\Phi_\mathrm{eff}$, denoted by the value of $\zeta$) which allows to have in any iteration the density profile over these surfaces, $\rho(\zeta)$. Depending on whether the model contains density discontinuities, the procedure takes two distinct paths:
+* If the model **do not contain** discontinuities, the density profile is first interpolated onto spherical coordinates in order to then solve Poisson's equation in this coordinate system and obtain the gravitational potential $\Phi_G(r, \theta)$. Because the decomposition of Poisson's equation over spherical harmonics can be decoupled, this path is the fastest one.
+* If the model **do contain** discontinuities, Poisson's equation is directly solved in terms of $(\zeta, \theta)$, thus yielding $\Phi_G(\zeta, \theta)$. The reason for this change is that discontinuities follows isopotentials (which are also isobars from the hydrostatic equilibrium), and therefore that fixed values of $r$ cross multiple domains, making unhandly to solve the equation in the (simpler) spherical coordinate system. Since the isopotential shapes $\zeta(r, \theta)$ are known from the previous iteration, the gravitational can simply be reexpressed as $\Phi_G(r, \theta)$, leading to the same quantity as the other path.
 
 | ![Method][flowchart] | 
 |:--:| 
@@ -116,6 +127,12 @@ Get a local copy of `RUBIS` by following the following steps.
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+
+
+
 
 
 <!-- USAGE EXAMPLES -->
@@ -127,6 +144,12 @@ Give an example
 
 
 
+
+
+
+
+
+
 <!-- ROADMAP -->
 ## Roadmap
 
@@ -135,6 +158,12 @@ List the forthcomming features.
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+
+
+
 
 
 
@@ -153,6 +182,12 @@ See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list
 
 
 
+
+
+
+
+
+
 <!-- 
 LICENSE
 ## License
@@ -161,6 +196,13 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 -->
+
+
+
+
+
+
+
 
 
 
@@ -175,12 +217,25 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierr
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+
+
+
+
+
+
 <!-- CITING RUBIS -->
 ## Citing RUBIS
 
 Add reference to the article
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+
+
+
 
 
 <!-- 
@@ -193,6 +248,14 @@ ACKNOWLEDGMENTS
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 -->
+
+
+
+
+
+
+
+
 
 
 
