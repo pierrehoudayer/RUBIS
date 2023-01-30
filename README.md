@@ -48,6 +48,7 @@
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
+    <li><a href="#deformation-method">Deformation Method</a></li>
     <li><a href="#usage">Usage</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -62,15 +63,17 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-*RUBIS* (standing for *Rotation code Using Barotropy conservation over Isopotential Surfaces*) is a centrifugal deformation program that takes as input a 1D model (with spherical symmetry) and returns its deformed version by applying a conservative rotation profile specified by the user. More specifically, the code only needs the density as a function of radial distance, $\rho(r)$, from the reference model in addition to the surface pressure to be imposed, $P_0$, in order to perform the deformation. This lightness is made possible by the central procedure assumption which consists in preserving the relation between density and pressure when going from the 1D to the 2D structure. The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacDregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state.
+*RUBIS* (standing for *Rotation code Using Barotropy conservation over Isopotential Surfaces*) is a centrifugal deformation program that takes as input a 1D model (with spherical symmetry) and returns its deformed version by applying a conservative rotation profile specified by the user. More specifically, the code only needs the density as a function of radial distance, $\rho(r)$, from the reference model in addition to the surface pressure to be imposed, $P_0$, in order to perform the deformation. This lightness is made possible by the central procedure assumption which consists in preserving the relation between density and pressure when going from the 1D to the 2D structure. The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacDregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state. 
+
+As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. Another feature of the method is its excellent stability, which allows for the deformation of models at speeds very close to the critical rotation rate (cf. figures [1][plot-example-1] & [2][plot-example-2] below).
 
 | ![Example 1][plot-example-1] | 
 |:--:| 
-| *Deformation of a polytropic structure with index $N=3$ at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right* |
+| Deformation of a polytropic structure with index $N=3$ at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right |
   
 | ![Example 2][plot-example-2] | 
 |:--:| 
-| *Idem for a $N=1$ polytrope.*  |
+| Idem for a $N=1$ polytrope.  |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -102,10 +105,13 @@ Get a local copy of *RUBIS* by following the following steps.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-<!-- SHORT INTRODUCTION -->
-## Short introduction
+<!-- DEFORMATION METHOD -->
+## Deformation Method
 
-Here is the intro
+| ![Method][flowchart] | 
+|:--:| 
+| Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained at the end of the procedure and in terms of which variable it is obtained. |
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -124,7 +130,7 @@ Give an example
 
 List the forthcomming features.
 
-See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -200,6 +206,7 @@ ACKNOWLEDGMENTS
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
 [plot-example-1]: Plots/example_poly3_deform_at_99.99.png
 [plot-example-2]: Plots/example_poly1_deform_at_99.99.png
+[flowchart]: Plots/deformation_method.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
