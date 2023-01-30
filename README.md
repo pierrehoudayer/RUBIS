@@ -53,7 +53,7 @@
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#contact">Contact</a></li>
     <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
-    <li><a href="#citing-RUBIS">Citing RUBIS</a></li>
+    <li><a href="#citing-rubis">Citing RUBIS</a></li>
   </ol>
 </details>
 
@@ -62,13 +62,15 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
+*RUBIS* (standing for *Rotation code Using Barotropy conservation over Isopotential Surfaces*) is a centrifugal deformation program that takes as input a 1D model (with spherical symmetry) and returns its deformed version by applying a conservative rotation profile specified by the user. More specifically, the code only needs the density as a function of radial distance, $\rho(r)$, from the reference model in addition to the surface pressure to be imposed, $P_0$, in order to perform the deformation. This lightness is made possible by the central procedure assumption which consists in preserving the relation between density and pressure when going from the 1D to the 2D structure. The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacDregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state.
+
 | ![Example 1][plot-example-1] | 
 |:--:| 
-| *Deformation of a polytropic structure with index N=3 at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right* |
+| *Deformation of a polytropic structure with index $N=3$ at 99.99% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right* |
   
 | ![Example 2][plot-example-2] | 
 |:--:| 
-| *Idem for a N=1 polytrope.*  |
+| *Idem for a $N=1$ polytrope.*  |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
