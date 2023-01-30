@@ -118,12 +118,21 @@ Get a local copy of `RUBIS` by following the following steps.
 ## Deformation Method
 
 As described in the flowchart, `RUBIS` uses an iterative approach to determine the deformation induced by the rotation profile. The method's central assumption is the preservation of the barotropic relation $\rho(P)$ over the isopotentials (surfaces that preserve the total potential, $\Phi_\mathrm{eff}$, denoted by the value of $\zeta$) which allows to have in any iteration the density profile over these surfaces, $\rho(\zeta)$. Depending on whether the model contains density discontinuities, the procedure takes two distinct paths:
-* If the model **do not contain** discontinuities, the density profile is first interpolated onto spherical coordinates in order to then solve Poisson's equation in this coordinate system and obtain the gravitational potential $\Phi_G(r, \theta)$. Because the decomposition of Poisson's equation over spherical harmonics can be decoupled, this path is the fastest one.
+* If the model **do not contain** any discontinuity, the density profile is first interpolated onto spherical coordinates in order to then solve Poisson's equation in this coordinate system and obtain the gravitational potential $\Phi_G(r, \theta)$. Because the decomposition of Poisson's equation over spherical harmonics can be decoupled, this path is the fastest one.
 * If the model **do contain** discontinuities, Poisson's equation is directly solved in terms of $(\zeta, \theta)$, thus yielding $\Phi_G(\zeta, \theta)$. The reason for this change is that discontinuities follows isopotentials (which are also isobars from the hydrostatic equilibrium), and therefore that fixed values of $r$ cross multiple domains, making unhandly to solve the equation in the (simpler) spherical coordinate system. Since the isopotential shapes $\zeta(r, \theta)$ are known from the previous iteration, the gravitational can simply be reexpressed as $\Phi_G(r, \theta)$, leading to the same quantity as the other path.
+
+Once the gravitational potential has been calculated, the total potential, $\Phi_\mathrm{eff}(r, \theta)$, is determined by adding the centrifugal potential, $\Phi_c(r, \theta)$. The latter is computed from the rotation profile specified by the user. It can be `solid`, `lorentzian` or have a `plateau` in the central region for instance, the only constraint is that it is conservative, i.e. a function of the distance from the axis of rotation, $s = r\sin\theta$, only. Another option for the user is to give as an input the numerical rotation profile he wants, $\Omega(s)$, and the routine will determine the appropriate centrifugal potential to use. 
+
+In parallel, hydrostatic equilibrium implies that the total potential (expressed on the isopotentials, $\Phi_\mathrm{eff}(\zeta)$ only varies by an additive constant from one iteration to the next, a constant that is determined by applying this relationship to the central point. Since $\Phi_\mathrm{eff}(r, \theta)$ and $\Phi_\mathrm{eff}(\zeta)$ must correspond at the same physical locations, the programme determines a new shape for the isopotentials by solving the equation $\Phi_\mathrm{eff}(\zeta) = \Phi_\mathrm{eff}(r, \theta)$. Once $\zeta(r, \theta)$ have been found, the matter is simply redistributed over these isopotentials and the program is ready to perform a new iteration.
+
+The code runs until it meets a convergence criterion, typically if the polar radius of the deformed model changes less than a user-specified threshold from one iteration to the next.
 
 | ![Method][flowchart] | 
 |:--:| 
 | Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained at the end of the procedure and in terms of which variable it is obtained. |
+
+
+On a practical level, the core of the program can be found in files `model_deform.py` and `model_deform_sph.py` (depending on whether Poisson's equation is solved in radial or spheroidal coordinates), which are the only ones the user needs to access. The file `rotation_profiles.py` contains the implementation of the rotation profiles (`solid`, `lorentzian`, `plateau` or `la_bidouille` in case of user-specified numerical profile), as well as the routines computing the centrifugal potential for each profiles. `generate_polytrope.py` contains the function used to generate 1D polytropes to be deformed and `numerical_routines.py` includes all the lower level functions used in the main programs.
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
