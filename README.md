@@ -250,6 +250,7 @@ Deformation done in 6.4703 sec
 ```
 
 I can see here that the deformation only took about 6 seconds (and 29 iterations). 
+The first 3 iterations have quite different values for the polar radius because of the transcient phase we imposed at the beginning.
 A plot with the mapping and the density in the deformed model should also appear.
 The angular resolution of the plot can be modified with the `plot_resolution` parameter in the `set_params()` function and many more display options are available in the `plot_f_map` function.
 
