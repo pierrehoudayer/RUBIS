@@ -19,7 +19,7 @@
 <h3 align="center">Rotation code Using Barotropy conservation over Isopotential Surfaces (RUBIS)</h3>
 
   <p align="center">
-    Write project description.
+    Fast centrifugal deformation program. Can be applied to both stellar and planetary models.
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs</strong></a>
     <br />
