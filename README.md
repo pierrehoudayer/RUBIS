@@ -147,7 +147,7 @@ The code runs until it meets a convergence criterion, typically if the polar rad
 
 | ![Method][flowchart] | 
 |:--:| 
-| Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained at the end of the procedure and in terms of which variable it is obtained. |
+| Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained and in terms of which variable it is obtained. |
 
 
 On a practical level, the core of the program can be found in files `model_deform.py` and `model_deform_sph.py` (depending on whether Poisson's equation is solved in radial or spheroidal coordinates), which are the only ones the user needs to access. 
