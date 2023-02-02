@@ -286,6 +286,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 <!-- ROADMAP -->
 ## Roadmap
 
+- [ ] Implement a function for compute the gravitational moments from the deformed model.
 - [ ] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
 
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
