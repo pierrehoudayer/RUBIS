@@ -25,7 +25,7 @@ from scipy.special          import roots_legendre, eval_legendre
 from dotdict                import DotDict
 from numerical_routines     import (
     integrate, interpolate_func, app_list, lagrange_matrix_P, lnxn, del_u_over_v
-    )
+)
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
 from generate_polytrope     import polytrope     
 
@@ -47,11 +47,11 @@ def mapdiff(map_sph, map_rad) :
     plt.contourf(
         map_res_rad*sth_res, map_res_rad*cth_res, diff, 
         cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-        )
+    )
     plt.contourf(
         -map_res_rad*sth_res, map_res_rad*cth_res, diff, 
         cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-        )
+    )
     plt.plot( map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
     plt.plot(-map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
     plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
@@ -88,11 +88,11 @@ def phidiff(phi_l_sph, phi_l_rad, map_sph) :
     plt.contourf(
         map_res*sth_res, map_res*cth_res, diff, 
         cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-        )
+    )
     plt.contourf(
         -map_res*sth_res, map_res*cth_res, diff, 
         cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-        )
+    )
     plt.plot( map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
     plt.plot(-map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
     plt.plot( map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--',lw=0.5)
@@ -127,7 +127,7 @@ def set_params() :
                 Mass of the model
             res : integer
                 Radial resolution of the model
-            }
+        }
     rotation_profile : function(r, cth, omega)
         Function used to compute the centrifugal potential and its 
         derivative. Possible choices are {solid, lorentzian, plateau}.
@@ -181,12 +181,12 @@ def set_params() :
     """
     
     #### MODEL CHOICE ####
-    # model_choice = "1Dmodel_1.97187607_G1.txt"     
-    model_choice = DotDict(index=3.0)
+    model_choice = "Jupiter.txt"   
+    # model_choice = DotDict(index=3.0)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.9
+    rotation_target = 0.298656135
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
@@ -212,7 +212,7 @@ def set_params() :
         newton_precision, spline_order, lagrange_order, max_degree, 
         angular_resolution, plot_resolution, save_name,
         external_domain_res, derivable_mapping
-        )
+    )
 
 def give_me_a_name(model_choice, rotation_target) : 
     """
@@ -236,7 +236,7 @@ def give_me_a_name(model_choice, rotation_target) :
         'poly_' + str(int(model_choice.index)) 
         if isinstance(model_choice, DotDict) 
         else model_choice.split('.txt')[0]
-        )
+    )
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
 
@@ -406,8 +406,8 @@ def find_mass(map_n, rho_n) :
     # Starting by the computation of the mass in each angular direction
     mass_ang = np.array(
         [sum(integrate(map_n[D, k], rho_n[D] * map_n[D, k]**2, k=KSPL) 
-             for D in dom.ranges[:-1]) for k in range(M)]
-        )
+         for D in dom.ranges[:-1]) for k in range(M)]
+    )
     
     # Integration of the angular domain
     mass_tot = 2*np.pi * weights.T @ mass_ang
@@ -434,7 +434,7 @@ def find_pressure(rho, dphi_eff) :
     dP = - rho * dphi_eff[dom.int]        
     P  = interpolate_func(
         zeta[dom.unq_int], dP[dom.unq_int], der=-1, k=KSPL, prim_cond=(-1, P0)
-        )(zeta[dom.int])
+    )(zeta[dom.int])
     return P
 
 def pl_project_2D(f) :
@@ -460,7 +460,7 @@ def pl_project_2D(f) :
     norm = (2*np.arange(L)+1)/2
     f_l = norm * np.array(
         [project(f, l) if (l%2 == 0) else zeros(f) for l in range(L)]
-        ).T
+    ).T
     return f_l
 
 def pl_eval_2D(f_l, t, der=0) :
@@ -592,7 +592,7 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
         temp[..., 1::2, 1::2] = - Dsp_d_broad * np.eye(Nl)
         blocs[:, beg_j:end_j] = np.moveaxis(temp, 2, 1).reshape(
             (2*KLAG*2*Nl, 2*size*Nl)
-            )
+        )
             
         # Inner boundary conditions 
         if d == 0 :
@@ -709,7 +709,7 @@ def estimate_omega(phi_g, target, omega_n) :
         # Centrifugal potential 
         phi_c_est, dphi_c_est = find_centrifugal_potential(
             r_est, 0.0, omega_n, dim=True 
-            )
+        )
         
         # Total potential
         phi_t_est  =  phi_g_est +  phi_c_est
@@ -780,7 +780,7 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     up = np.arange((M+1)//2)
     phi_g_func  = [CubicHermiteSpline(
         x=dr._[dom.unq, k], y=phi2D_g[dom.unq, k], dydx=dphi2D_g[dom.unq, k]
-        ) for k in up]
+    ) for k in up]
     
     # Find a new value for ROT
     target = phi_eff[N-1] - pl_eval_2D(phi_g_l[0], 0.0) + phi_eff[0]
@@ -804,12 +804,12 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
         phi_g_est = np.array(
             (app_list(r_est, k_est, phi_g_func        ),
              app_list(r_est, k_est, phi_g_func, (1,)*M))
-            )[:, inv_sort]
+        )[:, inv_sort]
         
         # Centrifugal potential
         phi_c_est = np.array(
             find_centrifugal_potential(r_est, cth[k_est], omega_n_new)
-            )
+        )
         
         # Total potential
         phi_t_est =  phi_g_est +  phi_c_est
@@ -917,11 +917,13 @@ def plot_f_map(map_n, f, phi_eff,
     csr = ax.contourf(
         map_res*sth_res, map_res*cth_res, f2D, 
         cmap=cmap, levels=levels
-        )
+    )
     for c in csr.collections:
         c.set_edgecolor("face")
+    for i in dom.end[:-1] :
+        plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
     plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
-    cbr = fig.colorbar(csr)
+    cbr = fig.colorbar(csr, location='bottom', aspect=50)
     cbr.ax.set_title(label, y=1.03, fontsize=size+3)
     
     # Left side
@@ -930,24 +932,26 @@ def plot_f_map(map_n, f, phi_eff,
             [np.column_stack([x, y]) for x, y in zip(
                 -map_res[::-N//n_lines]*sth_res, 
                  map_res[::-N//n_lines]*cth_res
-                )], 
+            )], 
             cmap=cmap_lines, 
             linewidths=lw
-            )
+        )
         ls.set_array(phi_eff[::-N//n_lines])
         ax.add_collection(ls)
-        cbl = fig.colorbar(ls, location='left', pad=0.15)
+        cbl = fig.colorbar(ls, location='left', pad=0.15, aspect=30)
         cbl.ax.set_title(
             r"$\phi_\mathrm{eff}(\zeta)$", 
             y=1.03, fontsize=size+3
-            )
+        )
     else : 
         csl = ax.contourf(
             -map_res*sth_res, map_res*cth_res, f2D, 
             cmap=cmap, levels=levels
-            )
+        )
         for c in csl.collections:
             c.set_edgecolor("face")
+        for i in dom.end[:-1] :
+            plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
         plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
         
     # External mapping
@@ -989,7 +993,7 @@ def write_model(fname, map_n, *args) :
         'Models/'+fname, np.hstack((map_n, np.vstack(args + (*VAR,)).T)), 
         header=f"{N} {M} {mass} {radius} {ROT} {G}", 
         comments=''
-        )
+    )
         
         
     
@@ -1034,7 +1038,7 @@ def find_domains() :
     # Domain physical boundaries
     unq, unq_idx, unq_inv, unq_cnt = np.unique(
         zeta, return_index=True, return_inverse=True, return_counts=True
-        )
+    )
     cnt_mask = unq_cnt > 1
     dom.bounds = unq[cnt_mask]
     
@@ -1045,7 +1049,7 @@ def find_domains() :
     srt_idx  = np.argsort(unq_inv[idx_mask])
     dom.interfaces = np.split(
         idx_idx[srt_idx], np.cumsum(unq_cnt[cnt_mask])[:-1]
-        )
+    )
     dom.end, dom.beg = np.array(dom.interfaces).T
     
     # Domain ranges and sizes
@@ -1118,8 +1122,8 @@ def find_metric_terms(map_n) :
         [np.hstack(
             [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
              for D in dom.ranges[:-1]]
-            ) for rk in map_n.T]   # <- mapping derivative potentially
-        ).T                        #    discontinous on the interfaces
+        ) for rk in map_n.T]            # <- mapping derivative potentially
+    ).T                                 #    discontinous on the interfaces
     map_l_z = pl_project_2D(dr.z)
     _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
     return dr
@@ -1174,7 +1178,7 @@ def find_external_mapping(dr) :
             da**2*lnxn(z-1, 2, a) - dr.z[-1]*da**2*lnxn(2-z, 2, a)
               + dda*lnxn(z-1, 1, a) - dr.z[-1]*dda*lnxn(2-z, 1, a)
               - 2*dr.zt[-1]*da*lnxn(2-z, 1, a) - dr.ztt[-1]*(2-z)**a
-              )
+        )
         dr_v = (a, da, dda)
         
         # External mapping and derivatives
@@ -1249,13 +1253,13 @@ def Legendre_coupling(f, der=(0, 0)) :
     pl1, pl2 = np.choose(
         np.array(der)[:, None, None], 
         choices=[pl[::2], dpl[::2], d2pl[::2]]
-        )
+    )
     
     Pll = np.einsum(
         '...k,lk,mk->...lm', 
         weights * np.atleast_2d(f), pl1, pl2, 
         optimize='optimal'
-        )
+    )
     return Pll
 
 
@@ -1282,7 +1286,7 @@ def find_all_couplings(dr) :
                             //         phi_tt,
             BC : array_like, shape (N+Ne, Nl, Nl)
                 coupling used to ensure the gradient continuity.
-            }
+        }
 
     """
     Pll = DotDict()
@@ -1290,12 +1294,12 @@ def find_all_couplings(dr) :
     
     Pll.zz = Legendre_coupling(
         (dr._**2 + (1-cth**2) * dr.t**2) / dr.z, der=(0, 0)
-        )
+    )
     Pll.zt = Legendre_coupling(
         (1-cth**2) * dr.tt - 2*cth * dr.t, der=(0, 0)
-        ) + 2 * Legendre_coupling(
+    )  + 2 * Legendre_coupling(
         (1-cth**2) * dr.t, der=(0, 1)
-        )
+    )
     Pll.tt = Legendre_coupling(dr.z, der=(0, 0)) * l*(l+1)
     
     Pll.BC = Legendre_coupling(1/dr.z, der=(0, 0))
@@ -1402,6 +1406,10 @@ if __name__ == '__main__' :
         cmap=cm.Reds, cmap_lines=cm.PuRd, n_lines=40,
         n_lines_ext=15
     )
+    # plot_f_map(
+    #     map_n, rho_n, phi_eff, cmap=cm.viridis, levels=100, size=18,
+    #     label=r'$\rho \times \left(M/R_\mathrm{eq}^{~3}\right)^{-1}$',
+    # )
     
     # Model scaling
     map_n    *=               radius

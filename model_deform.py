@@ -123,7 +123,7 @@ def set_params() :
         central_diff_rate, rotation_scale, mapping_precision, 
         newton_precision, spline_order, lagrange_order, max_degree, 
         angular_resolution, plot_resolution, save_name
-        )
+    )
 
 def give_me_a_name(model_choice, rotation_target) : 
     """
@@ -147,7 +147,7 @@ def give_me_a_name(model_choice, rotation_target) :
         'poly_' + str(int(model_choice.index)) 
         if isinstance(model_choice, DotDict) 
         else model_choice.split('.txt')[0]
-        )
+    )
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
 
@@ -196,10 +196,10 @@ def init_1D() :
         # Reading file 
         surface_pressure, radial_res = np.genfromtxt(
             './Models/'+MOD_1D, max_rows=2, unpack=True
-            )
+        )
         r1D, rho1D, *other_var = np.genfromtxt(
             './Models/'+MOD_1D, skip_header=2, unpack=True
-            )
+        )
         # entry = np.genfromtxt(
         #     './Models/'+MOD_1D, skip_header=2, unpack=True
         #     )
@@ -319,8 +319,8 @@ def find_mass(map_n, rho_n) :
     mass_ang = np.array(
         [integrate(
             map_n[:, k], rho_n * map_n[:, k]**2, k=KSPL
-            ) for k in range(M)]
-        )
+         ) for k in range(M)]
+    )
     # Integration of the angular domain
     mass_tot = 2*np.pi * sum(mass_ang * weights)
     return mass_tot
@@ -370,7 +370,7 @@ def pl_project_2D(f) :
     norm = (2*np.arange(L)+1)/2
     f_l = norm * np.array(
         [project(f, l) if (l%2 == 0) else zeros(f) for l in range(L)]
-        ).T
+    ).T
     return f_l
 
 def pl_eval_2D(f_l, t, der=0) :
@@ -448,7 +448,7 @@ def find_rho_l(map_n, rho_n) :
         inside = r < map_n[-1, k]
         rho2D[inside, k] = interpolate_func(
             x=map_n[:, k], y=log_rho, k=KSPL
-            )(r[inside])
+        )(r[inside])
         rho2D[inside, 0+k] = np.exp(rho2D[inside, k])
     rho2D[:,-1-all_k] = rho2D[:, all_k]
     
@@ -669,7 +669,7 @@ def estimate_omega(phi_g, phi_g_l_surf, target, omega) :
         # Centrifugal potential 
         phi_c_est, dphi_c_est = find_centrifugal_potential(
             r_est, 0.0, omega_n, dim=True
-            )
+        )
         
         # Total potential
         phi_t_est  =  phi_g_est +  phi_c_est
@@ -717,7 +717,7 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     l, up = np.arange(L), np.arange((M+1)//2)
     phi_g_func = [CubicHermiteSpline(
         x=r, y=phi2D_g[:, k], dydx=dphi2D_g[:, k]
-        ) for k in up]
+    ) for k in up]
     
     # Find a new value for ROT
     target = phi_eff[N-1] - pl_eval_2D(phi_g_l[0], 0.0) + phi_eff[0]
@@ -743,12 +743,12 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
             phi_g_int  = np.array(
                 (app_list(r_int, k_int, phi_g_func        ),
                  app_list(r_int, k_int, phi_g_func, (1,)*M))
-                )[:, inv_sort]
+            )[:, inv_sort]
             
             # Centrifugal potential
             phi_c_int = np.array(
                 find_centrifugal_potential(r_int, cth[k_int], omega_n_new)
-                )
+            )
             
             # Total potential
             phi_t_int =  phi_g_int +  phi_c_int
@@ -776,7 +776,7 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
             # Centrifugal potential
             phi_c_ext = np.array(
                 find_centrifugal_potential(r_ext, cth[k_ext], omega_n_new)
-                )
+            )
             
             # Total potential
             phi_t_ext =  phi_g_ext +  phi_c_ext
@@ -850,7 +850,7 @@ def plot_f_map(map_n, f, phi_eff,
     csr = ax.contourf(
         map_res*sth_res, map_res*cth_res, f2D, 
         cmap=cmap, levels=levels
-        )
+    )
     for c in csr.collections:
         c.set_edgecolor("face")
     plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
@@ -863,22 +863,22 @@ def plot_f_map(map_n, f, phi_eff,
             [np.column_stack([x, y]) for x, y in zip(
                 -map_res[::-N//n_lines]*sth_res, 
                  map_res[::-N//n_lines]*cth_res
-                )], 
+            )], 
             cmap=cmap_lines, 
             linewidths=lw
-            )
+        )
         ls.set_array(phi_eff[::-N//n_lines])
         ax.add_collection(ls)
         cbl = fig.colorbar(ls, location='left', pad=0.15)
         cbl.ax.set_title(
             r"$\phi_\mathrm{eff}(\zeta)$", 
             y=1.03, fontsize=size+3
-            )
+        )
     else : 
         csl = ax.contourf(
             -map_res*sth_res, map_res*cth_res, f2D, 
             cmap=cmap, levels=levels
-            )
+        )
         for c in csl.collections:
             c.set_edgecolor("face")
         plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
@@ -914,7 +914,7 @@ def write_model(fname, map_n, *args) :
         'Models/'+fname, np.hstack((map_n, np.vstack(args + (*VAR,)).T)), 
         header=f"{N} {M} {mass} {radius} {ROT} {G}", 
         comments=''
-        )
+    )
     
 
 
@@ -946,7 +946,7 @@ if __name__ == '__main__' :
     Dsp = sps.dia_matrix(lag_mat[..., 1])
     Asp = sps.dia_matrix(
         4 * lag_mat[..., 1] * r**4 - 2 * lag_mat[..., 0] * r**2
-        )
+    )
     
     # Initialisation for the effective potential
     phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(map_n, rho_n)
