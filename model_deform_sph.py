@@ -286,14 +286,11 @@ def init_1D() :
         # Reading file 
         surface_pressure, radial_res = np.genfromtxt(
             './Models/'+MOD_1D, max_rows=2, unpack=True
-            )
+        )
         N = int(radial_res)
-        entry = np.genfromtxt(
+        r1D, rho1D, *other_var = np.genfromtxt(
             './Models/'+MOD_1D, skip_header=2, unpack=True
-            )
-        r1D, rho1D, other_var = [
-            np.squeeze(x) for x in np.vsplit(entry, (1, 2))
-            ]
+        )
         _, idx = np.unique(r1D, return_index=True) 
         
         # Normalisation
@@ -989,7 +986,7 @@ def write_model(fname, map_n, *args) :
 
     """
     np.savetxt(
-        'Models/'+fname, np.hstack((map_n, np.vstack(args + (VAR,)).T)), 
+        'Models/'+fname, np.hstack((map_n, np.vstack(args + (*VAR,)).T)), 
         header=f"{N} {M} {mass} {radius} {ROT} {G}", 
         comments=''
         )
