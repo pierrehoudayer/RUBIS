@@ -19,7 +19,7 @@
 <h3 align="center">Rotation code Using Barotropy conservation over Isopotential Surfaces (RUBIS)</h3>
 
   <p align="center">
-    Write project description.
+    Fast centrifugal deformation program. Can be applied to both stellar and planetary models.
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs</strong></a>
     <br />
@@ -66,7 +66,7 @@
 `RUBIS` (standing for *Rotation code Using Barotropy conservation over Isopotential Surfaces*) is a centrifugal deformation program that takes as input a 1D model (with spherical symmetry) and returns its deformed version by applying a conservative rotation profile specified by the user. 
 More specifically, the code only needs the density as a function of radial distance, $\rho(r)$, from the reference model in addition to the surface pressure to be imposed, $P_0$, in order to perform the deformation. 
 This lightness is made possible by the central procedure assumption which consists in preserving the relation between density and pressure when going from the 1D to the 2D structure. 
-The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacDregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). 
+The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacGregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). 
 In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state. 
 
 As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. 
@@ -147,7 +147,7 @@ The code runs until it meets a convergence criterion, typically if the polar rad
 
 | ![Method][flowchart] | 
 |:--:| 
-| Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained at the end of the procedure and in terms of which variable it is obtained. |
+| Flowchart illustrating how the model deformation method works. Each step shows the quantity that is obtained and in terms of which variable it is obtained. |
 
 
 On a practical level, the core of the program can be found in files `model_deform.py` and `model_deform_sph.py` (depending on whether Poisson's equation is solved in radial or spheroidal coordinates), which are the only ones the user needs to access. 
@@ -250,6 +250,7 @@ Deformation done in 6.4703 sec
 ```
 
 I can see here that the deformation only took about 6 seconds (and 29 iterations). 
+The first 3 iterations have quite different values for the polar radius because of the transcient phase we imposed at the beginning.
 A plot with the mapping and the density in the deformed model should also appear.
 The angular resolution of the plot can be modified with the `plot_resolution` parameter in the `set_params()` function and many more display options are available in the `plot_f_map` function.
 
@@ -285,6 +286,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 <!-- ROADMAP -->
 ## Roadmap
 
+- [ ] Implement a function for compute the gravitational moments from the deformed model.
 - [ ] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
 
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
