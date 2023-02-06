@@ -152,7 +152,7 @@ The code runs until it meets a convergence criterion, typically if the polar rad
 
 On a practical level, the core of the program can be found in files `model_deform.py` and `model_deform_sph.py` (depending on whether Poisson's equation is solved in radial or spheroidal coordinates), which are the only ones the user needs to access. 
 The file `rotation_profiles.py` contains the implementation of the rotation profiles (`solid`, `lorentzian`, `plateau` or `la_bidouille` in case of user-specified numerical profile), as well as the routines computing the centrifugal potential for each profiles. 
-`generate_polytrope.py` contains the function used to generate 1D polytropes to be deformed and `numerical_routines.py` includes all the lower level functions used in the main programs.
+`generate_polytrope.py` contains the function used to generate 1D polytropes to be deformed and `low_level.py` includes all the lower level functions used in the main programs.
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
