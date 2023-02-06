@@ -32,6 +32,7 @@ from numerical_routines     import (
     pl_project_2D,
     lagrange_matrix_P, 
     app_list, 
+    plot_f_map
 )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
 from generate_polytrope     import polytrope     
@@ -784,125 +785,6 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     # map_n_new = np.hstack((map_up, np.flip(map_up, axis=1)[:, 1:]))
         
     return map_n_new, omega_n_new
-    
-    
-def plot_f_map(
-    map_n, f, phi_eff,
-    levels=100, cmap=cm.Blues, size=16, label=r"$f$",
-    show_surfaces=False, n_lines=50, cmap_lines=cm.BuPu, lw=0.5,
-    map_ext=None, n_lines_ext=20
-) :
-    """
-    Shows the value of f in the 2D model.
-
-    Parameters
-    ----------
-    map_n : array_like, shape (N, M)
-        2D Mapping.
-    f : array_like, shape (N, )
-        Function value on the surface levels.
-    phi_eff : array_like, shape (N, )
-        Value of the effective potential on each isopotential.
-        Serves the colormapping if show_surfaces=True.
-    levels : integer, optional
-        Number of color levels on the plot. The default is 100.
-    cmap : cm.cmap instance, optional
-        Colormap for the plot. The default is cm.Blues.
-    size : integer, optional
-        Fontsize. The default is 16.
-    label : string, optional
-        Name of the f variable. The default is r"$f$"
-    show_surfaces : boolean, optional
-        Show the isopotentials on the left side if set to True.
-        The default is False.
-    n_lines : integer, optional
-        Number of equipotentials on the plot. The default is 50.
-    cmap_lines : cm.cmap instance, optional
-        Colormap used for the isopotential plot. 
-        The default is cm.BuPu.
-    map_ext : array_like, shape (Ne, M), optional
-        Used to show the external mapping, if given.
-    n_lines_ext : integer, optional
-        Number of level surfaces in the external mapping. The default is 20.
-
-    Returns
-    -------
-    None.
-
-    """
-    
-    # Angular interpolation
-    cth_res = np.linspace(-1, 1, RES)
-    sth_res = np.sqrt(1-cth_res**2)
-    map_l   = pl_project_2D(map_n, L)
-    map_res = pl_eval_2D(map_l, np.linspace(-1, 1, RES))
-    
-    # 2D density
-    f2D = np.tile(f, RES).reshape((RES, N)).T
-    
-    # Text formating 
-    rc('text', usetex=True)
-    rc('xtick', labelsize=size)
-    rc('ytick', labelsize=size)
-    
-    # Init figure
-    fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
-    
-    # Right side
-    csr = ax.contourf(
-        map_res*sth_res, map_res*cth_res, f2D, 
-        cmap=cmap, levels=levels
-    )
-    for c in csr.collections:
-        c.set_edgecolor("face")
-    for i in dom.end[:-1] :
-        plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
-    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
-    cbr = fig.colorbar(csr, aspect=30)
-    cbr.ax.set_title(label, y=1.03, fontsize=size+3)
-    
-    # Left side
-    if show_surfaces :
-        ls = LineCollection(
-            [np.column_stack([x, y]) for x, y in zip(
-                -map_res[::-N//n_lines]*sth_res, 
-                 map_res[::-N//n_lines]*cth_res
-            )], 
-            cmap=cmap_lines, 
-            linewidths=lw
-        )
-        ls.set_array(phi_eff[::-N//n_lines])
-        ax.add_collection(ls)
-        cbl = fig.colorbar(ls, location='left', pad=0.15, aspect=30)
-        cbl.ax.set_title(
-            r"$\phi_\mathrm{eff}(\zeta)$", 
-            y=1.03, fontsize=size+3
-        )
-    else : 
-        csl = ax.contourf(
-            -map_res*sth_res, map_res*cth_res, f2D, 
-            cmap=cmap, levels=levels
-        )
-        for c in csl.collections:
-            c.set_edgecolor("face")
-        for i in dom.end[:-1] :
-            plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
-        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
-        
-    # External mapping
-    if map_ext is not None : 
-        map_ext_l   = pl_project_2D(map_ext, L)
-        map_ext_res = pl_eval_2D(map_ext_l, np.linspace(-1, 1, RES))
-        for ri in map_ext_res[::-Ne//n_lines_ext] : 
-            plt.plot( ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
-            plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
-    
-    # Show figure
-    plt.axis('equal')
-    plt.xlim((-1, 1))
-    plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
-    plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
-    plt.show()
 
     
 def write_model(fname, map_n, *args) : 
@@ -1336,8 +1218,8 @@ if __name__ == '__main__' :
     dr = find_metric_terms(map_n)
     dr = find_external_mapping(dr)
     plot_f_map(
-        map_n, rho_n, phi_eff, map_ext=dr._[N:],
-        cmap=cm.viridis, n_lines_ext=15
+        map_n, rho_n, phi_eff, L, map_ext=dr._[N:],
+        cmap=cm.viridis, disc=dom.end[:-1], n_lines_ext=15
     )
     # plot_f_map(
     #     map_n, rho_n, phi_eff, cmap=cm.viridis, levels=100, size=18,

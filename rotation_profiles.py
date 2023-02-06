@@ -8,7 +8,7 @@ Created on Wed Dec 21 12:19:57 2022
 
 import numpy as np
 
-from numerical_routines import *
+from low_level import *
 
 def solid(r, cth, omega) :
     """
