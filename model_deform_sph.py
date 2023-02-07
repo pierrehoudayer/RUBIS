@@ -411,13 +411,12 @@ def find_mass(map_n, rho_n) :
 
     """
     # Starting by the computation of the mass in each angular direction
-    mass_ang = np.array(
-        [sum(integrate(map_n[D, k], rho_n[D] * map_n[D, k]**2, k=KSPL) 
-         for D in dom.ranges[:-1]) for k in range(M)]
-    )
+    mass_ang = np.array([sum(
+        integrate(rk[D], rho_n[D] * rk[D]**2, k=5) for D in dom.ranges[:-1]
+    ) for rk in map_n.T])
     
     # Integration of the angular domain
-    mass_tot = 2*np.pi * weights.T @ mass_ang
+    mass_tot = 2*np.pi * mass_ang @ weights
     return mass_tot
 
 def find_pressure(rho, dphi_eff) :

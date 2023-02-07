@@ -317,12 +317,61 @@ def find_mass(map_n, rho_n) :
     """
     # Starting by the computation of the mass in each angular direction
     mass_ang = np.array(
-        [integrate(
-            map_n[:, k], rho_n * map_n[:, k]**2, k=KSPL
-         ) for k in range(M)]
-    )
+        [integrate(rk, rho_n * rk**2, k=5) for rk in map_n.T]   # <- k is set to 5 for 
+    )                                                           #    maximal precision
+    
     # Integration of the angular domain
-    mass_tot = 2*np.pi * sum(mass_ang * weights)
+    mass_tot = 2*np.pi * mass_ang @ weights    
+    
+    #### TESTS #####
+    
+    # import probnum as pn
+    # lengthscales = np.logspace(-4, 0, 10)
+    # prec = []
+    # for l in lengthscales :
+    #     mass_ang = [
+    #         pn.quad.bayesquad_from_data(
+    #             nodes=rk[:, None], 
+    #             fun_evals=rho_n * rk**2, 
+    #             kernel=pn.randprocs.kernels.ExpQuad(
+    #                 input_shape=1, 
+    #                 lengthscales=l
+    #             ),
+    #             domain=(0, rk[-1])
+    #         )[0] for rk in map_n.T
+    #     ]
+    #     extract_moments = lambda rv : (rv.mean, rv.var)
+    #     means, vars = np.array(list(map(extract_moments, mass_ang))).T
+    #     mass_ang_rv = pn.randvars.Normal(means, np.diag(vars))
+    #     mass_rv = 2*np.pi * mass_ang_rv @ weights
+    #     prec.append(1.0 - mass_rv.mean)
+    # plt.scatter(lengthscales, prec, s=5)
+    # plt.xscale('log')
+    # plt.yscale('log')
+    # plt.show()
+    
+    # mass_ang = np.array(
+    #     [quad(interpolate_func(rk, rho_n * rk**2, der=0), [0.0, rk[-1]]) for rk in map_n.T]
+    # )
+    # for k in range(1, 6) :
+    #     prec = []
+    #     orders = np.arange(1,101)
+    #     for o in orders : 
+    #         mass_ang = np.array(
+    #             [GaussQuadrature(rk, rho_n * rk**2, order=o, k=k) for rk in map_n.T]
+    #         )
+    #         # Integration of the angular domain
+    #         mass_tot = 2*np.pi * mass_ang @ weights    
+    #         prec.append(abs(1.0 - mass_tot))
+    #     plt.scatter(orders, prec, s=5)
+    #     mass_ang = np.array(
+    #            [integrate(rk, rho_n * rk**2, k=k) for rk in map_n.T]
+    #     )
+    #     mass_tot = 2*np.pi * mass_ang @ weights  
+    #     plt.plot(orders, abs(1.0 - mass_tot)*np.ones_like(orders), lw=1.0) 
+    # plt.yscale('log')
+    # plt.show()
+    
     return mass_tot
 
 def find_pressure(rho, dphi_eff) :

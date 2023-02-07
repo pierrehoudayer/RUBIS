@@ -138,11 +138,8 @@ def del_u_over_v(du, dv, der) :
             - (2*du[1]*dv[1] + du[0]*dv[2]) / dv[0]**2 
             +  2*du[0]*dv[1]**2             / dv[0]**3
             )
-    return y
-
-def test(x, y) :
-    return pn.quad.bayesquad_from_data(x, y)
-    
+    return y 
+   
 
 def integrate(x, y, a=None, b=None, k=3) : 
     """
@@ -177,6 +174,7 @@ def integrate(x, y, a=None, b=None, k=3) :
         b = x[-1]
     integral = splint(a, b, tck)
     return integral
+
 
 def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
     """
