@@ -20,10 +20,9 @@ from pylab                  import cm
 from scipy.interpolate      import CubicHermiteSpline
 from scipy.linalg.lapack    import dgbsv
 from scipy.special          import roots_legendre, eval_legendre
-# from scipy.optimize         import minimize, minimize_scalar
 
 from dotdict                import DotDict
-from numerical_routines     import (
+from low_level              import (
     lnxn, 
     del_u_over_v,
     integrate, 
@@ -652,24 +651,7 @@ def estimate_omega(phi_g, target, omega_n) :
         # Update r_est
         del_r = (target - phi_t_est) / dphi_t_est
         r_est += del_r
-        assert r_est < 2
-    
-        
-    # # Scipy minimize
-    # beg = time.perf_counter()
-    # def cost(r_eval) : 
-    #     return (
-    #         + phi_g(r_eval) 
-    #         + find_centrifugal_potential(r_eval, 0.0, omega_n, dim=True)[0] 
-    #         - target
-    #         )**2
-        
-    # r_est = minimize_scalar(
-    #     cost, bracket=(0.9, 1, 1.1), options=dict(xtol=DELTA)
-    #     ).x
-    # end = time.perf_counter()
-    # print(f'Optimisation done in {round(end-beg, 6)} sec, R_est={r_est}')
-    
+        assert r_est < 2    
     
     # Updating omega
     omega_n_new = omega_n * r_est**(-1.5)
@@ -754,35 +736,6 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     
     # New mapping
     map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
-    
-    # # Scipy minimize
-    # def build_cost_k(k):
-    #     def cost_k(r_eval) :
-    #         phi_g_eval  = phi_g_func[k](r_eval, nu=0)
-    #         dphi_g_eval = phi_g_func[k](r_eval, nu=1)
-    #         phi_c_eval, dphi_c_eval = find_centrifugal_potential(
-    #             r_eval, cth[k], omega_n_new
-    #             )
-    #         phi_t_eval  =  phi_g_eval +  phi_c_eval
-    #         dphi_t_eval = dphi_g_eval + dphi_c_eval
-            
-    #         f = (phi_t_eval - phi_eff[1:N]).T @ (phi_t_eval - phi_eff[1:N])
-    #         g = 2 * dphi_t_eval * (phi_t_eval - phi_eff[1:N])
-    #         return (f, g)
-    #     return cost_k      
-    # costs = list(map(build_cost_k, up))
-    # minimize_k = lambda cost, x0 : minimize(
-    #     fun=cost, 
-    #     x0=x0, 
-    #     method='L-BFGS-B', 
-    #     jac=True, 
-    #     options=dict(gtol=DELTA)
-    #     ).x
-    # map_est = list(map(minimize_k, costs, map_n[1:, up].T))
-    # map_up = np.vstack((np.zeros_like(up), np.array(map_est).T))
-            
-    # # New mapping
-    # map_n_new = np.hstack((map_up, np.flip(map_up, axis=1)[:, 1:]))
         
     return map_n_new, omega_n_new
 

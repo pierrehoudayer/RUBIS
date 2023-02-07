@@ -20,7 +20,7 @@ from scipy.linalg.lapack    import dgbsv
 from scipy.special          import roots_legendre
 
 from dotdict                import DotDict
-from numerical_routines     import (
+from low_level              import (
     integrate, 
     interpolate_func, 
     pl_eval_2D,
