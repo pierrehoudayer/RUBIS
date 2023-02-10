@@ -17,7 +17,7 @@ from matplotlib.collections import LineCollection
 from pylab                  import cm 
 from scipy.interpolate      import CubicHermiteSpline
 from scipy.linalg.lapack    import dgbsv
-from scipy.special          import roots_legendre
+from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
 from low_level              import (
@@ -103,20 +103,20 @@ def set_params() :
     """
     #### MODEL CHOICE ####
     # model_choice = "1Dmodel_1.97187607_G1.txt"     
-    model_choice = DotDict(index=3.0)
+    model_choice = DotDict(index=1.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
-    rotation_target = 0.9
+    rotation_target = 0.089195487 ** 0.5
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 101
-    full_rate = 3
-    mapping_precision = 1e-12
-    newton_precision = 1e-12
+    full_rate = 1
+    mapping_precision = 1e-10
+    newton_precision = 1e-11
     lagrange_order = 2
     spline_order = 3
     
@@ -315,12 +315,12 @@ def find_mass(map_n, rho_n) :
         Total mass integrated of map_n.
 
     """
-    # Starting by the computation of the mass in each angular direction
+    # Mass integration in each direction
     mass_ang = np.array(
         [integrate(rk, rho_n * rk**2, k=5) for rk in map_n.T]   # <- k is set to 5 for 
     )                                                           #    maximal precision
     
-    # Integration of the angular domain
+    # Integration over the angular domain
     mass_tot = 2*np.pi * mass_ang @ weights    
     
     #### TESTS #####
@@ -373,6 +373,41 @@ def find_mass(map_n, rho_n) :
     # plt.show()
     
     return mass_tot
+
+
+def find_gravitational_moments(map_n, rho_n, max_degree=14) :
+    """
+    Find the gravitational moments up to max_degree.
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+    rho_n : array_like, shape (N, )
+        Density profile (the same in each direction).
+    max_degree : int, optional
+        Maximum degree for the gravitational moments. The default is 10.
+        
+    Returns
+    -------
+    moments : array_like, shape (max_degree//2 + 1, )
+        All the gravitational moments.
+
+    """
+    # Degrees list
+    degrees = np.arange(max_degree+1, step=2)
+    
+    # Moments integration in each direction
+    Mlt = lambda l, r : integrate(r, rho_n * r**(l+2), k=5)
+    moments_ang = - np.array(
+        [[Mlt(l, rk) for rk in map_n.T] for l in degrees]
+    )
+    pl = np.array([eval_legendre(l, cth) for l in degrees])                                                      
+    
+    # Integration over the angular domain
+    moments = 2*np.pi * (moments_ang * pl) @ weights  
+    
+    return moments 
 
 def find_pressure(rho, dphi_eff) :
     """
@@ -483,7 +518,7 @@ def filling_ab(ab, ku, kl, l) :
     ab[offset+0, 2*N-1] = l+1 
     return ab
     
-
+    
 def find_phi_eff(map_n, rho_n, phi_eff=None) :
     """
     Determination of the effective potential from a given mapping
@@ -883,11 +918,11 @@ if __name__ == '__main__' :
         n += 1
     
     finish = time.perf_counter()
-    print(f'Deformation done in {round(finish-start, 4)} sec')    
+    print(f'Deformation done in {round(finish-start, 4)} sec')   
     
     # Plot mapping
-    plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)
-    
+    plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
+        
     # Compute the rotation profile 
     # eval_w = la_bidouille('rota_eq.txt', smoothing=1e-5, return_profile=True)
     # w_eq, dw_eq = eval_w(map_n[:, (M-1)//2], 0.0, ROT)

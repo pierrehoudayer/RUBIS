@@ -419,6 +419,42 @@ def find_mass(map_n, rho_n) :
     mass_tot = 2*np.pi * mass_ang @ weights
     return mass_tot
 
+
+def find_gravitational_moments(map_n, rho_n, max_degree=14) :
+    """
+    Find the gravitational moments up to max_degree.
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+    rho_n : array_like, shape (N, )
+        Density profile (the same in each direction).
+    max_degree : int, optional
+        Maximum degree for the gravitational moments. The default is 10.
+        
+    Returns
+    -------
+    moments : array_like, shape (max_degree//2 + 1, )
+        All the gravitational moments.
+
+    """
+    # Degrees list
+    degrees = np.arange(max_degree+1, step=2)
+    
+    # Moments integration in each direction
+    MltD = lambda l, r, D : integrate(r[D], rho_n[D] * r[D]**(l+2), k=5)
+    moments_ang = - np.array(
+        [[sum(MltD(l, rk, D) for D in dom.ranges[:-1]) for rk in map_n.T] for l in degrees]
+    )
+    pl = np.array([eval_legendre(l, cth) for l in degrees])                                                      
+    
+    # Integration over the angular domain
+    moments = 2*np.pi * (moments_ang * pl) @ weights  
+    
+    return moments 
+
+
 def find_pressure(rho, dphi_eff) :
     """
     Find the pressure evaluated on zeta thanks to the hydrostatic
