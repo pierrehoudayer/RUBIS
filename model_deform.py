@@ -853,7 +853,8 @@ def find_metric_terms(map_n) :
             z   = r_z(z, t),
             zt  = r_zt(z, t),
             ztt = r_ztt(z, t),
-            zz  = r_zz(z, t)
+            zz  = r_zz(z, t),
+            S   = \Delta_S r(z, t)
             }          
     """
     dr = DotDict()
@@ -868,8 +869,76 @@ def find_metric_terms(map_n) :
     dr.zz = np.array(
         [interpolate_func(zeta, rk, der=2, k=KSPL)(zeta) for rk in map_n.T]
     ).T 
+    dr.S = (1-cth**2) * dr.tt - 2*cth * dr.t
     return dr
+
+def add_advanced_metric_terms(dr) : 
+    """
+    Finds the more advanced metric terms, useful in very specific cases.
+
+    Parameters
+    ----------
+    dr : DotDict instance
+        The object containing the mapping derivatives.
+
+    Returns
+    -------
+    dr : DotDict instance
+        Same object but enhanced with the following terms : {
+            c2 = cos(b^z, b_z) ** 2 : 
+                squared cosinus between the covariant and 
+                contravariant zeta vectors in the natural basis.
+            cs = cos(b^z, b_z) * sin(b^z, b_z) :
+                cosinus by sinus of the same angle.
+                /!\ The orientation of this angle has been chosen
+                    to be the same as theta (i.e. inverse trigonometric)
+            gzz = 1 / (r_z ** 2 * cos(b^z, b_z)) :
+                zeta/zeta covariant metric term.
+            }          
+    """
+    # Trigonometric terms
+    with np.errstate(all='ignore'):
+        dr.c2 = np.where(
+            dr._ == 0.0, 1.0, dr._ ** 2 / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
+        )
+        dr.cs = np.where(
+            dr._ == 0.0, 0.0, 
+            (1-cth**2) ** 0.5 * dr._ * dr.t / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
+        )
+        
+    # Covariant metric terms
+    dr.gzz = 1.0 / (dr.z ** 2 * dr.c2)
+    with np.errstate(all='ignore'):
+        dr.gzt = np.where(
+            dr._ == 0.0, np.nan, (1-cth**2) ** 0.5 * dr.t / (dr.z * dr._ ** 2)
+        )
+        dr.gtt = np.where(
+            dr._ == 0.0, np.nan, dr._ ** (-2)
+        )
     
+    # Divergence
+    with np.errstate(all='ignore'):
+        dr.divz = (
+            np.where(
+                dr._ == 0.0, np.nan, 
+                (2 * dr._ + 2 * dr.t * dr.zt / dr.z - dr.S) / (dr.z * dr._ ** 2)
+            )   
+            - dr.gzz * dr.zz / dr.z
+        )
+    dr.divt = cth * dr.gtt / (1-cth**2) ** 0.5
+    
+    # Relative divergence
+    with np.errstate(all='ignore'):
+        dr.divrelz = (
+            np.where(
+                dr._ == 0.0, np.nan, 
+                  (2 * dr._ + 2 * dr.t * dr.zt / dr.z - dr.S) 
+                / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
+            ) * dr.z
+            - dr.zz / dr.z
+        )
+    dr.divrelt = cth / (1-cth**2) ** 0.5 * np.ones_like(dr._)
+    return dr
 
 
 #%% Main cell

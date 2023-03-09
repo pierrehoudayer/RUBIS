@@ -601,7 +601,7 @@ def plot_f_map(
     # Init figure
     fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
     norm = None
-    if f2D.min() * f2D.max() < 0.0 : 
+    if np.nanmin(f2D) * np.nanmax(f2D) < 0.0 : 
         cmap, norm = cm.RdBu, mcl.CenteredNorm()
     
     # Right side
