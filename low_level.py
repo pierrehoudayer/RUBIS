@@ -7,6 +7,7 @@ Created on Wed Dec 21 12:14:01 2022
 """
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcl
 import numpy             as np
 import probnum           as pn
 from numpy.polynomial.polynomial import Polynomial
@@ -240,7 +241,7 @@ def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
         return func
     
     
-def pl_project_2D(f, L) :
+def pl_project_2D(f, L, even=True) :
     """
     Projection of function, assumed to be already evaluated 
     at the Gauss-Legendre scheme points, over the Legendre 
@@ -252,6 +253,8 @@ def pl_project_2D(f, L) :
         function to project.
     L : integer
         truncation order for the harmonic series expansion.
+    even : boolean, optional
+        should the function assume that f is even?
 
     Returns
     -------
@@ -265,9 +268,12 @@ def pl_project_2D(f, L) :
     zeros = lambda f: np.squeeze(np.zeros((N, )))
     project = lambda f, l: f @ (weights * eval_legendre(l, cth))
     norm = (2*np.arange(L)+1)/2
-    f_l = norm * np.array(
-        [project(f, l) if (l%2 == 0) else zeros(f) for l in range(L)]
-    ).T
+    if even :
+        f_l = norm * np.array(
+            [project(f, l) if (l%2 == 0) else zeros(f) for l in range(L)]
+        ).T
+    else : 
+        f_l = norm * np.array([project(f, l) for l in range(L)]).T
     return f_l
 
 
@@ -584,7 +590,7 @@ def plot_f_map(
     if len(f.shape) == 1 :
         f2D = np.tile(f, angular_res).reshape((angular_res, N)).T
     else : 
-        f_l = pl_project_2D(f, max_degree)
+        f_l = pl_project_2D(f, max_degree, even=False)
         f2D =np.atleast_3d(np.array(pl_eval_2D(f_l, cth_res, der=t_deriv)).T).T[-1]
         
     # Text formating 
@@ -594,11 +600,14 @@ def plot_f_map(
     
     # Init figure
     fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
+    norm = None
+    if f2D.min() * f2D.max() < 0.0 : 
+        cmap, norm = cm.RdBu, mcl.CenteredNorm()
     
     # Right side
     csr = ax.contourf(
         map_res*sth_res, map_res*cth_res, f2D, 
-        cmap=cmap, levels=levels
+        cmap=cmap, norm=norm, levels=levels
     )
     for c in csr.collections:
         c.set_edgecolor("face")
@@ -629,7 +638,7 @@ def plot_f_map(
     else : 
         csl = ax.contourf(
             -map_res*sth_res, map_res*cth_res, f2D, 
-            cmap=cmap, levels=levels
+            cmap=cmap, norm=norm, levels=levels
         )
         for c in csl.collections:
             c.set_edgecolor("face")
