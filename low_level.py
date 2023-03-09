@@ -521,7 +521,7 @@ def app_list(val, idx, func=lambda x: x, args=None) :
 
 def plot_f_map(
     map_n, f, phi_eff, max_degree,
-    angular_res=501, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
+    angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
     show_surfaces=False, n_lines=50, cmap_lines=cm.BuPu, lw=0.5,
     disc=None, map_ext=None, n_lines_ext=20
 ) :
@@ -532,8 +532,8 @@ def plot_f_map(
     ----------
     map_n : array_like, shape (N, M)
         2D Mapping.
-    f : array_like, shape (N, )
-        Function value on the surface levels.
+    f : array_like, shape (N, ) or (N, M)
+        Function value on the surface levels or at each point on the mapping.
     phi_eff : array_like, shape (N, )
         Value of the effective potential on each isopotential.
         Serves the colormapping if show_surfaces=True.
@@ -541,6 +541,9 @@ def plot_f_map(
         number of harmonics to use for interpolating the mapping.
     angular_res : integer, optional
         angular resolution used to plot the mapping. The default is 501.
+    t_deriv : integer, optional
+        derivative (with respect to t = cos(theta)) order to plot. Only used
+        is len(f.shape) == 2. The default is 0.
     levels : integer, optional
         Number of color levels on the plot. The default is 100.
     cmap : cm.cmap instance, optional
@@ -575,11 +578,15 @@ def plot_f_map(
     cth_res = np.linspace(-1, 1, angular_res)
     sth_res = np.sqrt(1-cth_res**2)
     map_l   = pl_project_2D(map_n, max_degree)
-    map_res = pl_eval_2D(map_l, np.linspace(-1, 1, angular_res))
+    map_res = pl_eval_2D(map_l, cth_res)
     
     # 2D density
-    f2D = np.tile(f, angular_res).reshape((angular_res, N)).T
-    
+    if len(f.shape) == 1 :
+        f2D = np.tile(f, angular_res).reshape((angular_res, N)).T
+    else : 
+        f_l = pl_project_2D(f, max_degree)
+        f2D =np.atleast_3d(np.array(pl_eval_2D(f_l, cth_res, der=t_deriv)).T).T[-1]
+        
     # Text formating 
     rc('text', usetex=True)
     rc('xtick', labelsize=size)
