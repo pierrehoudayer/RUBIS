@@ -178,6 +178,8 @@ def init_1D() :
         Radius of the model.
     r : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
+    zeta : array_like, shape (N, ), [GLOBAL VARIABLE]
+        Spheroidal coordinate
     rho : array_like, shape (N, )
         Radial density of the model after normalisation.
     other_var : array_like, shape (N, N_var)
@@ -220,8 +222,10 @@ def init_1D() :
         # We assume that P0 is already normalised by G if R ~ 1 ...
         if not np.allclose(R, 1) :
             P0 /= G
+            
+    zeta = np.copy(r)
     
-    return P0, N, M, R, r, rho, other_var
+    return P0, N, M, R, r, zeta, rho, other_var
 
         
 def init_2D() :
@@ -841,7 +845,7 @@ if __name__ == '__main__' :
     G = 6.67384e-8     # <- value of the gravitational constant
         
     # Definition of the 1D-model
-    P0, N, mass, radius, r, rho_n, VAR = init_1D()  
+    P0, N, mass, radius, r, zeta, rho_n, VAR = init_1D()  
     
     # Angular domain preparation
     cth, weights, map_n      = init_2D()

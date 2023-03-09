@@ -197,7 +197,7 @@ def init_1D() :
         Radius of the model.
     r : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
-    zeta : array_like, shape (N, ), [GLOBAL VARIABLE]
+    zeta : array_like, shape (N+Ne, ), [GLOBAL VARIABLE]
         Spheroidal coordinate
     rho : array_like, shape (N, )
         Radial density of the model after normalisation.
