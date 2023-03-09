@@ -852,7 +852,8 @@ def find_metric_terms(map_n) :
             tt  = r_tt(z, t),
             z   = r_z(z, t),
             zt  = r_zt(z, t),
-            ztt = r_ztt(z, t)
+            ztt = r_ztt(z, t),
+            zz  = r_zz(z, t)
             }          
     """
     dr = DotDict()
@@ -864,6 +865,9 @@ def find_metric_terms(map_n) :
     ).T 
     map_l_z = pl_project_2D(dr.z, L)
     _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
+    dr.zz = np.array(
+        [interpolate_func(zeta, rk, der=2, k=KSPL)(zeta) for rk in map_n.T]
+    ).T 
     return dr
     
 
