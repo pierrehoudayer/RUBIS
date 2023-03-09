@@ -22,6 +22,11 @@ from scipy.linalg.lapack    import dgbsv
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
+from utils                  import (
+    mapdiff,
+    phidiff,
+    phieff_lines
+)
 from low_level              import (
     lnxn, 
     del_u_over_v,
@@ -36,80 +41,6 @@ from low_level              import (
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
 from generate_polytrope     import polytrope     
 
-
-#%% Diff cell
-
-def mapdiff(map_sph, map_rad) : 
-    
-    cth_res = np.linspace(-1, 1, RES)
-    sth_res = np.sqrt(1-cth_res**2)
-    map_l_sph = pl_project_2D(map_sph, L)
-    map_l_rad = pl_project_2D(map_rad, L)
-    map_res_sph = pl_eval_2D(map_l_sph, cth_res)
-    map_res_rad = pl_eval_2D(map_l_rad, cth_res)
-    diff = map_res_rad - map_res_sph
-    
-    size = 16
-    plt.close('all')
-    plt.contourf(
-        map_res_rad*sth_res, map_res_rad*cth_res, diff, 
-        cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-    )
-    plt.contourf(
-        -map_res_rad*sth_res, map_res_rad*cth_res, diff, 
-        cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-    )
-    plt.plot( map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
-    plt.plot(-map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
-    plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
-    plt.ylabel(r"$z/R_{\mathrm{eq}}$",fontsize=size)
-    cbar = plt.colorbar()
-    cbar.set_label(r"$\delta r$", fontsize=size)
-    plt.gca().set_aspect("equal")
-    plt.show()
-
-def phidiff(phi_l_sph, phi_l_rad, map_sph) : 
-    
-    dr_sph = find_metric_terms(map_sph)
-    dr_sph = find_external_mapping(dr_sph)
-    
-    cth_res = np.linspace(-1, 1, RES)
-    sth_res = np.sqrt(1-cth_res**2)
-    map_l_sph = pl_project_2D(dr_sph._, L)
-    map_res = pl_eval_2D(map_l_sph, cth_res)
-    
-    phi2D_sph = pl_eval_2D(phi_l_sph, cth_res)
-    phi2D_rad = pl_eval_2D(phi_l_rad, cth_res)
-    l = np.arange(L)
-    phi2D_int = np.array(
-        [np.hstack(
-            (interpolate_func(r, phik)(rk[rk < 1]), 
-             pl_eval_2D(phi_l_rad[-1] * (rk[rk >= 1, None])**-(l+1), ck))
-            )
-         for rk, ck, phik in zip(map_res.T, cth_res, phi2D_rad.T)]
-        ).T
-    diff = phi2D_int - phi2D_sph
-    
-    size = 16
-    plt.close('all')
-    plt.contourf(
-        map_res*sth_res, map_res*cth_res, diff, 
-        cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-    )
-    plt.contourf(
-        -map_res*sth_res, map_res*cth_res, diff, 
-        cmap='seismic', levels=200, norm=mcl.CenteredNorm()
-    )
-    plt.plot( map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
-    plt.plot(-map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
-    plt.plot( map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--',lw=0.5)
-    plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--',lw=0.5)
-    plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
-    plt.ylabel(r"$z/R_{\mathrm{eq}}$",fontsize=size)
-    cbar = plt.colorbar()
-    cbar.set_label(r"$\delta \phi_g$", fontsize=size)
-    plt.gca().set_aspect("equal")
-    plt.show()
 
 #%% High-level functions cell
     
@@ -188,20 +119,20 @@ def set_params() :
     """
     
     #### MODEL CHOICE ####
-    model_choice = "Jupiter.txt"   
-    # model_choice = DotDict(index=3.0)
+    # model_choice = "Jupiter.txt"   
+    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=4000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.298656135
+    rotation_target = 0.8
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 101
-    full_rate = 3
+    full_rate = 1
     mapping_precision = 1e-10
-    newton_precision = 1e-12
+    newton_precision = 1e-11
     lagrange_order = 2
     spline_order = 3
     
@@ -1203,12 +1134,12 @@ if __name__ == '__main__' :
     print(f'Deformation done in {round(finish-start, 4)} sec')
     
     # Plot mapping
-    dr = find_metric_terms(map_n)
-    dr = find_external_mapping(dr)
-    plot_f_map(
-        map_n, rho_n, phi_eff, L, map_ext=dr._[N:],
-        cmap=cm.viridis, disc=dom.end[:-1], n_lines_ext=15
-    )
+    # dr = find_metric_terms(map_n)
+    # dr = find_external_mapping(dr)
+    # plot_f_map(
+    #     map_n, rho_n, phi_eff, L, map_ext=dr._[N:],
+    #     cmap=cm.viridis, disc=dom.end[:-1], n_lines_ext=15
+    # )
     # plot_f_map(
     #     map_n, rho_n, phi_eff, cmap=cm.viridis, levels=100, size=18,
     #     label=r'$\rho \times \left(M/R_\mathrm{eq}^{~3}\right)^{-1}$',

@@ -103,12 +103,13 @@ def set_params() :
     """
     #### MODEL CHOICE ####
     # model_choice = "1Dmodel_1.97187607_G1.txt"     
-    model_choice = DotDict(index=1.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
+    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=4000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
-    rotation_target = 0.089195487 ** 0.5
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 0.80
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
@@ -921,7 +922,7 @@ if __name__ == '__main__' :
     print(f'Deformation done in {round(finish-start, 4)} sec')   
     
     # Plot mapping
-    plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
+    # plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
         
     # Compute the rotation profile 
     # eval_w = la_bidouille('rota_eq.txt', smoothing=1e-5, return_profile=True)

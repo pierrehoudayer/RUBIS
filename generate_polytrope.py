@@ -85,8 +85,8 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
             Xo *= 2.0
             
         # Solution
-        df = lambda x : sol.sol(x)[1] 
-        f  = lambda x : np.abs(sol.sol(x)[0])
+        df = lambda x : sol.sol(x)[0] 
+        f  = lambda x : np.abs(sol.sol(x)[1])
         x0, g0 = sol.t[-1], -(N+1) * sol.y[0, -1]
     
         
@@ -113,7 +113,7 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
 
 
 if __name__ == '__main__':
-    model = polytrope(1, 0.0)
+    model = polytrope(3.0, 0.0)
     plt.plot(model.r, model.p, lw=1.0)
     plt.show()
     
