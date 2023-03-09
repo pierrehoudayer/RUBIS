@@ -892,8 +892,19 @@ def add_advanced_metric_terms(dr) :
                 cosinus by sinus of the same angle.
                 /!\ The orientation of this angle has been chosen
                     to be the same as theta (i.e. inverse trigonometric)
-            gzz = 1 / (r_z ** 2 * cos(b^z, b_z)) :
-                zeta/zeta covariant metric term.
+            gzz : zeta/zeta covariant metric term.
+            gzt : zeta/theta covariant metric term.
+            gtt : theta/theta covariant metric term.
+            gg = gzt / gzz : 
+                covariant ratio
+            divz = div(b^z) : 
+                divergence of the zeta covariant vector
+            divt = div(b^t) : 
+                divergence of the theta covariant vector
+            divrelz = div(b^z) / gzz : 
+                relative divergence of the zeta covariant vector
+            divrelt = div(b^t) / gtt : 
+                relative divergence of the theta covariant vector
             }          
     """
     # Trigonometric terms
@@ -914,6 +925,9 @@ def add_advanced_metric_terms(dr) :
         )
         dr.gtt = np.where(
             dr._ == 0.0, np.nan, dr._ ** (-2)
+        )
+        dr.gg  = np.where(
+            dr._ == 0.0, np.nan, - dr.z * dr.cs / dr._ 
         )
     
     # Divergence
