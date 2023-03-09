@@ -831,6 +831,41 @@ def write_model(fname, map_n, *args) :
         comments=''
     )
     
+#%% Metric terms (not useful for the actual resolution)
+
+def find_metric_terms(map_n) : 
+    """
+    Finds the metric terms, i.e the derivatives of r(z, t) 
+    with respect to z or t (with z := zeta and t := cos(theta)).
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+
+    Returns
+    -------
+    dr : DotDict instance
+        The mapping derivatives : {
+            _   = r(z, t),
+            t   = r_t(z, t),
+            tt  = r_tt(z, t),
+            z   = r_z(z, t),
+            zt  = r_zt(z, t),
+            ztt = r_ztt(z, t)
+            }          
+    """
+    dr = DotDict()
+    dr._ = map_n
+    map_l = pl_project_2D(dr._, L)
+    _, dr.t, dr.tt = pl_eval_2D(map_l, cth, der=2)
+    dr.z = np.array(
+        [interpolate_func(zeta, rk, der=1, k=KSPL)(zeta) for rk in map_n.T]
+    ).T 
+    map_l_z = pl_project_2D(dr.z, L)
+    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
+    return dr
+    
 
 
 #%% Main cell
@@ -933,11 +968,11 @@ if __name__ == '__main__' :
     # w_eq, dw_eq = eval_w(map_n[:, (M-1)//2], 0.0, ROT)
     
     # Model scaling
-    map_n    *=               radius
-    rho_n    *=     mass    / radius**3
-    phi_eff  *= G * mass    / radius   
-    dphi_eff *= G * mass    / radius**2
-    P        *= G * mass**2 / radius**4
+    # map_n    *=               radius
+    # rho_n    *=     mass    / radius**3
+    # phi_eff  *= G * mass    / radius   
+    # dphi_eff *= G * mass    / radius**2
+    # P        *= G * mass**2 / radius**4
     
     # Model writing
     # write_model(SAVE, map_n, r, P, rho_n, phi_eff, w_eq, dw_eq)
