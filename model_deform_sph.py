@@ -29,6 +29,7 @@ from low_level              import (
     interpolate_func, 
     pl_eval_2D,
     pl_project_2D,
+    Legendre_coupling,
     lagrange_matrix_P, 
     app_list, 
     plot_f_map
@@ -940,60 +941,6 @@ def find_external_mapping(dr) :
     
     return dr
 
-def Legendre_coupling(f, der=(0, 0)) :
-    """
-    Finds the harmonic couplings of a given f function, that is:
-        \mathcal{P}^{\ell\ell'}_f(\zeta) = 
-    \int_{-1}^1 f(\zeta, t) P_\ell^{(d_\ell)}(t)P_{\ell'}^{(d_{\ell'})}(t)\,dt
-
-    with P_\ell the l-th Legendre polynomial and d_\ell a derivative order.
-    
-    Parameters
-    ----------
-    f : array_like, shape (..., M)
-        Input function discretised on the mapping.
-    der : tuple of integer, optional
-        Derivative orders for the Legendre polynomials. 
-        The default is (0, 0).
-
-    Returns
-    -------
-    Pll : array_like, shape (..., L, L)
-        Harmonic couplings of f.
-
-    """    
-    # pl computation
-    pl   = np.array([eval_legendre(l, cth) for l in range(L)])
-    dpl  = np.empty_like(pl)
-    d2pl = np.empty_like(pl)
-    
-    if der != 0 :
-        # dpl computation
-        ll = np.arange(L)[:, None]
-        dpl = ll * np.roll(pl, 1, axis=0)
-        for l in range(1, L):
-            dpl[l] += cth * dpl[l-1]
-        
-        if der != 1 :
-            # d2pl computation
-            llp1 = np.where(ll != 0, ll+1, 0)
-            d2pl = llp1 * np.roll(dpl, 1, axis=0)
-            for l in range(1, L):
-                d2pl[l] += cth * d2pl[l-1]
-            
-    pl1, pl2 = np.choose(
-        np.array(der)[:, None, None], 
-        choices=[pl[::2], dpl[::2], d2pl[::2]]
-    )
-    
-    Pll = np.einsum(
-        '...k,lk,mk->...lm', 
-        weights * np.atleast_2d(f), pl1, pl2, 
-        optimize='optimal'
-    )
-    return Pll
-
-
 def find_all_couplings(dr, alpha=2) :
     """
     Find all the couplings needed to solve Poisson's equation in 
@@ -1027,16 +974,16 @@ def find_all_couplings(dr, alpha=2) :
     l = np.arange(0, L, 2)
     
     Pll.zz = Legendre_coupling(
-        (dr._**2 + (1-cth**2) * dr.t**2) / dr.z, der=(0, 0)
+        (dr._**2 + (1-cth**2) * dr.t**2) / dr.z, L, der=(0, 0)
     )
     Pll.zt = Legendre_coupling(
-        (1-cth**2) * dr.tt - 2*cth * dr.t, der=(0, 0)
+        (1-cth**2) * dr.tt - 2*cth * dr.t, L, der=(0, 0)
     ) + alpha * Legendre_coupling(
-        (1-cth**2) * dr.t, der=(0, 1)
+        (1-cth**2) * dr.t, L, der=(0, 1)
     )
-    Pll.tt = Legendre_coupling(dr.z, der=(0, 0)) * l*(l+1)
+    Pll.tt = Legendre_coupling(dr.z, L, der=(0, 0)) * l*(l+1)
     
-    Pll.BC = Legendre_coupling(1/dr.z, der=(0, 0))
+    Pll.BC = Legendre_coupling(1/dr.z, L, der=(0, 0))
     
     return Pll    
     

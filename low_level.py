@@ -326,6 +326,65 @@ def pl_eval_2D(f_l, t, der=0) :
             return f, df, d2f
         return f, df
     return f
+
+def Legendre_coupling(f, L, der=(0, 0)) :
+    """
+    Finds the harmonic couplings of a given f function, that is:
+        \mathcal{P}^{\ell\ell'}_f(\zeta) = 
+    \int_{-1}^1 f(\zeta, t) P_\ell^{(d_\ell)}(t)P_{\ell'}^{(d_{\ell'})}(t)\,dt
+
+    with P_\ell the l-th Legendre polynomial and d_\ell a derivative order.
+    
+    Parameters
+    ----------
+    f : array_like, shape (..., M)
+        Input function discretised on the mapping.
+    L : integer
+        Highest harmonic degree.
+    der : tuple of integer, optional
+        Derivative orders for the Legendre polynomials. 
+        The default is (0, 0).
+
+    Returns
+    -------
+    Pll : array_like, shape (..., L, L)
+        Harmonic couplings of f.
+
+    """    
+    # Gauss-Legendre scheme
+    *_, M = f.shape
+    cth, weights = roots_legendre(M)
+    
+    # pl computation
+    pl   = np.array([eval_legendre(l, cth) for l in range(L)])
+    dpl  = np.empty_like(pl)
+    d2pl = np.empty_like(pl)
+    
+    if der != 0 :
+        # dpl computation
+        ll = np.arange(L)[:, None]
+        dpl = ll * np.roll(pl, 1, axis=0)
+        for l in range(1, L):
+            dpl[l] += cth * dpl[l-1]
+        
+        if der != 1 :
+            # d2pl computation
+            llp1 = np.where(ll != 0, ll+1, 0)
+            d2pl = llp1 * np.roll(dpl, 1, axis=0)
+            for l in range(1, L):
+                d2pl[l] += cth * d2pl[l-1]
+            
+    pl1, pl2 = np.choose(
+        np.array(der)[:, None, None], 
+        choices=[pl[::2], dpl[::2], d2pl[::2]]
+    )
+    
+    Pll = np.einsum(
+        '...k,lk,mk->...lm', 
+        weights * np.atleast_2d(f), pl1, pl2, 
+        optimize='optimal'
+    )
+    return Pll
     
 def find_roots(c):
     """
