@@ -22,11 +22,6 @@ from scipy.linalg.lapack    import dgbsv
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
-from utils                  import (
-    mapdiff,
-    phidiff,
-    phieff_lines
-)
 from low_level              import (
     lnxn, 
     del_u_over_v,
@@ -120,16 +115,16 @@ def set_params() :
     
     #### MODEL CHOICE ####
     # model_choice = "Jupiter.txt"   
-    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=4000)
+    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.8
+    rotation_target = 0.7
     central_diff_rate = 0.5
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
+    max_degree = angular_resolution = 51
     full_rate = 1
     mapping_precision = 1e-10
     newton_precision = 1e-11
@@ -999,7 +994,7 @@ def Legendre_coupling(f, der=(0, 0)) :
     return Pll
 
 
-def find_all_couplings(dr) :
+def find_all_couplings(dr, alpha=2) :
     """
     Find all the couplings needed to solve Poisson's equation in 
     spheroidal coordinates.
@@ -1008,6 +1003,9 @@ def find_all_couplings(dr) :
     ----------
     dr : DotDict instance
         The mapping and its derivatives with respect to z and t
+    alpha : float, optional
+        Constant to be either set to 1 (typically for divergences)
+        or 2 (Laplacians).
 
     Returns
     -------
@@ -1033,7 +1031,7 @@ def find_all_couplings(dr) :
     )
     Pll.zt = Legendre_coupling(
         (1-cth**2) * dr.tt - 2*cth * dr.t, der=(0, 0)
-    )  + 2 * Legendre_coupling(
+    ) + alpha * Legendre_coupling(
         (1-cth**2) * dr.t, der=(0, 1)
     )
     Pll.tt = Legendre_coupling(dr.z, der=(0, 0)) * l*(l+1)
