@@ -529,7 +529,8 @@ def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
     show_surfaces=False, n_lines=50, cmap_lines=cm.BuPu, lw=0.5,
-    disc=None, map_ext=None, n_lines_ext=20
+    disc=None, map_ext=None, n_lines_ext=20,
+    add_to_fig=None
 ) :
     """
     Shows the value of f in the 2D model.
@@ -572,6 +573,9 @@ def plot_f_map(
         Used to show the external mapping, if given.
     n_lines_ext : integer, optional
         Number of level surfaces in the external mapping. The default is 20.
+    add_to_fig : fig object, optional
+        If given, the figure on which the plot should be added. 
+        The default is None.
 
     Returns
     -------
@@ -599,7 +603,10 @@ def plot_f_map(
     rc('ytick', labelsize=size)
     
     # Init figure
-    fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
+    if add_to_fig is None : 
+        fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
+    else : 
+        fig, ax = add_to_fig
     norm = None
     if np.nanmin(f2D) * np.nanmax(f2D) < 0.0 : 
         cmap, norm = cm.RdBu, mcl.CenteredNorm()
@@ -614,7 +621,7 @@ def plot_f_map(
     if disc is not None :
         for i in disc :
             plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
-    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
+    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
     cbr = fig.colorbar(csr, aspect=30)
     cbr.ax.set_title(label, y=1.03, fontsize=size+3)
     
@@ -645,7 +652,7 @@ def plot_f_map(
         if disc is not None :
             for i in disc :
                 plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
-        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--', lw=lw)
+        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
         
     # External mapping
     if map_ext is not None : 
