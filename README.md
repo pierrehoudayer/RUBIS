@@ -365,7 +365,30 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierr
 <!-- CITING RUBIS -->
 ## Citing RUBIS
 
-Add reference to the article
+Find the article here: https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H/abstract
+
+Bibtex entry : 
+
+```
+@ARTICLE{2023arXiv230308077H,
+       author = {{Houdayer}, Pierre S. and {Reese}, Daniel R.},
+        title = "{RUBIS: a simple tool for calculating the centrifugal deformation of stars and planets}",
+      journal = {arXiv e-prints},
+     keywords = {Astrophysics - Solar and Stellar Astrophysics, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2023,
+        month = mar,
+          eid = {arXiv:2303.08077},
+        pages = {arXiv:2303.08077},
+          doi = {10.48550/arXiv.2303.08077},
+archivePrefix = {arXiv},
+       eprint = {2303.08077},
+ primaryClass = {astro-ph.SR},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
