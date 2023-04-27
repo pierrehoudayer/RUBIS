@@ -660,6 +660,7 @@ def plot_f_map(
     rc('text', usetex=True)
     rc('xtick', labelsize=size)
     rc('ytick', labelsize=size)
+    # rc('axes', facecolor='#303030')
     
     # Init figure
     if add_to_fig is None : 
