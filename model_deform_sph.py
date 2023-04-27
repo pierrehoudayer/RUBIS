@@ -35,7 +35,7 @@ from low_level              import (
     plot_f_map
 )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
-from generate_polytrope     import polytrope     
+from generate_polytrope     import polytrope, composite_polytrope  
 
 
 #%% High-level functions cell
@@ -48,20 +48,23 @@ def set_params() :
     -------
     model_choice : string or DotDict instance
         Name of the file containing the 1D model or dictionary containing
-        the information requiered to compute a polytrope of given
-        index : {
-            index : float
-                Polytrope index
-            surface_pressure : float
-                Surface pressure expressed in units of central
-                pressure, ex: 1e-12 => P0 = 1e-12 * PC
-            radius : float
-                Radius of the model
-            mass : float
-                Mass of the model
-            res : integer
-                Radial resolution of the model
+        the information requiered to compute a composite polytrope with
+        caracteristics: {
+            indices : array_like, shape(D, )
+                Each region polytropic index
+            target_pressures : array_like, shape(D, )
+                Normalised interface pressure values (surface included).
+            density_jumps : array_like, shape(D-1, )
+                Density ratios above and below each interface (surface excluded).
+                The default value is None
+            R : float, optional
+                Composite polytrope radius. The default value is 1.0
+            M : float, optional
+                Composite polytrope mass. The default value is 1.0
+            res : int, optional
+                Number of points. The default value is 1001
         }
+        Please refer to the composite_polytrope() documentation for more information.
     rotation_profile : function(r, cth, omega)
         Function used to compute the centrifugal potential and its 
         derivative. Possible choices are {solid, lorentzian, plateau}.
@@ -117,16 +120,22 @@ def set_params() :
     #### MODEL CHOICE ####
     # model_choice = "Jupiter.txt"   
     model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
+    model_choice = DotDict(
+        indices = (1.0, 2.0, 3.0), 
+        target_pressures = (-1.0, -3.0, -np.inf), 
+        density_jumps = (0.5, 0.5),
+        R=1.0, M=1.0, res=1001
+    )
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.7
-    central_diff_rate = 0.5
+    rotation_target = 0.8
+    central_diff_rate = 2.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 51
-    full_rate = 1
+    max_degree = angular_resolution = 101
+    full_rate = 5
     mapping_precision = 1e-10
     newton_precision = 1e-11
     lagrange_order = 2
@@ -156,7 +165,7 @@ def give_me_a_name(model_choice, rotation_target) :
     Parameters
     ----------
     model_choice : string or Dotdict instance.
-        File name or polytrope caracteristics.
+        File name or composite polytrope caracteristics.
     rotation_target : float
         Final rotation rate on the equator.
 
@@ -167,7 +176,9 @@ def give_me_a_name(model_choice, rotation_target) :
 
     """
     radical = (
-        'poly_' + str(int(model_choice.index)) 
+        'poly_|' + ''.join(
+            str(np.round(index, 1))+"|" for index in np.atleast_1d(model_choice.indices)
+        )
         if isinstance(model_choice, DotDict) 
         else model_choice.split('.txt')[0]
     )
@@ -208,7 +219,8 @@ def init_1D() :
         R = MOD_1D.radius or 1.0
         
         # Polytrope computation
-        model = polytrope(*MOD_1D.values())
+        # model = polytrope(*MOD_1D.values())
+        model = composite_polytrope(*MOD_1D.values())
         
         # Normalisation
         r   = model.r     /  R
@@ -1079,23 +1091,19 @@ if __name__ == '__main__' :
     print(f'Deformation done in {round(finish-start, 4)} sec')
     
     # Plot mapping
-    # dr = find_metric_terms(map_n)
-    # dr = find_external_mapping(dr)
-    # plot_f_map(
-    #     map_n, rho_n, phi_eff, L, map_ext=dr._[N:],
-    #     cmap=cm.viridis, disc=dom.end[:-1], n_lines_ext=15
-    # )
-    # plot_f_map(
-    #     map_n, rho_n, phi_eff, cmap=cm.viridis, levels=100, size=18,
-    #     label=r'$\rho \times \left(M/R_\mathrm{eq}^{~3}\right)^{-1}$',
-    # )
+    dr = find_metric_terms(map_n)
+    dr = find_external_mapping(dr)
+    plot_f_map(
+        map_n, np.log10(rho_n+np.max(rho_n)*1e-5)+16, phi_eff, L, map_ext=dr._[N:],
+        cmap=cm.viridis_r, disc=dom.end[:-1], n_lines_ext=15
+    )
     
-    # Model scaling
-    map_n    *=               radius
-    rho_n    *=     mass    / radius**3
-    phi_eff  *= G * mass    / radius   
-    dphi_eff *= G * mass    / radius**2
-    P        *= G * mass**2 / radius**4
+    # # Model scaling
+    # map_n    *=               radius
+    # rho_n    *=     mass    / radius**3
+    # phi_eff  *= G * mass    / radius   
+    # dphi_eff *= G * mass    / radius**2
+    # P        *= G * mass**2 / radius**4
     
     # Model writing
     # write_model(SAVE, map_n, P, rho_n, phi_eff[:N])
