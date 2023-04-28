@@ -286,9 +286,10 @@ However, make sure that these variables are invariant on the isopotentials durin
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Write a more precise version of the find_mass() function.
-- [ ] Implement a function for computing the gravitational moments from the deformed model.
-- [ ] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
+- [x] Implement a function for computing the gravitational moments from the deformed model.
+- [x] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
+- [ ] Search for precise integration methods in order to provide an alternative version (in spherical coordinates) relying on the analytical solution to Poisson's equation.
+- [ ] Implement a radiative flux model on the deformed surface
 
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
 
