@@ -1098,6 +1098,12 @@ if __name__ == '__main__' :
         cmap=cm.viridis_r, disc=dom.end[:-1], n_lines_ext=15
     )
     
+    # # Gravitational moments
+    # max_degree = 20
+    # moments = find_gravitational_moments(map_n, rho_n, max_degree)
+    # for i, m in enumerate(moments):
+    #     print("Moment n°{:2d} : {:.10e}".format(2*i, m))
+    
     # # Model scaling
     # map_n    *=               radius
     # rho_n    *=     mass    / radius**3
