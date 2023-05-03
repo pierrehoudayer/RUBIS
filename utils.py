@@ -211,4 +211,44 @@ def merge_cmaps(cmap1, cmap2) :
         )
     return get_continuous_cmap(hex_list)
 
-cmap = ['#000000', '#000000']
+def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis) :
+    ylims = (1e-20, 1e2)
+    r_ext = np.linspace(1.0, 1.2, 100)
+    _, l_max = phi_g_l.shape
+    for l in range(0, l_max, 2):
+        c = cmap(l/l_max)
+        plt.plot(
+            r, np.abs(phi_g_l[:, l]),
+            color=c, lw=1.0, alpha=0.3
+        )
+        plt.plot(
+            r_ext, np.abs(phi_g_l[-1, l]) * (1.0/r_ext)**(l+1), 
+            color=c, linestyle='--', lw=1.0, alpha=0.3
+        )
+    plt.vlines([r_pol, 1.0], ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=3.0)
+    plt.yscale('log')
+    plt.ylim(*ylims)
+    plt.show()
+    
+def check_interpolation(r, map_n, rho_n, cmap=cm.Blues) :
+    C = 1e-15
+    N, M = map_n.shape
+    all_k   = np.arange((M+1)//2)
+    log_rho = np.log(rho_n + C)
+    ylims = (1e-30, 10*np.max(rho_n))
+    rho2D   = np.zeros((N, M))
+    for k in all_k :
+        c = cmap(k/((M+1)//2))
+        inside        =  r < map_n[-1, k]
+        rho2D[inside,   k] = interpolate_func(
+            x=map_n[:, k], y=log_rho, k=3
+        )(r[inside])
+        rho2D[inside, k] = np.exp(rho2D[inside, k]) - C
+        plt.plot(map_n[:, k], rho_n, color=c, lw=1.0, alpha=0.3)
+        plt.scatter(
+            r[inside], rho2D[inside, k], 
+            color=c, marker='o', alpha=0.3
+        )
+    plt.yscale('log')
+    plt.ylim(*ylims)
+    plt.show()
