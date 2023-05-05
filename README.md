@@ -289,7 +289,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [x] Implement a function for computing the gravitational moments from the deformed model.
 - [x] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
 - [ ] Improve the density interpolation in the spherical method.
-- [ ] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).
+- [ ] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).   ⇨ `v0.2.0`
 - [ ] Implement the Viriel test.
 - [ ] Look at the Van Wijngaarden transformation for the gravitational potential series.
 - [ ] Search for precise integration methods in order to provide an alternative version (in spherical coordinates) relying on the analytical solution to Poisson's equation.
