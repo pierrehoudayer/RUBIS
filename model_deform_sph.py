@@ -35,7 +35,7 @@ from low_level              import (
     plot_f_map
 )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
-from generate_polytrope     import polytrope, composite_polytrope  
+from generate_polytrope     import composite_polytrope  
 
 
 #%% High-level functions cell
@@ -118,28 +118,28 @@ def set_params() :
     """
     
     #### MODEL CHOICE ####
-    # model_choice = "Jupiter.txt"   
-    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
-    model_choice = DotDict(
-        indices = (1.0, 2.0, 3.0), 
-        target_pressures = (-1.0, -3.0, -np.inf), 
-        density_jumps = (0.5, 0.5),
-        R=1.0, M=1.0, res=1001
-    )
+    model_choice = "Jupiter.txt"   
+    # model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
+    # model_choice = DotDict(
+    #     indices = (1.0, 2.0, 3.0), 
+    #     target_pressures = (-1.0, -3.0, -np.inf), 
+    #     density_jumps = (0.5, 0.5),
+    #     R=1.0, M=1.0, res=1001
+    # )
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.8
+    rotation_target = 0.7
     central_diff_rate = 2.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
+    max_degree = angular_resolution = 51
     full_rate = 5
     mapping_precision = 1e-10
     newton_precision = 1e-11
     lagrange_order = 2
-    spline_order = 3
+    spline_order = 5
     
     #### OUTPUT PARAMETERS ####
     plot_resolution = 501
@@ -241,7 +241,10 @@ def init_1D() :
         
         # Normalisation
         R = r1D[-1]
-        M = 4*np.pi * integrate(x=r1D[idx], y=r1D[idx]**2 * rho1D[idx])
+        dom = find_domains(r1D)
+        M = 4*np.pi * sum(
+            integrate(x=r1D[D], y=r1D[D]**2 * rho1D[D]) for D in dom.ranges
+        )
         r   = r1D / (R)
         rho = rho1D / (M/R**3)
         P0  = surface_pressure / (M**2/R**4)
@@ -744,9 +747,14 @@ def write_model(fname, map_n, *args) :
     
 #%% Sph functions cell
 
-def find_domains() :
+def find_domains(var) :
     """
     Defines many tools to help the domain manipulation and navigation.
+    
+    Parameters
+    ----------
+    var : array_like, shape (Nvar, )
+        Variable used to define the domains
 
     Returns
     -------
@@ -766,22 +774,24 @@ def find_domains() :
                 All domain index ranges.
             sizes : list of integers
                 All domain sizes
-            id : array_like, shape (N+Ne, ) of integer
+            id : array_like, shape (Nvar, ) of integer
                 Domain identification number. 
+                /!\ if var is zeta, the Nvar = N+Ne!
             id_val : array_like, shape (Nd, ) of integer
                 The id values.
-            int, ext : array_like, shape (N+Ne, ) of boolean
+            int, ext : array_like, shape (Nvar, ) of boolean
                 Interior (resp. exterior, i.e. if rho = 0) domain.
-            unq : array_like, shape (N+Ne-(Nd-1), ) of integer
+            unq : array_like, shape (Nvar-(Nd-1), ) of integer
                 Unique indices through the domains.
             }
 
     """
     dom = DotDict()
+    Nvar = len(var)
     
     # Domain physical boundaries
     unq, unq_idx, unq_inv, unq_cnt = np.unique(
-        zeta, return_index=True, return_inverse=True, return_counts=True
+        var, return_index=True, return_inverse=True, return_counts=True
     )
     cnt_mask = unq_cnt > 1
     dom.bounds = unq[cnt_mask]
@@ -799,7 +809,7 @@ def find_domains() :
     # Domain ranges and sizes
     dom.unq    = unq_idx
     dom.Nd     = len(dom.bounds) + 1
-    dom.edges  = np.array((0, ) + tuple(dom.beg) + (N+Ne, ))
+    dom.edges  = np.array((0, ) + tuple(dom.beg) + (Nvar, ))
     dom.ranges = list(map(range, dom.edges[:-1], dom.edges[1:]))
     dom.sizes  = list(map(len, dom.ranges))
     
@@ -808,7 +818,7 @@ def find_domains() :
     dom.id_val  = np.unique(dom.id)
     dom.ext     = dom.id == dom.Nd - 1
     dom.int     = np.invert(dom.ext)
-    dom.unq_int = np.unique(zeta[dom.int], return_index=True)[1]
+    dom.unq_int = np.unique(var[dom.int], return_index=True)[1]
     
     return dom
 
@@ -1015,7 +1025,7 @@ if __name__ == '__main__' :
     P0, N, mass, radius, r, zeta, rho_n, VAR = init_1D() 
     
     # Domains identification
-    dom = find_domains()
+    dom = find_domains(zeta)
     
     # Angular domain preparation
     cth, weights, map_n = init_2D()
