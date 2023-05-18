@@ -293,6 +293,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [ ] Implement the Viriel test. ⇨ `v0.2.0` (*Diagnostics*)
 - [ ] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).   
 - [ ] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
+- [ ] Improve the conditioning of Poisson's matrix in the spheroidal method 
 - [ ] Add the global user interface `RUBIS.py`.   ⇨ `v1.0.0`
 
 ### Prospects
