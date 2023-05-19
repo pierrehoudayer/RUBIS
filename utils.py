@@ -2,11 +2,12 @@ import matplotlib.colors as mcl
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from pylab import cm
+from scipy.special import roots_legendre
 import numpy as np
 from model_deform_sph import (
     find_metric_terms, find_external_mapping
 )
-from low_level import pl_project_2D, pl_eval_2D, interpolate_func
+from low_level import pl_project_2D, pl_eval_2D, interpolate_func, find_domains
 
 
 def mapdiff(map_sph, map_rad, L,
@@ -211,19 +212,38 @@ def merge_cmaps(cmap1, cmap2) :
         )
     return get_continuous_cmap(hex_list)
 
-def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis) :
-    ylims = (1e-20, 1e2)
-    r_ext = np.linspace(1.0, 1.2, 100)
-    _, l_max = phi_g_l.shape
-    for l in range(0, l_max, 2):
-        c = cmap(l/l_max)
-        plt.plot(
-            r, np.abs(phi_g_l[:, l]),
-            color=c, lw=1.0, alpha=0.3
-        )
-        plt.plot(
-            r_ext, np.abs(phi_g_l[-1, l]) * (1.0/r_ext)**(l+1), 
-            color=c, linestyle='--', lw=1.0, alpha=0.3
+def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None) :
+    # External domain
+    L = phi_g_l.shape[1]
+    outside = 1.3        # Some guess
+    r_ext = np.linspace(1.0, outside, 101)[1:]
+    r_tot = np.concatenate((r, r_ext))
+    
+    # Definition of all harmonics
+    if dr is None :
+        phi_g_l_out  = np.vstack((
+            phi_g_l,
+            phi_g_l[-1] * (r_ext[:, None])**-(np.arange(L)+1)
+        ))
+    else :
+        dom = find_domains(dr._[:, (L-1)//2])
+        cth, _ = roots_legendre(L)
+        phi2D_g = pl_eval_2D(phi_g_l, cth)
+        phi2D_g_int = np.array(
+            [interpolate_func(rk, pk, k=5)(r_tot) 
+             for rk, pk in zip(dr._[dom.unq].T, phi2D_g[dom.unq].T)] 
+        ).T
+        phi_g_l_out = pl_project_2D(phi2D_g_int, L)
+        
+    # Plot
+    ylims = (1e-23, 1e2)
+    for l in range(0, L, 2):
+        c = cmap(l/L)
+        plt.plot(r_tot, np.abs(phi_g_l_out[:, l]), color=c, lw=1.0, alpha=0.3)
+    if dr is not None :
+        plt.vlines(
+            dr._[dom.beg[:-1]].flatten(), 
+            ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=0.5, alpha=0.3
         )
     plt.vlines([r_pol, 1.0], ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=3.0)
     plt.yscale('log')

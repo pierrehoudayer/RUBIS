@@ -9,7 +9,6 @@ Created on Wed Dec 21 12:14:01 2022
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcl
 import numpy             as np
-import probnum           as pn
 from numpy.polynomial.polynomial import Polynomial
 from itertools                   import combinations
 from matplotlib                  import rc
@@ -17,6 +16,8 @@ from matplotlib.collections      import LineCollection
 from pylab                       import cm
 from scipy.interpolate           import splrep, splantider, splev, splint
 from scipy.special               import expn, eval_legendre, roots_legendre
+
+from dotdict                     import DotDict
 
 
 def lnxn(x, n=1, a=1.) : 
@@ -240,6 +241,46 @@ def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
             return splev(x_eval, tck_antider) + cnst
         return func
     
+def find_r_eq(map_n, L) :
+    """
+    Function to find the equatorial radius from the mapping.
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+    L : integer
+        truncation order for the harmonic series expansion.
+
+    Returns
+    -------
+    r_eq : float
+        Equatorial radius.
+
+    """
+    surf_l = pl_project_2D(map_n[-1], L)
+    return pl_eval_2D(surf_l, 0.0)
+
+def find_r_pol(map_n, L) :
+    """
+    Function to find the polar radius from the mapping.
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+    L : integer
+        truncation order for the harmonic series expansion.
+
+    Returns
+    -------
+    r_eq : float
+        Equatorial radius.
+
+    """
+    surf_l = pl_project_2D(map_n[-1], L)
+    return pl_eval_2D(surf_l, 1.0)
+    
     
 def pl_project_2D(f, L, even=True) :
     """
@@ -326,6 +367,86 @@ def pl_eval_2D(f_l, t, der=0) :
             return f, df, d2f
         return f, df
     return f
+
+def find_domains(var) :
+    """
+    Defines many tools to help the domain manipulation and navigation.
+    
+    Parameters
+    ----------
+    var : array_like, shape (Nvar, )
+        Variable used to define the domains
+
+    Returns
+    -------
+    dom : DotDict instance.
+        Domains informations : {
+            Nd : integer
+                Number of domains.
+            bounds : array_like, shape (Nd-1, )
+                Zeta values at boundaries.
+            interfaces : list of tuple
+                Successives indices of domain interfaces
+            beg, end : array_like, shape (Nd-1, ) of integer
+                First (resp. last) domain indices.
+            edges : array_like, shape (Nd+1, ) of integer
+                All edge indices (corresponds to beg + origin + last).
+            ranges : list of range()
+                All domain index ranges.
+            sizes : list of integers
+                All domain sizes
+            id : array_like, shape (Nvar, ) of integer
+                Domain identification number. 
+                /!\ if var is zeta, the Nvar = N+Ne!
+            id_val : array_like, shape (Nd, ) of integer
+                The id values.
+            int, ext : array_like, shape (Nvar, ) of boolean
+                Interior (resp. exterior, i.e. if rho = 0) domain.
+            unq : array_like, shape (Nvar-(Nd-1), ) of integer
+                Unique indices through the domains.
+            }
+
+    """
+    dom = DotDict()
+    Nvar = len(var)
+    disc = True
+    
+    # Domain physical boundaries
+    unq, unq_idx, unq_inv, unq_cnt = np.unique(
+        np.round(var, 15), return_index=True, return_inverse=True, return_counts=True
+    )
+    cnt_mask = unq_cnt > 1
+    dom.bounds = unq[cnt_mask]
+    if len(dom.bounds) == 0 : disc = False
+    
+    # Domain interface indices
+    cnt_idx, = np.nonzero(cnt_mask)
+    idx_mask = np.in1d(unq_inv, cnt_idx)
+    idx_idx, = np.nonzero(idx_mask)
+    srt_idx  = np.argsort(unq_inv[idx_mask])
+    dom.interfaces = np.split(
+        idx_idx[srt_idx], np.cumsum(unq_cnt[cnt_mask])[:-1]
+    )
+    if disc : dom.end, dom.beg = np.array(dom.interfaces).T
+    
+    # Domain ranges and sizes
+    dom.unq    = unq_idx
+    dom.Nd     = len(dom.bounds) + 1
+    if disc :
+        dom.edges  = np.array((0, ) + tuple(dom.beg) + (Nvar, ))
+    else :
+        dom.edges  = np.array((0, Nvar, ))
+    dom.ranges = list(map(range, dom.edges[:-1], dom.edges[1:]))
+    dom.sizes  = list(map(len, dom.ranges))
+
+    # Domain indentification
+    dom.id      = np.hstack([d*np.ones(S) for d, S in enumerate(dom.sizes)])
+    dom.id_val  = np.unique(dom.id)
+    dom.ext     = dom.id == dom.Nd - 1
+    dom.int     = np.invert(dom.ext)
+    dom.unq_int = np.unique(var[dom.int], return_index=True)[1]
+    
+    return dom
 
 def Legendre_coupling(f, L, der=(0, 0)) :
     """
@@ -668,8 +789,8 @@ def plot_f_map(
     else : 
         fig, ax = add_to_fig
     norm = None
-    if np.nanmin(f2D) * np.nanmax(f2D) < 0.0 : 
-        cmap, norm = cm.RdBu, mcl.CenteredNorm()
+    if (cmap is cm.Blues)&(np.nanmin(f2D) * np.nanmax(f2D) < 0.0) : 
+        cmap, norm = cm.RdBu_r, mcl.CenteredNorm()
     
     # Right side
     csr = ax.contourf(

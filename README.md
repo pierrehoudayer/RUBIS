@@ -289,10 +289,10 @@ However, make sure that these variables are invariant on the isopotentials durin
 ### Current development
 - [x] Implement a function for computing the gravitational moments from the deformed model.
 - [x] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
-- [ ] Improve the density interpolation in the spherical method.
-- [ ] Implement the Viriel test. ⇨ `v0.2.0` (*Diagnostics*)
-- [ ] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).   
-- [ ] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
+- [x] Improve the density interpolation in the spherical method.
+- [x] Implement the Viriel test. ⇨ `v0.2.0` (*Diagnostics*)
+- [x] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).   
+- [x] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
 - [ ] Improve the conditioning of Poisson's matrix in the spheroidal method 
 - [ ] Add the global user interface `RUBIS.py`.   ⇨ `v1.0.0`
 

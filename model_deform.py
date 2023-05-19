@@ -9,24 +9,21 @@ Created on Fri Sep 23 18:36:42 2022
 #%% Modules cell
 
 import time
-import matplotlib.pyplot as plt
-import numpy             as np
-import scipy.sparse      as sps
-from matplotlib             import rc
-from matplotlib.collections import LineCollection
-from pylab                  import cm 
+import numpy        as np
+import scipy.sparse as sps
 from scipy.interpolate      import CubicHermiteSpline
-from scipy.linalg.lapack    import dgbsv
+from scipy.linalg.lapack    import dgbtrf, dgbtrs
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
 from low_level              import (
     integrate, 
     interpolate_func, 
+    find_r_eq,
+    find_r_pol,
     pl_eval_2D,
     pl_project_2D,
     lagrange_matrix_P,
-    app_list,
     plot_f_map
 )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
@@ -85,8 +82,6 @@ def set_params() :
         should be enough to ensure convergence (in the solid rotation case!).
     mapping_precision : float
         Precision target for the convergence criterion on the mapping.
-    newton_precision : float
-        Precision target for Newton's method.
     lagrange_order : integer
         Choice of Lagrange polynomial order in integration / interpolation
         routines. 
@@ -103,23 +98,22 @@ def set_params() :
     """
     #### MODEL CHOICE ####
     # model_choice = "1Dmodel_1.97187607_G1.txt"     
-    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=4000)
+    model_choice = DotDict(index=3.0, surface_pressure=0.0, R=1.0, M=1.0, res=1000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
     # rotation_target = 0.089195487 ** 0.5
-    rotation_target = 0.80
-    central_diff_rate = 0.5
-    rotation_scale = 1.0
+    rotation_target = 0.9
+    central_diff_rate = 5.0
+    rotation_scale = 0.4
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 101
     full_rate = 1
     mapping_precision = 1e-10
-    newton_precision = 1e-11
-    lagrange_order = 2
-    spline_order = 3
+    lagrange_order = 3
+    spline_order = 5
     
     #### OUTPUT PARAMETERS ####
     plot_resolution = 501
@@ -128,7 +122,7 @@ def set_params() :
     return (
         model_choice, rotation_target, full_rate, rotation_profile,
         central_diff_rate, rotation_scale, mapping_precision, 
-        newton_precision, spline_order, lagrange_order, max_degree, 
+        spline_order, lagrange_order, max_degree, 
         angular_resolution, plot_resolution, save_name
     )
 
@@ -252,56 +246,28 @@ def init_2D() :
 
 def init_phi_c() : 
     """
-    Defines the function used to compute the centrifugal potential
-    with the adequate arguments.
+    Defines the functions used to compute the centrifugal potential
+    and the rotation profile with the adequate arguments.
 
     Returns
     -------
     phi_c : function(r, cth, omega)
         Centrifugal potential
+    w : function(r, cth, omega)
+        Rotation profile
 
     """
     nb_args = PROFILE.__code__.co_argcount - len(PROFILE.__defaults__ or '')
     mask = np.array([0, 1]) < nb_args - 3
-    args = np.array([ALPHA, SCALE])[mask]
-    phi_c = lambda r, cth, omega : PROFILE(r, cth, omega, *args)
-    return phi_c
-
-def find_r_eq(map_n) :
-    """
-    Function to find the equatorial radius from the mapping.
-
-    Parameters
-    ----------
-    map_n : array_like, shape (N, M)
-        Isopotential mapping.
-
-    Returns
-    -------
-    r_eq : float
-        Equatorial radius.
-
-    """
-    surf_l = pl_project_2D(map_n[-1], L)
-    return pl_eval_2D(surf_l, 0.0)
-
-def find_r_pol(map_n) :
-    """
-    Function to find the polar radius from the mapping.
-
-    Parameters
-    ----------
-    map_n : array_like, shape (N, M)
-        Isopotential mapping.
-
-    Returns
-    -------
-    r_eq : float
-        Equatorial radius.
-
-    """
-    surf_l = pl_project_2D(map_n[-1], L)
-    return pl_eval_2D(surf_l, 1.0)
+    
+    # Creation of the centrifugal potential function
+    args_phi = np.array([ALPHA, SCALE])[mask]
+    phi_c = lambda r, cth, omega : PROFILE(r, cth, omega, *args_phi)
+    
+    # Creation of the rotation profile function
+    args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
+    w = lambda r, cth, omega : PROFILE(r, cth, omega, *args_w)
+    return phi_c, w
     
 def find_mass(map_n, rho_n) :
     """
@@ -327,55 +293,6 @@ def find_mass(map_n, rho_n) :
     
     # Integration over the angular domain
     mass_tot = 2*np.pi * mass_ang @ weights    
-    
-    #### TESTS #####
-    
-    # import probnum as pn
-    # lengthscales = np.logspace(-4, 0, 10)
-    # prec = []
-    # for l in lengthscales :
-    #     mass_ang = [
-    #         pn.quad.bayesquad_from_data(
-    #             nodes=rk[:, None], 
-    #             fun_evals=rho_n * rk**2, 
-    #             kernel=pn.randprocs.kernels.ExpQuad(
-    #                 input_shape=1, 
-    #                 lengthscales=l
-    #             ),
-    #             domain=(0, rk[-1])
-    #         )[0] for rk in map_n.T
-    #     ]
-    #     extract_moments = lambda rv : (rv.mean, rv.var)
-    #     means, vars = np.array(list(map(extract_moments, mass_ang))).T
-    #     mass_ang_rv = pn.randvars.Normal(means, np.diag(vars))
-    #     mass_rv = 2*np.pi * mass_ang_rv @ weights
-    #     prec.append(1.0 - mass_rv.mean)
-    # plt.scatter(lengthscales, prec, s=5)
-    # plt.xscale('log')
-    # plt.yscale('log')
-    # plt.show()
-    
-    # mass_ang = np.array(
-    #     [quad(interpolate_func(rk, rho_n * rk**2, der=0), [0.0, rk[-1]]) for rk in map_n.T]
-    # )
-    # for k in range(1, 6) :
-    #     prec = []
-    #     orders = np.arange(1,101)
-    #     for o in orders : 
-    #         mass_ang = np.array(
-    #             [GaussQuadrature(rk, rho_n * rk**2, order=o, k=k) for rk in map_n.T]
-    #         )
-    #         # Integration of the angular domain
-    #         mass_tot = 2*np.pi * mass_ang @ weights    
-    #         prec.append(abs(1.0 - mass_tot))
-    #     plt.scatter(orders, prec, s=5)
-    #     mass_ang = np.array(
-    #            [integrate(rk, rho_n * rk**2, k=k) for rk in map_n.T]
-    #     )
-    #     mass_tot = 2*np.pi * mass_ang @ weights  
-    #     plt.plot(orders, abs(1.0 - mass_tot)*np.ones_like(orders), lw=1.0) 
-    # plt.yscale('log')
-    # plt.show()
     
     return mass_tot
 
@@ -456,15 +373,16 @@ def find_rho_l(map_n, rho_n) :
 
     """
     # Density interpolation on the mapping
+    safety_constant = 1e-15
     all_k   = np.arange((M+1)//2)
-    log_rho = np.log(rho_n)
+    log_rho = np.log(rho_n + safety_constant)
     rho2D   = np.zeros((N, M))
     for k in all_k :
-        inside = r < map_n[-1, k]
+        inside =  r < map_n[-1, k]
         rho2D[inside, k] = interpolate_func(
             x=map_n[:, k], y=log_rho, k=KSPL
         )(r[inside])
-        rho2D[inside, 0+k] = np.exp(rho2D[inside, k])
+        rho2D[inside, k] = np.exp(rho2D[inside, k]) - safety_constant
     rho2D[:,-1-all_k] = rho2D[:, all_k]
     
     # Corresponding harmonic decomposition
@@ -524,7 +442,7 @@ def filling_ab(ab, ku, kl, l) :
     return ab
     
     
-def find_phi_eff(map_n, rho_n, phi_eff=None) :
+def find_phi_eff(map_n, rho_n, phi_eff=None, lub_l=None) :
     """
     Determination of the effective potential from a given mapping
     (map_n, which gives the lines of constant density), and a given 
@@ -543,6 +461,13 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
         If given, the current effective potential on each 
         equipotential. If not given, it will be calculated inside
         this fonction. The default is None.
+    lub_l : list (size: Nl) of tuples (size: 2), optional
+        Each element of the list contains contains the LU
+        decomposition of Poisson's matrix (first tuple element)
+        and the corresponding pivot indices (second tuple element)
+        to solve Poisson's equation at a diven degree l. The 
+        routine therefore fully exploit the invariance of Poisson's 
+        matrix by computing those two elements once and for all.
 
     Raises
     ------
@@ -553,10 +478,14 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
     -------
     phi_g_l : array_like, shape (N, L)
         Gravitation potential harmonics.
+    dphi_g_l : array_like, shape (N, L)
+        Gravitation potential harmonics derivative with respect to r^2.
     phi_eff : array_like, shape (N, )
         Effective potential on each equipotential.
     dphi_eff : array_like, shape (N, ), optional
         Effective potential derivative with respect to r^2.
+    lub_l : list (size: Nl) of tuples (size: 2), optional
+        Cf. parameters
 
     """    
     # Density distribution harmonics
@@ -573,140 +502,45 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
     # Band matrix storage
     kl = 2*KLAG
     ku = 2*KLAG
-    ab = np.zeros((2*kl + ku + 1, 2*N))    
-    
-    for k in range(Nl) :
-        l = 2*k
-        
-        # Matrix filling  
-        ab = filling_ab(ab, ku, kl, l)
-        
-        # Matrix inversion (LAPACK)
-        lub, piv, x, info = dgbsv(kl, ku, ab, bl[:, k])
-        if info != 0 : 
-            raise ValueError(
-                "Problem with finding the gravitational potential. \n",
-                "Info = ", info
-                )
-            
-        # Poisson's equation solution
-        phi_g_l[: , l] = x[1::2]
-        dphi_g_l[:, l] = x[0::2] * (2*r)  # <- The equation is solved on r^2
+    ab = np.zeros((2*kl + ku + 1, 2*N))   
     
     if phi_eff is None :
+        lub_l = []
+        for l in range(0, L, 2) :
+            # Matrix filling  
+            ab = filling_ab(ab, ku, kl, l)
+            
+            # LU decomposition (LAPACK)
+            lub_l.append(dgbtrf(ab, ku, kl)[:-1])
+            
+    # System solving (LAPACK)
+    x = np.array([
+        dgbtrs(lub_l[k][0], kl, ku, bl[:, k], lub_l[k][1])[0] for k in range(Nl)
+    ]).T
         
+    # Poisson's equation solution
+    phi_g_l[: , ::2] = x[1::2]
+    dphi_g_l[:, ::2] = x[0::2] * (2*r[:, None])  # <- The equation is solved on r^2
+    
+    if phi_eff is None :
         # First estimate of the effective potential and its derivative
         phi_eff  = pl_eval_2D( phi_g_l, 0.0)
         dphi_eff = pl_eval_2D(dphi_g_l, 0.0)        
-        return phi_g_l, dphi_g_l, phi_eff, dphi_eff
+        return phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l
     
     # The effective potential is known to an additive constant 
     C = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
     phi_eff += C
     return phi_g_l, dphi_g_l, phi_eff
-    
-
-def find_centrifugal_potential(r, cth, omega, dim=False) :
-    """
-    Determination of the centrifugal potential and its 
-    derivative in the case of a cylindric rotation profile 
-    (caracterised by ALPHA). The option dim = True allows a
-    computation taking into account the future renormalisation
-    (in this case r_eq != 1 but r_eq = R_eq / R).
-
-    Parameters
-    ----------
-    r : float or array_like, shape (Nr, )
-        Radial value(s).
-    cth : float or array_like, shape (Nr, )
-        Value(s) of cos(theta).
-    omega : float
-        Rotation rate.
-    dim : boolean, optional
-        Set to true for the omega computation. 
-        The default is False.
-
-    Returns
-    -------
-    phi_c : float or array_like, shape (Nr, )
-        Centrifugal potential.
-    dphi_c : float or array_like, shape (Nr, )
-        Centrifugal potential derivative with respect to r.
-
-    """
-    phi_c, dphi_c = eval_phi_c(r, cth, omega)
-    if dim :
-        return phi_c / r**3, (r*dphi_c - 3*phi_c) / r**4
-    else :
-        return phi_c, dphi_c
 
 
-def estimate_omega(phi_g, phi_g_l_surf, target, omega) :
-    """
-    Estimates the adequate rotation rate so that it reaches ROT
-    after normalisation. Considerably speed-up (and stabilises)
-    the overall convergence.
-
-    Parameters
-    ----------
-    phi_g : function(r_eval)
-        Gravitational potential along the equatorial cut.
-    phi_g_l_surf : array_like, shape (L, )
-        Gravitation potential harmonics on the surface.
-    target : float
-        Value to reach for the effective potential.
-    omega_n : float
-        Current rotation rate.
-
-    Returns
-    -------
-    omega_n_new : float
-        New rotation rate.
-
-    """    
-    # Searching for a new omega
-    l    = np.arange(L)
-    dr    = 1.0
-    r_est = 1.0
-    while abs(dr) > DELTA : 
-        # Star's exterior
-        if r_est >= r[-1] :
-            phi_g_l_ext  = phi_g_l_surf * (1.0/r_est)**(l+1)
-            dphi_g_l_ext = -(l+1) * phi_g_l_ext / r_est
-            phi_g_est  = pl_eval_2D( phi_g_l_ext, 0.0)
-            dphi_g_est = pl_eval_2D(dphi_g_l_ext, 0.0)
-            
-        # Star's interior
-        else :
-            phi_g_est  = phi_g(r_est, nu=0)
-            dphi_g_est = phi_g(r_est, nu=1)
-        
-        # Centrifugal potential 
-        phi_c_est, dphi_c_est = find_centrifugal_potential(
-            r_est, 0.0, omega_n, dim=True
-        )
-        
-        # Total potential
-        phi_t_est  =  phi_g_est +  phi_c_est
-        dphi_t_est = dphi_g_est + dphi_c_est
-        
-        # Update r_est
-        dr = (target - phi_t_est) / dphi_t_est
-        r_est += dr
-        
-    # Updating omega
-    omega_n_new = omega_n * r_est**(-1.5)
-    return omega_n_new
-
-def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
+def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
     """
     Find the new mapping by comparing the effective potential
     and the total potential (calculated from phi_g_l and omega_n).
 
     Parameters
     ----------
-    map_n : array_like, shape (N, M)
-        Current mapping.
     omega_n : float
         Current rotation rate.
     phi_g_l : array_like, shape (N, L)
@@ -723,96 +557,126 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     omega_n_new : float
         Updated rotation rate.
 
-    """
+    """    
+    # 2D gravitational potential (interior)
+    up = np.arange((M+1)//2)
+    phi2D_g_int  = pl_eval_2D( phi_g_l, cth[up])
+    dphi2D_g_int = pl_eval_2D(dphi_g_l, cth[up])
+    
+    # 2D gravitational potential (exterior)
+    l = np.arange(L)
+    outside = 1.3        # Some guess
+    r_ext = np.linspace(1.0, outside, 101)[1:]
+    phi_g_l_ext  = phi_g_l[-1] * (r_ext[:, None])**-(l+1)
+    dphi_g_l_ext = -(l+1) * phi_g_l_ext / r_ext[:, None]
+    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, cth[up])
+    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, cth[up])
+    
     # 2D gravitational potential
-    phi2D_g =  pl_eval_2D( phi_g_l, cth)
-    dphi2D_g = pl_eval_2D(dphi_g_l, cth)
+    r_tot = np.hstack((r, r_ext))
+    phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
+    dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
         
-    # Gravitational potential interpolation
-    l, up = np.arange(L), np.arange((M+1)//2)
-    phi_g_func = [CubicHermiteSpline(
-        x=r, y=phi2D_g[:, k], dydx=dphi2D_g[:, k]
-    ) for k in up]
-    
     # Find a new value for ROT
-    target = phi_eff[N-1] - pl_eval_2D(phi_g_l[0], 0.0) + phi_eff[0]
-    omega_n_new = estimate_omega(phi_g_func[-1], phi_g_l[-1], target, omega_n)
+    valid_r = r_tot > 0.5
+    phi1D_c = eval_phi_c(r_tot[valid_r], 0.0, omega_n)[0] / r_tot[valid_r] ** 3
+    phi1D  =  phi2D_g[valid_r, (M-1)//2] + phi1D_c
+    r_est = interpolate_func(x=phi1D, y=r_tot[valid_r], k=KSPL)(phi_eff[-1])
+    omega_n_new = omega_n * r_est**(-1.5)
     
-    # Find the mapping
-    map_est = np.copy(map_n[:, up])
-    idx = np.indices(map_est.shape)
-    dr = np.ones_like(map_n[:, up])
-    dr[0] = 0.0        
+    # Centrifugal potential
+    phi2D_c, dphi2D_c = np.moveaxis(np.array([
+        eval_phi_c(r_tot , ck, omega_n_new) for ck in cth[up]
+    ]), (0, 1, 2), (2, 0, 1))
     
-    while np.any(np.abs(dr) > DELTA) :
-        
-        # Star's interior
-        C_int = (np.abs(dr) > DELTA) & (map_est <  1.0)
-        r_int = map_est[C_int]
-        k_int = idx[1,  C_int]
-        
-        if 0 not in k_int.shape :
-            
-            # Gravitational potential
-            inv_sort = np.argsort(app_list(np.arange(len(k_int)), k_int))
-            phi_g_int  = np.array(
-                (app_list(r_int, k_int, phi_g_func        ),
-                 app_list(r_int, k_int, phi_g_func, (1,)*M))
-            )[:, inv_sort]
-            
-            # Centrifugal potential
-            phi_c_int = np.array(
-                find_centrifugal_potential(r_int, cth[k_int], omega_n_new)
-            )
-            
-            # Total potential
-            phi_t_int =  phi_g_int +  phi_c_int
-            
-            # Update map_est
-            dr[C_int] = (phi_eff[idx[0, C_int]] - phi_t_int[0]) / phi_t_int[1]
-            map_est[C_int] += dr[C_int]
-            
-        # Star's exterior
-        C_ext = (np.abs(dr) > DELTA) & (map_est >=  1.0)
-        r_ext = map_est[C_ext]
-        k_ext = idx[1,  C_ext]
-        
-        if 0 not in k_ext.shape :
-            
-            # Gravitational potential
-            phi_g_l_ext  = phi_g_l[-1] * (r_ext[:, None])**-(l+1)
-            dphi_g_l_ext = -(l+1) * phi_g_l_ext / r_ext[:, None]
-            inv_sort = np.argsort(app_list(np.arange(len(k_ext)), k_ext))
-            phi_g_ext  = np.vstack(
-                [app_list(harms, k_ext, pl_eval_2D, cth)
-                 for harms in (phi_g_l_ext, dphi_g_l_ext)]
-                )[:, inv_sort]
-            
-            # Centrifugal potential
-            phi_c_ext = np.array(
-                find_centrifugal_potential(r_ext, cth[k_ext], omega_n_new)
-            )
-            
-            # Total potential
-            phi_t_ext =  phi_g_ext +  phi_c_ext
-            
-            # Update map_est
-            dr[C_ext] = (phi_eff[idx[0, C_ext]] - phi_t_ext[0]) / phi_t_ext[1]
-            map_est[C_ext] += dr[C_ext]
+    # Total potential
+    phi2D  =  phi2D_g +  phi2D_c
+    dphi2D = dphi2D_g + dphi2D_c
+    
+    # Finding the valid interpolation domain
+    phi_valid = np.ones_like(phi2D, dtype='bool')
+    for k, dpk in enumerate(dphi2D.T) :
+        if np.any(dpk < 0.0) :
+            idx_max = np.min(np.argwhere((dpk < 0.0)&(r_tot > 0.0)))
+            phi_valid[:, k] = np.arange(len(r_tot)) < idx_max
+    
+    # Central domain
+    lim = 5e-2
+    center = np.max(np.argwhere(r_tot < lim)) + 1
+    r_cnt = np.linspace(0.0, 1.0, 5*center) ** 2 * lim
+    phi2D_g_cnt = np.array([CubicHermiteSpline(
+        x=r, y=phi2D_g_int[:, k], dydx=dphi2D_g_int[:, k]
+    )(r_cnt) for k in up]).T
+    phi2D_c_cnt = np.array([
+        eval_phi_c(r_cnt , ck, omega_n_new)[0] for ck in cth[up]
+    ]).T
+    phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
+    
+    # Estimate at target values
+    map_est = np.vstack((
+        np.zeros_like(up), 
+        np.array([
+            interpolate_func(x=pk, y=r_cnt, k=KSPL)(phi_eff[1:center]) 
+            for pk in phi2D_cnt.T
+        ]).T,
+        np.array([
+            interpolate_func(x=pk[valid_k], y=r_tot[valid_k], k=KSPL)(phi_eff[center:]) 
+            for pk, valid_k in zip(phi2D.T, phi_valid.T)
+        ]).T
+    ))
             
     # New mapping
     map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
         
     return map_n_new, omega_n_new
 
+
+def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) : 
+    # Potential energy
+    volumic_potential_energy = lambda rk, ck : (  
+       rho_n * (phi_eff-eval_phi_c(rk, ck, omega_n)[0])
+    )
+    potential_energy = 2*np.pi * (
+        np.array([
+            integrate(rk, volumic_potential_energy(rk, ck) * rk**2, k=5) 
+            for rk, ck in zip(map_n.T, cth)
+        ])
+    ) @ weights
     
+    # Kinetic energy
+    volumic_kinetic_energy = lambda rk, ck : (  
+       0.5 * rho_n * (1-ck**2) * rk**2 * eval_w(rk, ck, omega_n)**2
+    )
+    kinetic_energy = 2*np.pi * (
+        np.array([
+            integrate(rk, volumic_kinetic_energy(rk, ck) * rk**2, k=5) 
+            for rk, ck in zip(map_n.T, cth)
+        ])
+    ) @ weights
+    
+    # Internal energy
+    internal_energy = 2*np.pi * (
+        np.array([integrate(rk, P * rk**2, k=5) for rk in map_n.T])
+    ) @ weights
+    
+    # Compute the virial equation
+    if verbose :
+        print(f"Kinetic energy  : {kinetic_energy:+7.5f}")
+        print(f"Internal energy : {internal_energy:+7.5f}")
+        print(f"Potential energy: {potential_energy:+7.5f}")
+    virial = ( 
+          (2*kinetic_energy + 0.5*potential_energy + 3*internal_energy)
+        / (2*kinetic_energy - 0.5*potential_energy + 3*internal_energy)
+    )
+    return virial
+
 def write_model(fname, map_n, *args) : 
     """
     Saves the deformed model in the file named fname. The resulting 
     table has dimension (N, M+N_args+N_var) where the last N_var columns
     contains the additional variables given by the user (the lattest
     are left unchanged during the whole deformation). The dimensions N & M,
-    as well as the global paramaeters mass, radius, ROT, G
+    as well as the global paramaters mass, radius, ROT, G
     are written on the first line.
 
     Parameters
@@ -831,130 +695,6 @@ def write_model(fname, map_n, *args) :
         comments=''
     )
     
-#%% Metric terms (not useful for the actual resolution)
-
-def find_metric_terms(map_n) : 
-    """
-    Finds the metric terms, i.e the derivatives of r(z, t) 
-    with respect to z or t (with z := zeta and t := cos(theta)).
-
-    Parameters
-    ----------
-    map_n : array_like, shape (N, M)
-        Isopotential mapping.
-
-    Returns
-    -------
-    dr : DotDict instance
-        The mapping derivatives : {
-            _   = r(z, t),
-            t   = r_t(z, t),
-            tt  = r_tt(z, t),
-            z   = r_z(z, t),
-            zt  = r_zt(z, t),
-            ztt = r_ztt(z, t),
-            zz  = r_zz(z, t),
-            S   = \Delta_S r(z, t)
-            }          
-    """
-    dr = DotDict()
-    dr._ = map_n
-    map_l = pl_project_2D(dr._, L)
-    _, dr.t, dr.tt = pl_eval_2D(map_l, cth, der=2)
-    dr.z = np.array(
-        [interpolate_func(zeta, rk, der=1, k=KSPL)(zeta) for rk in map_n.T]
-    ).T 
-    map_l_z = pl_project_2D(dr.z, L)
-    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
-    dr.zz = np.array(
-        [interpolate_func(zeta, rk, der=2, k=KSPL)(zeta) for rk in map_n.T]
-    ).T 
-    dr.S = (1-cth**2) * dr.tt - 2*cth * dr.t
-    return dr
-
-def add_advanced_metric_terms(dr) : 
-    """
-    Finds the more advanced metric terms, useful in very specific cases.
-
-    Parameters
-    ----------
-    dr : DotDict instance
-        The object containing the mapping derivatives.
-
-    Returns
-    -------
-    dr : DotDict instance
-        Same object but enhanced with the following terms : {
-            c2 = cos(b^z, b_z) ** 2 : 
-                squared cosinus between the covariant and 
-                contravariant zeta vectors in the natural basis.
-            cs = cos(b^z, b_z) * sin(b^z, b_z) :
-                cosinus by sinus of the same angle.
-                /!\ The orientation of this angle has been chosen
-                    to be the same as theta (i.e. inverse trigonometric)
-            gzz : zeta/zeta covariant metric term.
-            gzt : zeta/theta covariant metric term.
-            gtt : theta/theta covariant metric term.
-            gg = gzt / gzz : 
-                covariant ratio
-            divz = div(b^z) : 
-                divergence of the zeta covariant vector
-            divt = div(b^t) : 
-                divergence of the theta covariant vector
-            divrelz = div(b^z) / gzz : 
-                relative divergence of the zeta covariant vector
-            divrelt = div(b^t) / gtt : 
-                relative divergence of the theta covariant vector
-            }          
-    """
-    # Trigonometric terms
-    with np.errstate(all='ignore'):
-        dr.c2 = np.where(
-            dr._ == 0.0, 1.0, dr._ ** 2 / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
-        )
-        dr.cs = np.where(
-            dr._ == 0.0, 0.0, 
-            (1-cth**2) ** 0.5 * dr._ * dr.t / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
-        )
-        
-    # Covariant metric terms
-    dr.gzz = 1.0 / (dr.z ** 2 * dr.c2)
-    with np.errstate(all='ignore'):
-        dr.gzt = np.where(
-            dr._ == 0.0, np.nan, (1-cth**2) ** 0.5 * dr.t / (dr.z * dr._ ** 2)
-        )
-        dr.gtt = np.where(
-            dr._ == 0.0, np.nan, dr._ ** (-2)
-        )
-        dr.gg  = np.where(
-            dr._ == 0.0, np.nan, - dr.z * dr.cs / dr._ 
-        )
-    
-    # Divergence
-    with np.errstate(all='ignore'):
-        dr.divz = (
-            np.where(
-                dr._ == 0.0, np.nan, 
-                (2 * dr._ + 2 * dr.t * dr.zt / dr.z - dr.S) / (dr.z * dr._ ** 2)
-            )   
-            - dr.gzz * dr.zz / dr.z
-        )
-    dr.divt = cth * dr.gtt / (1-cth**2) ** 0.5
-    
-    # Relative divergence
-    with np.errstate(all='ignore'):
-        dr.divrelz = (
-            np.where(
-                dr._ == 0.0, np.nan, 
-                  (2 * dr._ + 2 * dr.t * dr.zt / dr.z - dr.S) 
-                / (dr._ ** 2 + (1-cth**2) * dr.t ** 2)
-            ) * dr.z
-            - dr.zz / dr.z
-        )
-    dr.divrelt = cth / (1-cth**2) ** 0.5 * np.ones_like(dr._)
-    return dr
-
-
 #%% Main cell
 
 if __name__ == '__main__' :
@@ -962,7 +702,7 @@ if __name__ == '__main__' :
     start = time.perf_counter()
     
     # Definition of global parameters
-    MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, DELTA, KSPL, \
+    MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, KSPL, \
         KLAG, L, M, RES, SAVE = set_params() 
     G = 6.67384e-8     # <- value of the gravitational constant
         
@@ -973,7 +713,7 @@ if __name__ == '__main__' :
     cth, weights, map_n      = init_2D()
     
     # Centrifugal potential definition
-    eval_phi_c = init_phi_c()
+    eval_phi_c, eval_w = init_phi_c()
     
     # Find the lagrange matrix
     lag_mat = lagrange_matrix_P(r**2, order=KLAG)
@@ -986,15 +726,20 @@ if __name__ == '__main__' :
     )
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(map_n, rho_n)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(map_n, rho_n)
     
     # Find pressure
     P = find_pressure(rho_n, dphi_eff)
     
     # Iterative centrifugal deformation
     surfaces = [map_n[-1]]
-    r_pol = [0.0, find_r_pol(map_n)]
+    r_pol = [0.0, find_r_pol(map_n, L)]
     n = 1
+    print(
+        "\n+---------------------+",
+        "\n| Deformation started |", 
+        "\n+---------------------+\n"
+    )
     
     # SAVE
     phi_g_l_rad  = [phi_g_l]
@@ -1010,18 +755,22 @@ if __name__ == '__main__' :
         omega_n = min(ROT, (n/FULL) * ROT)
         
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(map_n, rho_n, phi_eff)
-        
+        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(map_n, rho_n, phi_eff, lub_l)
+    
         # SAVE
         phi_g_l_rad.append(phi_g_l)
         dphi_g_l_rad.append(dphi_g_l)
         phi_eff_rad.append(np.copy(phi_eff))
 
         # Update the mapping
-        map_n, omega_n = find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff)
+        map_n, omega_n = find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff)
 
+        # SAVE
+        map_n_rad.append(map_n)
+        omega_n_rad.append(omega_n)
+        
         # Renormalisation
-        r_corr    = find_r_eq(map_n)
+        r_corr    = find_r_eq(map_n, L)
         m_corr    = find_mass(map_n, rho_n)
         radius   *= r_corr
         mass     *= m_corr
@@ -1033,35 +782,55 @@ if __name__ == '__main__' :
         
         # Update the surface and polar radius
         surfaces.append(map_n[-1])
-        r_pol.append(find_r_pol(map_n))
-        
-        # SAVE
-        map_n_rad.append(map_n)
-        omega_n_rad.append(omega_n)
+        r_pol.append(find_r_pol(map_n, L))
         
         # Iteration count
         DEC = int(-np.log10(EPS))
-        print(f"Iteration n°{n}, R_pol = {r_pol[-1].round(DEC)}")
+        print(f"Iteration n°{n:02d}, R_pol = {r_pol[-1].round(DEC)}")
         n += 1
     
+    # Deformation summary
     finish = time.perf_counter()
-    print(f'Deformation done in {round(finish-start, 4)} sec')   
+    print(
+        "\n+------------------+",
+        "\n| Deformation done |", 
+        "\n+------------------+\n"
+    )
+    print(f'Time taken: {round(finish-start, 2)} secs')  
+    estimated_prec = np.max(np.abs(phi_g_l[:, -1]/phi_g_l[:, 0]))
+    print(f"Estimated error on Poisson's equation: {round(estimated_prec, 16)}")   
+    virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)
+    print(f"Virial theorem verified at {round(virial, 16)}")   
     
     # Plot mapping
-    # plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
-        
-    # Compute the rotation profile 
-    # eval_w = la_bidouille('rota_eq.txt', smoothing=1e-5, return_profile=True)
-    # w_eq, dw_eq = eval_w(map_n[:, (M-1)//2], 0.0, ROT)
+    plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
     
-    # Model scaling
+    # # Some diagnostics
+    # from utils import phi_g_harmonics, check_interpolation
+    # step = n-1
+    # phi_g_harmonics(r, phi_g_l_rad[step], r_pol[step])
+    # check_interpolation(r, map_n_rad[step], rho_n)
+    
+    # # Gravitational moments
+    # max_degree = 20
+    # moments = find_gravitational_moments(map_n, rho_n, max_degree)
+    # print(
+    #     "\n+-----------------------+",
+    #     "\n| Gravitational moments |", 
+    #     "\n+-----------------------+\n"
+    # )
+    # for i, m in enumerate(moments):
+    #     print("Moment n°{:2d} : {:.10e}".format(2*i, m))
+        
+    # # Model scaling
     # map_n    *=               radius
     # rho_n    *=     mass    / radius**3
     # phi_eff  *= G * mass    / radius   
     # dphi_eff *= G * mass    / radius**2
     # P        *= G * mass**2 / radius**4
     
-    # Model writing
-    # write_model(SAVE, map_n, r, P, rho_n, phi_eff, w_eq, dw_eq)
+    # # Model writing
+    # write_model(SAVE, map_n, r, P, rho_n, phi_eff)
+    
     
         
