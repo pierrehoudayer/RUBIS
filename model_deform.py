@@ -105,12 +105,12 @@ def set_params() :
     # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
     # rotation_target = 0.089195487 ** 0.5
     rotation_target = 0.9
-    central_diff_rate = 5.0
-    rotation_scale = 0.4
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 101
-    full_rate = 1
+    full_rate = 3
     mapping_precision = 1e-10
     lagrange_order = 3
     spline_order = 5
@@ -468,6 +468,7 @@ def find_phi_eff(map_n, rho_n, phi_eff=None, lub_l=None) :
         to solve Poisson's equation at a diven degree l. The 
         routine therefore fully exploit the invariance of Poisson's 
         matrix by computing those two elements once and for all.
+        The default is None.
 
     Raises
     ------
@@ -632,6 +633,33 @@ def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
 
 
 def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) : 
+    """
+    Compute the Virial equation and gives the resukt as a diagnostic
+    for how well the hydrostatic equilibrium is satisfied (the closer
+    to zero, the better).
+    
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Mapping
+    rho_n : array_like, shape (N, )
+        Density on each equipotential.
+    omega_n : float
+        Rotation rate.
+    phi_eff : array_like, shape (N, )
+        Effective potential on each equipotential.
+    P : array_like, shape (N, )
+        Pressure on each equipotential.
+    verbose : bool
+        Whether to print the individual energy values or not.
+        The default is None.
+
+    Returns
+    -------
+    virial : float
+        Value of the normalised Virial equation.
+
+    """    
     # Potential energy
     volumic_potential_energy = lambda rk, ck : (  
        rho_n * (phi_eff-eval_phi_c(rk, ck, omega_n)[0])
