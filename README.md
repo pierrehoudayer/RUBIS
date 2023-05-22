@@ -16,13 +16,16 @@
     <img src="Logo/RUBIS_logo_filtre.png" alt="Logo" width="400">
   </a>
 
-<h3 align="center">Rotation code Using Barotropy conservation over Isopotential Surfaces (RUBIS)</h3>
+<h3 align="center">
+  Rotation code Using Barotropy conservation over Isopotential Surfaces (RUBIS)
+</h3>
 
   <p align="center">
     Fast centrifugal deformation program. Can be applied to both stellar and planetary models.
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs</strong></a>
     <br />
+    <a href="https://github.com/pierrehoudayer/RUBIS/releases/tag/v0.3.0">v0.3.0</a>
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS">View Demo</a>
     ·
