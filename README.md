@@ -365,6 +365,7 @@ Pierre Houdayer -  pierre.houdayer@obspm.fr
 
 [![ORCID][ORCID-shield]][ORCID-url]
 
+
 Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierrehoudayer/RUBIS)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -450,5 +451,5 @@ ACKNOWLEDGMENTS
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
-[ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen?style=flat
+[ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen
 [ORCID-url]: https://orcid.org/0000-0002-1245-9148
