@@ -177,6 +177,62 @@ def integrate(x, y, a=None, b=None, k=3) :
     integral = splint(a, b, tck)
     return integral
 
+def integrate2D(r2D, y, domains=None, k=3) : 
+    """
+    Function computing the integral of f(r, cos(theta)) for fixed 
+    sampled values of y_ij = f(r2D_ij, mu_j) with mu_j the values
+    of cos(theta) evaluated on the Gausse-Legendre nodes. Here r2D
+    depends is generally assumed to be 2 dimensional, allowing the
+    grid to be dependant on the angle.
+
+    Parameters
+    ----------
+    r2D : array_like, shape (N, M)
+        radial values (along the 1st axis) as a function of
+        cos(theta) (along the 2nd axis).
+    y : [array_like, shape (N, ) or (N, M)] or [callable(r, cth, D)]
+        if type == array :
+            y values to integrate and evaluated on r2D. If y is
+            dimensional, it will be assumed to be independent of
+            the angle.
+        if callable(y) :
+            function of r and cos(theta) for each domain (D) 
+            of r2D.
+    domains : tuple of arrays
+        If given, the different domains on which the integration
+        should be carried independently. Useful if y happens to
+        be discontinuous on given r2D[i] lines. 
+        The default is None.
+    k : INT, optional
+        Degree of the B-splines used to compute the integral. 
+        The default is 3.
+
+    Returns
+    -------
+    integral : float
+        Result of the integration.
+
+    """
+    # Definition of Gauss-Legendre nodes
+    N, M = r2D.shape
+    cth, weights = roots_legendre(M)
+    
+    # Integration in given angular directions
+    if domains is None: domains = (np.arange(N), )
+    if callable(y) :
+        radial_integral = np.array([sum(
+            integrate(rk[D], y(rk, ck, D) * rk[D]**2, k=5) for D in domains
+        ) for rk, ck in zip(r2D.T, cth)])
+    else :
+        if len(y.shape) < 2 : y = np.tile(y, (M, 1)).T
+        radial_integral = np.array([sum(
+            integrate(rk[D], yk[D] * rk[D]**2, k=5) for D in domains
+        ) for rk, yk in zip(r2D.T, y.T)])
+    
+    # Integration over the angular domain
+    integral = 2*np.pi * radial_integral @ weights
+    return integral
+
 
 def interpolate_func(x, y, der=0, k=3, prim_cond=None, *args, **kwargs):
     """

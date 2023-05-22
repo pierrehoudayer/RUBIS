@@ -23,6 +23,7 @@ from low_level              import (
     lnxn, 
     del_u_over_v,
     integrate, 
+    integrate2D,
     interpolate_func, 
     find_r_eq,
     find_r_pol,
@@ -122,28 +123,28 @@ def set_params() :
     """
     
     #### MODEL CHOICE ####
-    # model_choice = "Jupiter.txt"   
-    model_choice = DotDict(
-        indices = (1.0, 2.0, 3.0), 
-        target_pressures = (-1.0, -3.0, -np.inf), 
-        density_jumps = (0.5, 0.5),
-        R=1.0, M=1.0, res=1000
-    )
+    model_choice = "Jupiter.txt"   
+    # model_choice = DotDict(
+    #     indices = (1.0, 2.0, 3.0), 
+    #     target_pressures = (-1.0, -3.0, -np.inf), 
+    #     density_jumps = (0.5, 0.5),
+    #     R=1.0, M=1.0, res=1000
+    # )
     # model_choice = DotDict(
     #     indices = 3.0, target_pressures = -np.inf, R=1.0, M=1.0, res=1001
     # )
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.75
+    rotation_target = 0.7
     central_diff_rate = 1.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
+    max_degree = angular_resolution = 51
     full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 2
+    lagrange_order = 3
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
@@ -309,33 +310,7 @@ def init_phi_c() :
     # Creation of the rotation profile function
     args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
     w = lambda r, cth, omega : PROFILE(r, cth, omega, *args_w)
-    return phi_c, w    
-
-def find_mass(map_n, rho_n) :
-    """
-    Find the total mass over the mapping map_n.
-
-    Parameters
-    ----------
-    map_n : array_like, shape (N, M)
-        Isopotential mapping.
-    rho_n : array_like, shape (N, )
-        Density profile (the same in each direction).
-        
-    Returns
-    -------
-    mass_tot : float
-        Total mass integrated of map_n.
-
-    """
-    # Starting by the computation of the mass in each angular direction
-    mass_ang = np.array([sum(
-        integrate(rk[D], rho_n[D] * rk[D]**2, k=5) for D in dom.ranges[:-1]
-    ) for rk in map_n.T])
-    
-    # Integration of the angular domain
-    mass_tot = 2*np.pi * mass_ang @ weights
-    return mass_tot
+    return phi_c, w
 
 
 def find_gravitational_moments(map_n, rho_n, max_degree=14) :
@@ -349,28 +324,24 @@ def find_gravitational_moments(map_n, rho_n, max_degree=14) :
     rho_n : array_like, shape (N, )
         Density profile (the same in each direction).
     max_degree : int, optional
-        Maximum degree for the gravitational moments. The default is 10.
+        Maximum degree for the gravitational moments. The default is 14.
         
     Returns
     -------
-    moments : array_like, shape (max_degree//2 + 1, )
-        All the gravitational moments.
+    None.
 
     """
-    # Degrees list
-    degrees = np.arange(max_degree+1, step=2)
-    
-    # Moments integration in each direction
-    MltD = lambda l, r, D : integrate(r[D], rho_n[D] * r[D]**(l+2), k=5)
-    moments_ang = - np.array(
-        [[sum(MltD(l, rk, D) for D in dom.ranges[:-1]) for rk in map_n.T] for l in degrees]
+    print(
+        "\n+-----------------------+",
+        "\n| Gravitational moments |", 
+        "\n+-----------------------+\n"
     )
-    pl = np.array([eval_legendre(l, cth) for l in degrees])                                                      
-    
-    # Integration over the angular domain
-    moments = 2*np.pi * (moments_ang * pl) @ weights  
-    
-    return moments 
+    for l in range(0, max_degree+1, 2):
+        m_l = integrate2D(
+            map_n, rho_n[:, None] * map_n ** l * eval_legendre(l, cth), 
+            domains=dom.ranges[:-1], k=KSPL
+        )
+        print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
 
 
 def find_pressure(rho, dphi_eff) :
@@ -678,6 +649,66 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
         
     return map_n_new, omega_n_new
 
+def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) : 
+    """
+    Compute the Virial equation and gives the resukt as a diagnostic
+    for how well the hydrostatic equilibrium is satisfied (the closer
+    to zero, the better).
+    
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Mapping
+    rho_n : array_like, shape (N, )
+        Density on each equipotential.
+    omega_n : float
+        Rotation rate.
+    phi_eff : array_like, shape (N, )
+        Effective potential on each equipotential.
+    P : array_like, shape (N, )
+        Pressure on each equipotential.
+    verbose : bool
+        Whether to print the individual energy values or not.
+        The default is None.
+
+    Returns
+    -------
+    virial : float
+        Value of the normalised Virial equation.
+
+    """    
+    # Potential energy
+    volumic_potential_energy = lambda rk, ck, D : (  
+       rho_n[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
+    )
+    potential_energy = integrate2D(
+        map_n, volumic_potential_energy, domains=dom.ranges[:-1], k=KSPL
+    )
+    
+    # Kinetic energy
+    volumic_kinetic_energy = lambda rk, ck, D : (  
+       0.5 * rho_n[D] * (1-ck**2) * rk[D]**2 * eval_w(rk[D], ck, omega_n)**2
+    )
+    kinetic_energy = integrate2D(
+        map_n, volumic_kinetic_energy, domains=dom.ranges[:-1], k=KSPL
+    )
+    
+    # Internal energy
+    internal_energy = integrate2D(
+        map_n, P, domains=dom.ranges[:-1], k=KSPL
+    )
+    
+    # Compute the virial equation
+    if verbose :
+        print(f"Kinetic energy  : {kinetic_energy:+7.5f}")
+        print(f"Internal energy : {internal_energy:+7.5f}")
+        print(f"Potential energy: {potential_energy:+7.5f}")
+    virial = ( 
+          (2*kinetic_energy + 0.5*potential_energy + 3*internal_energy)
+        / (2*kinetic_energy - 0.5*potential_energy + 3*internal_energy)
+    )
+    return virial
+
     
 def write_model(fname, map_n, *args) : 
     """
@@ -965,7 +996,7 @@ if __name__ == '__main__' :
 
         # Renormalisation
         r_corr    = find_r_eq(map_n, L)
-        m_corr    = find_mass(map_n, rho_n)   
+        m_corr    = integrate2D(map_n, rho_n, domains=dom.ranges[:-1])   
         radius   *= r_corr
         mass     *= m_corr
         map_n    /=             r_corr
@@ -996,6 +1027,8 @@ if __name__ == '__main__' :
     print(f'Time taken: {round(finish-start, 2)} secs')  
     estimated_prec = np.max(np.abs(phi_g_l[:, -1]/phi_g_l[:, 0]))
     print(f"Estimated error on Poisson's equation: {round(estimated_prec, 16)}")   
+    virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)
+    print(f"Virial theorem verified at {round(virial, 16)}")   
     
     # Plot mapping
     dr = find_metric_terms(map_n)
@@ -1005,16 +1038,8 @@ if __name__ == '__main__' :
         cmap=cm.viridis_r, disc=dom.end[:-1], n_lines_ext=15
     )
     
-    # # Gravitational moments
-    # max_degree = 20
-    # moments = find_gravitational_moments(map_n, rho_n, max_degree)
-    # print(
-    #     "\n+-----------------------+",
-    #     "\n| Gravitational moments |", 
-    #     "\n+-----------------------+\n"
-    # )
-    # for i, m in enumerate(moments):
-    #     print("Moment n°{:2d} : {:.10e}".format(2*i, m))
+    # Gravitational moments
+    find_gravitational_moments(map_n, rho_n)
     
     # # Model scaling
     # map_n    *=               radius
