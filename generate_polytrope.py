@@ -110,7 +110,7 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     
     return model
 
-def composite_polytrope(indices, target_pressures, density_jumps=None, R=1.0, M=1.0, res=1001) :
+def composite_polytrope(model_parameters) :
     """
     Generate a composite polytrope of given radius and mass.
     The latter is composed of N polytropes, the i-th one having an index n_i = indices[i].
@@ -128,19 +128,21 @@ def composite_polytrope(indices, target_pressures, density_jumps=None, R=1.0, M=
     
     Parameters
     ----------
-    indices : array_like, shape(N, )
-        Each region polytropic index
-    target_pressures : array_like, shape(N, )
-        Normalised interface pressure values (surface included).
-    density_jumps : array_like, shape(N-1, )
-        Density ratios above and below each interface (surface excluded).
-        The default value is None
-    R : float, optional
-        Composite polytrope radius. The default value is 1.0
-    M : float, optional
-        Composite polytrope mass. The default value is 1.0
-    res : int, optional
-        Number of points. The default value is 1001
+    model_parameters : DotDict instance containing: {
+        indices : array_like, shape(N, )
+            Each region polytropic index
+        target_pressures : array_like, shape(N, )
+            Normalised interface pressure values (surface included).
+        density_jumps : array_like, shape(N-1, )
+            Density ratios above and below each interface (surface excluded).
+            The default value is np.ones((number_of_regions-1,))
+        R : float, optional
+            Composite polytrope radius. Set to 1.0 if None
+        M : float, optional
+            Composite polytrope mass. Set to 1.0 if None
+        res : int, optional
+            Number of points. Set to 1001 if None
+    }
         
     Returns
     -------
@@ -156,12 +158,14 @@ def composite_polytrope(indices, target_pressures, density_jumps=None, R=1.0, M=
                 Gravity
         }
     """
-    # Initialisation
-    indices = np.atleast_1d(indices)
+    # Dictionary reading
+    indices           = np.atleast_1d(model_parameters.indices)
     number_of_regions = len(indices)
-    target_pressures = np.hstack((0.0, target_pressures))
-    if density_jumps is None :
-        density_jumps = np.ones((number_of_regions-1,))
+    target_pressures  = np.hstack((0.0, model_parameters.target_pressures))
+    density_jumps     = model_parameters.density_jumps or np.ones((number_of_regions-1,))
+    R                 = model_parameters.R or 1.0
+    M                 = model_parameters.M or 1.0
+    res               = model_parameters.res or 1001
     
     # Solver arguments
     dxi_est = 20.0
@@ -273,12 +277,12 @@ def composite_polytrope(indices, target_pressures, density_jumps=None, R=1.0, M=
 
 if __name__ == '__main__':
     # Model creation
-    # model = composite_polytrope(indices = 1.0, target_pressures = -np.inf)
-    model = composite_polytrope(
+    model_parameters = DotDict(
         indices = (6.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
         target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
         density_jumps = (0.3, 0.2, 1.2, 0.8, 0.2)
     )
+    model = composite_polytrope(model_parameters)
     
     # Find the interfaces
     _, idx = np.unique(model.r, return_index=True)

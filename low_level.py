@@ -761,6 +761,34 @@ def app_list(val, idx, func=lambda x: x, args=None) :
         Func = lambda l: func[l](val[idx == l], args[l])
     return np.hstack(list(map(Func, unq_idx)))
 
+def give_me_a_name(model_choice, rotation_target) : 
+    """
+    Constructs a name for the save file using the model name
+    and the rotation target.
+
+    Parameters
+    ----------
+    model_choice : string or Dotdict instance.
+        File name or composite polytrope caracteristics.
+    rotation_target : float
+        Final rotation rate on the equator.
+
+    Returns
+    -------
+    save_name : string
+        Output file name.
+
+    """
+    radical = (
+        'poly_|' + ''.join(
+            str(np.round(index, 1))+"|" for index in np.atleast_1d(model_choice.indices)
+        )
+        if isinstance(model_choice, DotDict) 
+        else model_choice.split('.txt')[0]
+    )
+    save_name = radical + '_deform_' + str(rotation_target) + '.txt'
+    return save_name
+
 def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",

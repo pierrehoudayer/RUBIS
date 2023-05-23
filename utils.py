@@ -212,7 +212,7 @@ def merge_cmaps(cmap1, cmap2) :
         )
     return get_continuous_cmap(hex_list)
 
-def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None) :
+def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None, show=False, verbose=True) :
     # External domain
     L = phi_g_l.shape[1]
     outside = 1.3        # Some guess
@@ -235,20 +235,26 @@ def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None) :
         ).T
         phi_g_l_out = pl_project_2D(phi2D_g_int, L)
         
+    # Error on Poisson's equation
+    if verbose:
+        Poisson_error = np.max(np.abs(phi_g_l_out[:, -1]/phi_g_l_out[:, 0]))
+        print(f"Estimated error on Poisson's equation: {round(Poisson_error, 16)}")
+    
     # Plot
-    ylims = (1e-23, 1e2)
-    for l in range(0, L, 2):
-        c = cmap(l/L)
-        plt.plot(r_tot, np.abs(phi_g_l_out[:, l]), color=c, lw=1.0, alpha=0.3)
-    if dr is not None :
-        plt.vlines(
-            dr._[dom.beg[:-1]].flatten(), 
-            ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=0.5, alpha=0.3
-        )
-    plt.vlines([r_pol, 1.0], ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=3.0)
-    plt.yscale('log')
-    plt.ylim(*ylims)
-    plt.show()
+    if show:
+        ylims = (1e-23, 1e2)
+        for l in range(0, L, 2):
+            c = cmap(l/L)
+            plt.plot(r_tot, np.abs(phi_g_l_out[:, l]), color=c, lw=1.0, alpha=0.3)
+        if dr is not None :
+            plt.vlines(
+                dr._[dom.beg[:-1]].flatten(), 
+                ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=0.5, alpha=0.3
+            )
+        plt.vlines([r_pol, 1.0], ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=3.0)
+        plt.yscale('log')
+        plt.ylim(*ylims)
+        plt.show()
     
 def check_interpolation(r, map_n, rho_n, cmap=cm.Blues) :
     C = 1e-15

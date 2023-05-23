@@ -16,6 +16,7 @@ from scipy.linalg.lapack    import dgbtrf, dgbtrs
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
+from utils                  import phi_g_harmonics
 from low_level              import (
     integrate, 
     integrate2D,
@@ -25,10 +26,11 @@ from low_level              import (
     pl_eval_2D,
     pl_project_2D,
     lagrange_matrix_P,
+    give_me_a_name,
     plot_f_map
 )
 from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
-from generate_polytrope     import polytrope
+from generate_polytrope     import composite_polytrope
 
 #%% High-level functions cell
     
@@ -42,14 +44,14 @@ def set_params() :
         Name of the file containing the 1D model or dictionary containing
         the information requiered to compute a polytrope of given
         index : {
-            index : float
+            indices : float
                 Polytrope index
-            surface_pressure : float
+            target_pressures : float
                 Surface pressure expressed in units of central
                 pressure, ex: 1e-12 => P0 = 1e-12 * PC
-            radius : float
+            R : float
                 Radius of the model
-            mass : float
+            M : float
                 Mass of the model
             res : integer
                 Radial resolution of the model
@@ -99,20 +101,20 @@ def set_params() :
     """
     #### MODEL CHOICE ####
     # model_choice = "1Dmodel_1.97187607_G1.txt"     
-    model_choice = DotDict(index=1.0, surface_pressure=0.0, R=1.0, M=1.0, res=10_000)
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf, res=1000)
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
-    rotation_target = 0.089195487 ** 0.5
-    # rotation_target = 0.9
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 0.9
     central_diff_rate = 1.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 201
     full_rate = 1
-    mapping_precision = 1e-10
+    mapping_precision = 1e-11
     lagrange_order = 3
     spline_order = 5
     
@@ -126,33 +128,6 @@ def set_params() :
         spline_order, lagrange_order, max_degree, 
         angular_resolution, plot_resolution, save_name
     )
-
-def give_me_a_name(model_choice, rotation_target) : 
-    """
-    Constructs a name for the save file using the model name
-    and the rotation target.
-
-    Parameters
-    ----------
-    model_choice : string or Dotdict instance.
-        File name or polytrope caracteristics.
-    rotation_target : float
-        Final rotation rate on the equator.
-
-    Returns
-    -------
-    save_name : string
-        Output file name.
-
-    """
-    radical = (
-        'poly_' + str(int(model_choice.index)) 
-        if isinstance(model_choice, DotDict) 
-        else model_choice.split('.txt')[0]
-    )
-    save_name = radical + '_deform_' + str(rotation_target) + '.txt'
-    return save_name
-
 
 def init_1D() : 
     """
@@ -188,7 +163,7 @@ def init_1D() :
         R = MOD_1D.radius or 1.0
         
         # Polytrope computation
-        model = polytrope(*MOD_1D.values())
+        model = composite_polytrope(MOD_1D)
         
         # Normalisation
         r   = model.r     /  R
@@ -601,7 +576,7 @@ def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) :
 
     """    
     # Potential energy
-    volumic_potential_energy = lambda rk, ck, D : (  
+    volumic_potential_energy = lambda rk, ck, D : -(  
        rho_n[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
     )
     potential_energy = integrate2D(map_n, volumic_potential_energy, k=KSPL)
@@ -615,15 +590,21 @@ def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) :
     # Internal energy
     internal_energy = integrate2D(map_n, P, k=KSPL)
     
+    # Surface term
+    _, weights = roots_legendre(M)
+    surface_term = 2*np.pi * (map_n[-1]**3 @ weights) * P[-1]
+    
     # Compute the virial equation
     if verbose :
-        print(f"Kinetic energy  : {kinetic_energy:+7.5f}")
-        print(f"Internal energy : {internal_energy:+7.5f}")
-        print(f"Potential energy: {potential_energy:+7.5f}")
+        print(f"Kinetic energy  : {kinetic_energy:12.10f}")
+        print(f"Internal energy : {internal_energy:12.10f}")
+        print(f"Potential energy: {potential_energy:12.10f}")
+        print(f"Surface term    : {surface_term:12.10f}")
     virial = ( 
-          (2*kinetic_energy + 0.5*potential_energy + 3*internal_energy)
-        / (2*kinetic_energy - 0.5*potential_energy + 3*internal_energy)
+          (2*kinetic_energy - 0.5*potential_energy + 3*internal_energy - surface_term)
+        / (2*kinetic_energy + 0.5*potential_energy + 3*internal_energy + surface_term)
     )
+    print(f"Virial theorem verified at {round(virial, 16)}")
     return virial
 
 
@@ -784,23 +765,19 @@ if __name__ == '__main__' :
         "\n+------------------+\n"
     )
     print(f'Time taken: {round(finish-start, 2)} secs')  
-    estimated_prec = np.max(np.abs(phi_g_l[:, -1]/phi_g_l[:, 0]))
-    print(f"Estimated error on Poisson's equation: {round(estimated_prec, 16)}")   
-    virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)
-    print(f"Virial theorem verified at {round(virial, 16)}")   
+
+    # Estimated error on Poisson's equation
+    phi_g_harmonics(r, phi_g_l, r_pol[-1], show=True)
+    
+    # Virial test
+    virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)   
     
     # Plot mapping
     plot_f_map(map_n, rho_n, phi_eff, L, show_surfaces=True)        
     
-    # Gravitational moments
-    find_gravitational_moments(map_n, rho_n)
+    # # Gravitational moments
+    # find_gravitational_moments(map_n, rho_n)
     
-    # # Some diagnostics
-    # from utils import phi_g_harmonics, check_interpolation
-    # step = n-1
-    # phi_g_harmonics(r, phi_g_l_rad[step], r_pol[step])
-    # check_interpolation(r, map_n_rad[step], rho_n)
-        
     # # Model scaling
     # map_n    *=               radius
     # rho_n    *=     mass    / radius**3
