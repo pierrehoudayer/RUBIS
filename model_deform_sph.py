@@ -19,7 +19,6 @@ from scipy.linalg.lapack    import dgbsv
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
-from utils                  import phi_g_harmonics
 from low_level              import (
     lnxn, 
     del_u_over_v,
@@ -146,7 +145,7 @@ def set_params() :
     max_degree = angular_resolution = 51
     full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 3
+    lagrange_order = 2
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
@@ -1008,7 +1007,8 @@ if __name__ == '__main__' :
     # Estimated error on Poisson's equation
     dr = find_metric_terms(map_n)
     dr = find_external_mapping(dr)
-    phi_g_harmonics(r, phi_g_l, r_pol[-1], dr=dr)
+    from utils import phi_g_harmonics
+    phi_g_harmonics(r, phi_g_l, r_pol[-1], dr=dr, show=True)
     
     # Virial test
     virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)   

@@ -16,7 +16,6 @@ from scipy.linalg.lapack    import dgbtrf, dgbtrs
 from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
-from utils                  import phi_g_harmonics
 from low_level              import (
     integrate, 
     integrate2D,
@@ -767,6 +766,7 @@ if __name__ == '__main__' :
     print(f'Time taken: {round(finish-start, 2)} secs')  
 
     # Estimated error on Poisson's equation
+    from utils import phi_g_harmonics
     phi_g_harmonics(r, phi_g_l, r_pol[-1], show=True)
     
     # Virial test
