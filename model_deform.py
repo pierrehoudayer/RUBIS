@@ -670,7 +670,7 @@ if __name__ == '__main__' :
     
     # Definition of global parameters
     MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, KSPL, \
-        KLAG, L, M, RES, SAVE = set_params() 
+    KLAG, L, M, RES, SAVE = set_params() 
     G = 6.67384e-8     # <- value of the gravitational constant
         
     # Definition of the 1D-model
@@ -699,42 +699,24 @@ if __name__ == '__main__' :
     P = find_pressure(rho_n, dphi_eff)
     
     # Iterative centrifugal deformation
-    surfaces = [map_n[-1]]
     r_pol = [0.0, find_r_pol(map_n, L)]
-    n = 1
+    n = 0
     print(
         "\n+---------------------+",
         "\n| Deformation started |", 
         "\n+---------------------+\n"
-    )
-    
-    # SAVE
-    phi_g_l_rad  = [phi_g_l]
-    dphi_g_l_rad = [dphi_g_l]
-    phi_eff_rad  = [np.copy(phi_eff)]
-    map_n_rad    = [map_n]
-    omega_n_rad  = [0.0]
-    
+    )    
     
     while abs(r_pol[-1] - r_pol[-2]) > EPS :
         
         # Current rotation rate
-        omega_n = min(ROT, (n/FULL) * ROT)
+        omega_n = min(ROT, ((n+1)/FULL) * ROT)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(map_n, rho_n, phi_eff, lub_l)
-    
-        # SAVE
-        phi_g_l_rad.append(phi_g_l)
-        dphi_g_l_rad.append(dphi_g_l)
-        phi_eff_rad.append(np.copy(phi_eff))
 
-        # Update the mapping
+        # Find a new estimate for the mapping
         map_n, omega_n = find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff)
-
-        # SAVE
-        map_n_rad.append(map_n)
-        omega_n_rad.append(omega_n)
         
         # Renormalisation
         r_corr    = find_r_eq(map_n, L)
@@ -747,14 +729,13 @@ if __name__ == '__main__' :
         dphi_eff /= m_corr    / r_corr**2
         P        /= m_corr**2 / r_corr**4
         
-        # Update the surface and polar radius
-        surfaces.append(map_n[-1])
+        # Update the polar radius
         r_pol.append(find_r_pol(map_n, L))
         
         # Iteration count
+        n += 1
         DEC = int(-np.log10(EPS))
         print(f"Iteration n°{n:02d}, R_pol = {r_pol[-1].round(DEC)}")
-        n += 1
     
     # Deformation summary
     finish = time.perf_counter()
