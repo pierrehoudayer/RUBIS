@@ -297,7 +297,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [x] Implement a reciprocal interpolation to determine the level surfaces instead of Newton's method (which lack stability).   
 - [x] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
 - [x] Improve the conditioning of Poisson's matrix in the spheroidal method.
-- [x] Improve the reciprocal interpolation in the spheroidal method.
+- [x] Improve the reciprocal interpolation in the spheroidal method thanks to an adaptive $\zeta$ grid.
 - [ ] Add the global user interface `RUBIS.py`.   ⇨ `v1.0.0`
 
 ### Prospects
