@@ -299,6 +299,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [x] Improve the conditioning of Poisson's matrix in the spheroidal method.
 - [x] Improve the reciprocal interpolation in the spheroidal method thanks to an adaptive $\zeta$ grid.
 - [ ] Add the global user interface `RUBIS.py`.   ⇨ `v1.0.0`
+- [ ] Rewrite the *completely* outdated `README.md`
 
 ### Prospects
 - [ ] Look at the Van Wijngaarden transformation for the gravitational potential series.
