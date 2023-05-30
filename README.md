@@ -384,6 +384,8 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierr
 
 Find the article here: https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H/abstract
 
+[![DOI][DOI-shield]][DOI-url]
+
 Bibtex entry : 
 
 ```
@@ -455,3 +457,5 @@ ACKNOWLEDGMENTS
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
 [ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen
 [ORCID-url]: https://orcid.org/0000-0002-1245-9148
+[DOI-shield]: https://img.shields.io/badge/DOI-10.1051%2F0004--6361%2F202346403-blue
+[DOI-url]: https://doi.org/10.1051/0004-6361/202346403
