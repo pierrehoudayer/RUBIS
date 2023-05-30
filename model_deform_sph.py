@@ -111,15 +111,22 @@ def set_params() :
         
     use_Newton : boolean
         Choose whether to use Newton's method in order to find the 
-        isopotentials or not. Use the reciprocal interpolation is set
-        to False.
+        isopotentials or not. Use the reciprocal interpolation if set
+        to False. False is recommended for stability issues (might be 
+        depreciated soon).
     newton_precision : float
         Precision target for Newton's method (if use_Newton is set to True).
     external_domain_res : integer
-        Radial resolution for the external domain
+        Radial resolution for the external domain. Low values enhance the
+        performances but too low values might cause instabilities.
     derivable_mapping : boolean
         Allows to choose between two external mapping prescriptions
-        (cf. find_external_mapping routine).
+        (cf. find_external_mapping routine). False is highly recommended
+        unless performing some tests (might be depreciated soon).
+    rescale_ab : boolean
+        Whether to rescale the Poisson's matrix before calling 
+        LAPACK's LU decomposition routine. Seems to have a 
+        negligible impact on precision, but only slightly alter performance.
 
     """
     
@@ -129,10 +136,10 @@ def set_params() :
     #     indices = (3.0, 1.0, 3.0), 
     #     target_pressures = (-5.0, -8.0, -np.inf), 
     #     density_jumps = (0.5, 0.5),
-    #     res=1000
+    #     res=1001
     # )
     # model_choice = DotDict(
-    #     indices = 3.0, target_pressures = -np.inf, res=3001
+    #     indices = 3.0, target_pressures = -np.inf, res=1001
     # )
 
     #### ROTATION PARAMETERS ####      
@@ -152,18 +159,19 @@ def set_params() :
     plot_resolution = 501
     save_name = give_me_a_name(model_choice, rotation_target)
     
-    #### EXT. MAPPING PARAMETERS ####
-    use_Newton = True
+    #### SPHEROIDAL PARAMETERS ####
+    use_Newton = False
     newton_precision = 1e-11
-    external_domain_res = 1001
+    external_domain_res = 201
     derivable_mapping = False
+    rescale_ab = True
     
     return (
         model_choice, rotation_target, full_rate, rotation_profile,
         central_diff_rate, rotation_scale, mapping_precision,
         spline_order, lagrange_order, max_degree, angular_resolution, 
         plot_resolution, save_name, use_Newton, newton_precision,
-        external_domain_res, derivable_mapping
+        external_domain_res, derivable_mapping, rescale_ab
     )
 
 def init_1D() : 
@@ -185,7 +193,7 @@ def init_1D() :
         Radius of the model.
     r : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
-    zeta : array_like, shape (N+Ne, ), [GLOBAL VARIABLE]
+    zeta : array_like, shape (N+NE, ), [GLOBAL VARIABLE]
         Spheroidal coordinate
     rho : array_like, shape (N, )
         Radial density of the model after normalisation.
@@ -233,7 +241,7 @@ def init_1D() :
             P0 /= G
     
     # Spheroidal coordinate
-    re = np.linspace(1, 2, Ne)
+    re = np.linspace(1, 2, NE)
     zeta = np.hstack((r, 1+sp.betainc(2, 2, re-1)))
     
     return P0, N, M, R, r, zeta, rho, other_var
@@ -341,6 +349,112 @@ def find_pressure(rho, dphi_eff) :
     )(zeta[dom.int])
     return P
 
+def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
+    """
+    Finds the coefficients to fill the Poisson matrix (thanks
+    to Pll) and the right-hand side (using rhs).
+
+    Parameters
+    ----------
+    ku : integer
+        Number of upper band in the matrix.
+    kl : integer
+        Number of lower band in the matrix.
+    Pll : DotDict instance
+        Harmonic couplings.
+    rhs_l : array_like, shape (N, Nl)
+        right-hand side of Poisson's equation when projected
+        onto the Legendre polynomials.
+    rescale : boolean
+        Whether to rescale the Poisson's matrix coefficients
+        before performing the LU decomposition.
+
+    Returns
+    -------
+    coefs : array_like, shape (kl+ku-L+1, 2*(N+NE)*Nl)
+        Coeffcients in the Poisson matrix.
+    b : array_like, shape (2*(N+NE)*Nl, )
+        Right-hand side of the linear system.
+    """   
+    # Initialisation
+    Nl = (L+1)//2
+    Mb = 2*Nl*(N+NE)
+    dj = 2*Nl*2*KLAG
+    l  = 2*np.arange(Nl)
+    b     = np.zeros((Mb, ))
+    coefs = np.empty((kl+ku-L+1, Mb))
+    
+    for d, D in enumerate(dom.ranges) : 
+        
+        # Domain properties
+        beg_i, end_i = (2*dom.edges[d]+1)*Nl, (2*dom.edges[d+1]-1)*Nl
+        beg_j, end_j = (2*dom.edges[d]+0)*Nl, (2*dom.edges[d+1]-0)*Nl
+        Lsp_d_broad = Lsp[d].data[::-1, :, None, None]
+        Dsp_d_broad = Dsp[d].data[::-1, :, None, None]
+        size = dom.sizes[d]
+        
+        # Vector filling
+        if d < dom.Nd - 1 : 
+            b[beg_i:end_i:2] = (Lsp[d] @ rhs_l[D]).flatten()
+            
+        # Main matrix parts filling
+        temp = np.empty((2*KLAG, size, 2*Nl, 2*Nl))
+        temp[..., 0::2, 0::2] = (
+            + Dsp_d_broad * Pll.zz[D]
+            - Lsp_d_broad * Pll.zt[D]
+        )
+        temp[..., 0::2, 1::2] = - Lsp_d_broad * Pll.tt[D]
+        temp[..., 1::2, 0::2] = + Lsp_d_broad * np.eye(Nl)
+        temp[..., 1::2, 1::2] = - Dsp_d_broad * np.eye(Nl)
+        coefs[:, beg_j:end_j] = np.moveaxis(temp, 2, 1).reshape(
+            (2*KLAG*2*Nl, 2*size*Nl)
+        )
+        del temp; collect()
+            
+        # Inner boundary conditions 
+        if d == 0 :
+            coefs[ku-2*Nl+1:ku-Nl+1, 0:2*Nl:2] = np.diag((1, ) + (0, )*(Nl-1))
+            coefs[ku-2*Nl+1:ku-Nl+1, 1:2*Nl:2] = np.diag((0, ) + (1, )*(Nl-1))
+        else :  
+            coefs[ku-3*Nl+1+0:ku-Nl+1:2, beg_j+0:beg_j+2*Nl:2] = -Pll.BC[D[0]]
+            coefs[ku-3*Nl+1+1:ku-Nl+1:2, beg_j+1:beg_j+2*Nl:2] = -np.eye(Nl)
+        
+        # Outer boundary conditions
+        if d == dom.Nd - 1 : 
+            coefs[ku-Nl+1:ku+1, -2*Nl+0::2] = np.eye(Nl)
+            coefs[ku-Nl+1:ku+1, -2*Nl+1::2] = np.diag((l+1)/2)
+        else :  
+            coefs[ku-Nl+1+0:ku+Nl+1:2, end_j-2*Nl+0:end_j:2] = Pll.BC[D[-1]]
+            coefs[ku-Nl+1+1:ku+Nl+1:2, end_j-2*Nl+1:end_j:2] = np.eye(Nl)
+           
+    col_scale = np.ones((Mb)) 
+    if rescale :
+        # Finding the row scaling factors
+        row_max = np.abs(coefs.reshape((2*KLAG*2*Nl, N+NE, 2*Nl))).max(axis=2)
+        offset = (2*KLAG-1)*Nl
+        row_scale = np.zeros((Mb+2*offset))
+        for j in range(N+NE) :
+            j0 = 2*Nl*j
+            row_scale[j0:j0+dj] = np.maximum(row_scale[j0:j0+dj], row_max[:, j])
+        row_scale = np.divide(
+            1.0, row_scale, out=np.zeros((Mb+2*offset)), where=row_scale!=0.0
+        )
+        
+        # Applying the row scales
+        b *= row_scale[offset:-offset]
+        R_scale2D = np.array([row_scale[2*Nl*j:2*Nl*j+dj] for j in range(N+NE)]).T
+        coefs = (
+            coefs.reshape((-1, N+NE, 2*Nl)) * R_scale2D[..., None]
+        ).reshape(coefs.shape)
+        
+        # Finding the column scaling factors
+        col_scale = 1.0 / np.abs(coefs).max(axis=0)
+        
+        # Applying the column scales
+        coefs *= col_scale
+            
+    return coefs, b, col_scale
+
 
 def find_phi_eff(map_n, rho_n, phi_eff=None) :
     """
@@ -380,73 +494,30 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
     # Metric terms and coupling integral computation
     dr     = find_metric_terms(map_n)
     r2rz_l = pl_project_2D(dr._**2 * dr.z, L) / (np.arange(L) + 1/2)
+    rhs_l  = 4*np.pi * rho_n[:, None] * r2rz_l[:, ::2]
     dr     = find_external_mapping(dr)
     Pll    = find_all_couplings(dr, alpha=2)
     
-    # Vector and band matrix storage
+    # Vector and band matrix storage characteristics
     Nl = (L+1)//2
-    l  = np.arange(0, L, 2)
     kl = (2*KLAG + 1) * Nl - 1
     ku = (2*KLAG + 1) * Nl - 1
-    b  = np.zeros((2*(N+Ne)*Nl, ))
-    ab = np.zeros((2*kl+ku+1, 2*(N+Ne)*Nl))
     
-    blocs = np.empty((kl+ku-L+1, 2*(N+Ne)*Nl))
-    for d, D in enumerate(dom.ranges) : 
-        
-        # Domain properties
-        beg_i, end_i = (2*dom.edges[d]+1)*Nl, (2*dom.edges[d+1]-1)*Nl
-        beg_j, end_j = (2*dom.edges[d]+0)*Nl, (2*dom.edges[d+1]-0)*Nl
-        Lsp_d_broad = Lsp[d].data[::-1, :, None, None]
-        Dsp_d_broad = Dsp[d].data[::-1, :, None, None]
-        size = dom.sizes[d]
-        
-        # Vector filling
-        if d < dom.Nd - 1 : 
-            b[beg_i:end_i:2] = 4*np.pi * (
-                Lsp[d] @ (rho_n[D, None] * r2rz_l[D, ::2])
-            ).reshape((-1))
-            
-        # Main matrix parts filling
-        temp = np.empty((2*KLAG, size, 2*Nl, 2*Nl))
-        temp[..., 0::2, 0::2] = (
-            + Dsp_d_broad * Pll.zz[D]
-            - Lsp_d_broad * Pll.zt[D]
-        )
-        temp[..., 0::2, 1::2] = - Lsp_d_broad * Pll.tt[D]
-        temp[..., 1::2, 0::2] = + Lsp_d_broad * np.eye(Nl)
-        temp[..., 1::2, 1::2] = - Dsp_d_broad * np.eye(Nl)
-        blocs[:, beg_j:end_j] = np.moveaxis(temp, 2, 1).reshape(
-            (2*KLAG*2*Nl, 2*size*Nl)
-        )
-        del temp; collect()
-            
-        # Inner boundary conditions 
-        if d == 0 :
-            blocs[ku-2*Nl+1:ku-Nl+1, 0:2*Nl:2] = np.diag((1, ) + (0, )*(Nl-1))
-            blocs[ku-2*Nl+1:ku-Nl+1, 1:2*Nl:2] = np.diag((0, ) + (1, )*(Nl-1))
-        else :  
-            blocs[ku-3*Nl+1+0:ku-Nl+1:2, beg_j+0:beg_j+2*Nl:2] = -Pll.BC[D[0]]
-            blocs[ku-3*Nl+1+1:ku-Nl+1:2, beg_j+1:beg_j+2*Nl:2] = -np.eye(Nl)
-        
-        # Outer boundary conditions
-        if d == dom.Nd - 1 : 
-            blocs[ku-Nl+1:ku+1, -2*Nl+0::2] = np.eye(Nl)
-            blocs[ku-Nl+1:ku+1, -2*Nl+1::2] = np.diag((l+1)/2)
-        else :  
-            blocs[ku-Nl+1+0:ku+Nl+1:2, end_j-2*Nl+0:end_j:2] = Pll.BC[D[-1]]
-            blocs[ku-Nl+1+1:ku+Nl+1:2, end_j-2*Nl+1:end_j:2] = np.eye(Nl)
+    # Determination of matrix blocs (and b) from coupling harmonics (and rhs harmonics)
+    # Rescale the coefficients in both coefs and b if AB_SCALE==True.
+    coefs, b, col_scale = find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale=AB_SCALE)  
     
-    # Matrix reindexing (credits to N. Fargette for this part)
-    mask = np.zeros((2*(N+Ne)*Nl, kl+ku+1), dtype=bool)
+    # Matrix filling (credits to N. Fargette for this part)
+    ab = np.zeros((2*kl+ku+1, 2*Nl*(N+NE)))
+    mask = np.zeros((2*Nl*(N+NE), kl+ku+1), dtype=bool)
     for l in range(2*Nl) : mask[l::2*Nl, L-l:kl+ku+1-l] = 1
-    (ab[kl:, :]).T[mask] = (blocs.T).flatten()
-    del blocs; collect()
+    (ab[kl:, :]).T[mask] = (coefs.T).flatten()
+    del coefs, mask; collect()   
     
     # System solving (LAPACK)
     *_, x, info = dgbsv(kl, ku, ab, b)
-    del ab; collect()
-    
+    del ab, b; collect()
+    x *= col_scale
     if info != 0 : 
         raise ValueError(
             "Problem with finding the gravitational potential. \n",
@@ -454,10 +525,10 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
         )
             
     # Poisson's equation solution
-    phi_g_l  = np.zeros((N+Ne, L))
-    dphi_g_l = np.zeros((N+Ne, L))
-    phi_g_l[: , ::2] = x[1::2].reshape((N+Ne, Nl))
-    dphi_g_l[:, ::2] = x[0::2].reshape((N+Ne, Nl))    
+    phi_g_l  = np.zeros((N+NE, L))
+    dphi_g_l = np.zeros((N+NE, L))
+    phi_g_l[: , ::2] = x[1::2].reshape((N+NE, Nl))
+    dphi_g_l[:, ::2] = x[0::2].reshape((N+NE, Nl))        
     
     if phi_eff is None :
 
@@ -566,57 +637,51 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
             map_est[C_est] += del_r[C_est]
     
     # Find the new mapping using the reciprocal interpolation
-    else :        
-        # Centrifugal potential
-        phi2D_c, dphi2D_c = np.moveaxis(np.array([
-            eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(dr._[:, up].T, cth[up])
-        ]), (0, 1, 2), (2, 0, 1))
+    else :
+                
+        # Define the adaptive mesh
+        z_new = interpolate_func(zeta[dom.unq], phi_eff[dom.unq])(np.linspace(0, 2.0, 3000))
+        z_new = 2 * (z_new - z_new[0]) / (z_new[-1] - z_new[0])
         
-        # Total potential
-        phi2D  =  phi2D_g +  phi2D_c
-        dphi2D = dphi2D_g + dphi2D_c
-        
-        # Central domain
-        lim = 1e-2
-        center = np.max(np.argwhere(zeta < lim)) + 1
-        z_cnt = np.linspace(0.0, 1.0, 200) ** 2 * lim
-        map_cnt = np.array([CubicHermiteSpline(
-            x=zeta[dom.unq_int], y=dr._[dom.unq_int, k], dydx=dr.z[dom.unq_int, k]
-        )(z_cnt) for k in up]).T
-        phi2D_g_cnt = np.array([CubicHermiteSpline(
+        # Cubic Hermite splines
+        r_splines = [CubicHermiteSpline(
+            x=zeta[dom.unq], y=dr._[dom.unq, k], dydx=dr.z[dom.unq, k]
+        ) for k in up]
+        p_splines = [CubicHermiteSpline(
             x=zeta[dom.unq], y=phi2D_g[dom.unq, k], dydx=dphi2D_g_dz[dom.unq, k]
-        )(z_cnt) for k in up]).T
-        phi2D_c_cnt = np.array([
-            eval_phi_c(rk , ck, omega_n_new)[0] for rk, ck in zip(map_cnt[:, up].T, cth[up])
-        ]).T
-        phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
+        ) for k in up]
+        
+        # Interpolated variables
+        r_ipl, dr_ipl = [
+            np.array([r_spl(z_new, nu=nu) for r_spl in r_splines]).T for nu in [0, 1]
+        ]
+        phi_g_ipl, dphi_g_ipl = [
+            np.array([p_spl(z_new, nu=nu) for p_spl in p_splines]).T for nu in [0, 1]
+        ]
+        phi_c_ipl, dphi_c_ipl = np.moveaxis(np.array([
+            eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(r_ipl[:, up].T, cth[up])
+        ]), 0, 2)
+        phi_ipl  =  phi_c_ipl +  phi_g_ipl
+        dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
         
         # Finding the valid interpolation domain
-        phi_valid = np.ones_like(phi2D, dtype='bool')
-        idx = np.arange(len(dom.unq))
-        for k, dpk in enumerate(dphi2D[dom.unq].T) :
-            if np.any((dpk < 0.0)&(idx > 0)) :
-                idx_max = np.min(np.argwhere((dpk < 0.0)&(idx > 0)))
-                phi_valid[dom.unq, k] = (idx < idx_max) & (0 < idx)
-        
-        # Define the different domains
-        origin = np.arange(N) < 1
-        center = targets < np.min(phi2D_cnt[-1])
-        
+        valid = np.ones_like(phi_ipl, dtype='bool')
+        idx = np.arange(len(z_new))
+        safety = 1e-4
+        for k, dpk in enumerate(dphi_ipl.T) :
+            idx_max = len(z_new)
+            if np.any((dpk < safety)&(z_new > safety)) :
+                idx_max = np.min(np.argwhere((dpk < safety)&(z_new > safety)))
+            valid[:, k] = (idx < idx_max) & (z_new > safety)
+            
         # Estimate at target values
         map_est = np.zeros_like(map_n[:, up])
-        map_est[(center)&(~origin)] = np.array([
-            interpolate_func(x=pk, y=rk, k=KSPL)(targets[(center)&(~origin)]) 
-            for rk, pk in zip(map_cnt.T, phi2D_cnt.T)
-        ]).T
-        map_est[~center] = np.array([
-            CubicHermiteSpline(x=pk[valid_k], y=rk[valid_k], dydx=dpk[valid_k]**-1)(targets[~center]) 
-            for rk, pk, dpk, valid_k in zip(
-                dr._[dom.unq][:, up].T, phi2D[dom.unq].T, dphi2D[dom.unq].T, phi_valid[dom.unq].T
-            )
+        map_est[1:] = np.array([
+            CubicHermiteSpline(x=pk[vk], y=rk[vk], dydx=dpk[vk]**-1)(targets[1:]) 
+            for rk, pk, dpk, vk in zip(r_ipl.T, phi_ipl.T, dphi_ipl.T, valid.T)
         ]).T
         map_est[dom.beg[:-1]] = map_est[dom.end[:-1]]
-    
+        
     # New mapping
     map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
         
@@ -875,13 +940,13 @@ def find_all_couplings(dr, alpha=2) :
     Pll : DotDict instance
         Harmonic couplings. They are caracterised by their related 
         metric term : {
-            zz : array_like, shape (N+Ne, Nl, Nl)
+            zz : array_like, shape (N+NE, Nl, Nl)
                 coupling associated to phi_zz,
-            zt : array_like, shape (N+Ne, Nl, Nl)
+            zt : array_like, shape (N+NE, Nl, Nl)
                             //         phi_zt,
-            tt : array_like, shape (N+Ne, Nl, Nl)
+            tt : array_like, shape (N+NE, Nl, Nl)
                             //         phi_tt,
-            BC : array_like, shape (N+Ne, Nl, Nl)
+            BC : array_like, shape (N+NE, Nl, Nl)
                 coupling used to ensure the gradient continuity.
         }
 
@@ -912,7 +977,7 @@ if __name__ == '__main__' :
     
     # Definition of global parameters
     MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, KSPL, \
-    KLAG, L, M, RES, SAVE, NEWTON, DELTA, Ne, DERIV = set_params()
+    KLAG, L, M, RES, SAVE, NEWTON, DELTA, NE, DERIV, AB_SCALE = set_params()
     G = 6.67384e-8     # <- value of the gravitational constant
     
     # Definition of the 1D-model
@@ -937,35 +1002,22 @@ if __name__ == '__main__' :
     P = find_pressure(rho_n, dphi_eff)
     
     # Iterative centrifugal deformation
-    surfaces = [map_n[-1]]
     r_pol = [0.0, find_r_pol(map_n, L)]
-    n = 1
+    n = 0
     print(
         "\n+---------------------+",
         "\n| Deformation started |", 
         "\n+---------------------+\n"
     )
     
-    # SAVE
-    phi_g_l_sph = [phi_g_l]
-    dphi_g_l_sph = [dphi_g_l]
-    phi_eff_sph = [np.copy(phi_eff)]
-    map_n_sph = [map_n]
-    omega_n_sph = [0.0]
-    
     # while n < 11 :
     while abs(r_pol[-1] - r_pol[-2]) > EPS :
         
         # Current rotation rate
-        omega_n = min(ROT, (n/FULL) * ROT)
+        omega_n = min(ROT, ((n+1)/FULL) * ROT)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(map_n, rho_n, phi_eff)
-        
-        # SAVE
-        phi_g_l_sph.append(phi_g_l)
-        dphi_g_l_sph.append(dphi_g_l)
-        phi_eff_sph.append(np.copy(phi_eff))
         
         # Update the mapping
         map_n, omega_n = find_new_mapping(
@@ -983,18 +1035,13 @@ if __name__ == '__main__' :
         dphi_eff /= m_corr    / r_corr    # <- /!\ This is a derivative w.r.t. to zeta
         P        /= m_corr**2 / r_corr**4
         
-        # Update the surface and polar radius
-        surfaces.append(map_n[-1])
+        # Update the polar radius
         r_pol.append(find_r_pol(map_n, L))
         
-        # SAVE
-        map_n_sph.append(map_n)
-        omega_n_sph.append(omega_n)
-        
         # Iteration count
-        DEC = int(-np.log10(EPS))
-        print(f"Iteration n°{n}, R_pol = {r_pol[-1].round(12)},")
         n += 1
+        DEC = int(-np.log10(EPS))
+        print(f"Iteration n°{n:02d}, R_pol = {r_pol[-1].round(DEC)}")
         
     finish = time.perf_counter()
     print(
@@ -1015,7 +1062,7 @@ if __name__ == '__main__' :
     
     # Plot mapping
     plot_f_map(
-        map_n, np.log10(rho_n+np.max(rho_n)*1e-5), phi_eff, L, map_ext=dr._[N:],
+        map_n, np.log10(rho_n+np.max(rho_n)*1e-3), phi_eff, L, map_ext=dr._[N:],
         cmap=cm.viridis_r, disc=dom.end[:-1], n_lines_ext=15
     )
     
