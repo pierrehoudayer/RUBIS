@@ -793,8 +793,8 @@ def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
     show_surfaces=False, n_lines=50, cmap_lines=cm.BuPu, lw=0.5,
-    disc=None, map_ext=None, n_lines_ext=20,
-    add_to_fig=None
+    disc=None, disc_color='white', map_ext=None, n_lines_ext=20,
+    add_to_fig=None, background_color='white',
 ) :
     """
     Shows the value of f in the 2D model.
@@ -831,8 +831,10 @@ def plot_f_map(
     cmap_lines : cm.cmap instance, optional
         Colormap used for the isopotential plot. 
         The default is cm.BuPu.
-    disc : array_like, shape (Nd, )
+    disc : array_like, shape (Nd, ), optional
         Indices of discontinuities to plot. The default is None.
+    disc_color : string, optional
+        Color used to display the discontinuities. The default is 'white'.
     map_ext : array_like, shape (Ne, M), optional
         Used to show the external mapping, if given.
     n_lines_ext : integer, optional
@@ -840,6 +842,8 @@ def plot_f_map(
     add_to_fig : fig object, optional
         If given, the figure on which the plot should be added. 
         The default is None.
+    background_color : string, optional
+        Optional color for the plot background. The default is 'white'.
 
     Returns
     -------
@@ -859,13 +863,13 @@ def plot_f_map(
         f2D = np.tile(f, angular_res).reshape((angular_res, N)).T
     else : 
         f_l = pl_project_2D(f, max_degree, even=False)
-        f2D =np.atleast_3d(np.array(pl_eval_2D(f_l, cth_res, der=t_deriv)).T).T[-1]
+        f2D = np.atleast_3d(np.array(pl_eval_2D(f_l, cth_res, der=t_deriv)).T).T[-1]
         
     # Text formating 
     rc('text', usetex=True)
     rc('xtick', labelsize=size)
     rc('ytick', labelsize=size)
-    # rc('axes', facecolor='#303030')
+    rc('axes', facecolor=background_color)
     
     # Init figure
     if add_to_fig is None : 
@@ -873,7 +877,7 @@ def plot_f_map(
     else : 
         fig, ax = add_to_fig
     norm = None
-    if (cmap is cm.Blues)&(np.nanmin(f2D) * np.nanmax(f2D) < 0.0) : 
+    if (cmap is cm.Blues)&(np.nanmin(f2D)*np.nanmax(f2D) < -0.01*np.nanmax(np.abs(f2D))**2) : 
         cmap, norm = cm.RdBu_r, mcl.CenteredNorm()
     
     # Right side
@@ -885,7 +889,7 @@ def plot_f_map(
         c.set_edgecolor("face")
     if disc is not None :
         for i in disc :
-            plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
+            plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, color=disc_color, lw=lw)
     plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
     cbr = fig.colorbar(csr, aspect=30)
     cbr.ax.set_title(label, y=1.03, fontsize=size+3)
