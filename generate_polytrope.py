@@ -278,7 +278,7 @@ def composite_polytrope(model_parameters) :
 if __name__ == '__main__':
     # Model creation
     model_parameters = DotDict(
-        indices = (6.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
+        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
         target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
         density_jumps = (0.3, 0.2, 1.2, 0.8, 0.2)
     )
