@@ -133,20 +133,19 @@ def set_params() :
     #### MODEL CHOICE ####
     model_choice = "Jupiter.txt"   
     # model_choice = DotDict(
-    #     indices = (3.0, 1.0, 3.0), 
-    #     target_pressures = (-5.0, -8.0, -np.inf), 
-    #     density_jumps = (0.5, 0.5),
-    #     res=1001
+    #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
+    #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
+    #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
     # )
     # model_choice = DotDict(
-    #     indices = 3.0, target_pressures = -np.inf, res=1001
+    #     indices = 3.0, target_pressures = -np.inf, res=3000
     # )
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.7
+    rotation_target = 0.8
     central_diff_rate = 1.0
-    rotation_scale = 1.0
+    rotation_scale = 0.3
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 51
@@ -586,11 +585,15 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     # Find a new value for ROT
     valid_z = zeta > 0.5
     valid_r = dr._[valid_z, (M-1)//2]
-    phi1D_c = eval_phi_c(valid_r, 0.0, omega_n)[0] / valid_r ** 3
-    phi1D = phi2D_g[valid_z, (M-1)//2] + phi1D_c
+    phi1D_c, dphi1D_c = eval_phi_c(valid_r, 0.0, omega_n) / valid_r ** 3
+    dphi1D_c -= 3 * phi1D_c / valid_r
+    phi1D  =  phi2D_g[valid_z, (M-1)//2] +  phi1D_c
+    dphi1D = dphi2D_g[valid_z, (M-1)//2] + dphi1D_c
     
     dom = find_domains(valid_r)
-    r_est = interpolate_func(x=phi1D[dom.unq], y=valid_r[dom.unq], k=KSPL)(targets[-1])
+    r_est = CubicHermiteSpline(
+        x=phi1D[dom.unq], y=valid_r[dom.unq], dydx=dphi1D[dom.unq] ** -1
+    )(targets[-1])
     omega_n_new = omega_n * r_est**(-1.5)
     
     # Find the domains based on zeta values
@@ -640,7 +643,11 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     else :
                 
         # Define the adaptive mesh
-        z_new = interpolate_func(zeta[dom.unq], phi_eff[dom.unq])(np.linspace(0, 2.0, 3000))
+        new_res = int(1.0/(np.finfo(float).eps)**0.2)
+        d2phi_eff = np.hstack((0.0, np.abs(np.diff(dphi_eff[dom.unq]))))
+        z_new = interpolate_func(d2phi_eff.cumsum(), zeta[dom.unq], k=1)(
+            np.linspace(0.0, d2phi_eff.sum(), new_res)
+        )
         z_new = 2 * (z_new - z_new[0]) / (z_new[-1] - z_new[0])
         
         # Cubic Hermite splines
@@ -688,7 +695,7 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     return map_n_new, omega_n_new
 
 
-def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) : 
+def Virial_theorem(map_n, rho_n, omega_n, phi_g_l, P, verbose=False) : 
     """
     Compute the Virial equation and gives the resukt as a diagnostic
     for how well the hydrostatic equilibrium is satisfied (the closer
@@ -702,8 +709,8 @@ def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) :
         Density on each equipotential.
     omega_n : float
         Rotation rate.
-    phi_eff : array_like, shape (N, )
-        Effective potential on each equipotential.
+    phi_g_l : array_like, shape (N, L)
+        Gravitational potential harmonics.
     P : array_like, shape (N, )
         Pressure on each equipotential.
     verbose : bool
@@ -717,9 +724,7 @@ def Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=False) :
 
     """    
     # Potential energy
-    volumic_potential_energy = lambda rk, ck, D : -(  
-       rho_n[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
-    )
+    volumic_potential_energy = lambda rk, ck, D : -rho_n[D] * pl_eval_2D(phi_g_l[D], ck)
     potential_energy = integrate2D(
         map_n, volumic_potential_energy, domains=dom.ranges[:-1], k=KSPL
     )
@@ -1058,12 +1063,12 @@ if __name__ == '__main__' :
     phi_g_harmonics(r, phi_g_l, r_pol[-1], dr=dr, show=True)
     
     # Virial test
-    virial = Virial_theorem(map_n, rho_n, omega_n, phi_eff, P, verbose=True)   
+    virial = Virial_theorem(map_n, rho_n, omega_n, phi_g_l, P, verbose=True)   
     
     # Plot mapping
     plot_f_map(
-        map_n, np.log10(rho_n+np.max(rho_n)*1e-3), phi_eff, L, map_ext=dr._[N:],
-        cmap=cm.viridis_r, disc=dom.end[:-1], n_lines_ext=15
+        map_n, np.log10(rho_n+rho_n.max()**-1), 
+        phi_eff, L, cmap=cm.cividis, disc=dom.end[:-1]
     )
     
     # # Gravitational moments
