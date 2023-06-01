@@ -499,3 +499,176 @@
 #     Q = pl_eval_2D(Q_l, cth)
 #     plot_f_map(map_n, Q, phi_eff, L, cmap='hot')
 #     return Q_l
+
+# def app_list(val, idx, func=lambda x: x, args=None) :
+#     """
+#     Function only designed for convenience in the vectorial mapping finding.
+
+#     Parameters
+#     ----------
+#     val : list
+#         Values on which func is applied
+#     idx : list
+#         val ordering.
+#     func : function or list of function, optional
+#         functions to be applied on val. The default is lambda x: x (identity).
+#     args : list, optional
+#         list of function arguments. The default is None.
+
+#     Returns
+#     -------
+#     array_like
+#         The function applied to val with corresponding args.
+
+#     """
+#     unq_idx = np.unique(idx)
+#     if (args is None) & (callable(func)) :
+#         Func = lambda l: func(val[idx == l])
+#     elif (args is None) & (not callable(func)) :
+#         Func = lambda l: func[l](val[idx == l])
+#     elif (args is not None) & (callable(func)) :
+#         Func = lambda l: func(val[idx == l], args[l])
+#     else :
+#         Func = lambda l: func[l](val[idx == l], args[l])
+#     return np.hstack(list(map(Func, unq_idx)))
+
+# def mapdiff(map_sph, map_rad, L,
+#             size=16, n_lev=201, res=501, cmap=cm.seismic) : 
+    
+#     N, M = map_rad.shape
+#     cth_res = np.linspace(-1, 1, res)
+#     sth_res = np.sqrt(1-cth_res**2)
+#     map_l_sph = pl_project_2D(map_sph, L)
+#     map_l_rad = pl_project_2D(map_rad, L)
+#     map_res_sph = pl_eval_2D(map_l_sph, cth_res)
+#     map_res_rad = pl_eval_2D(map_l_rad, cth_res)
+#     diff = map_res_rad - map_res_sph
+    
+#     plt.close('all')
+#     plt.contourf(
+#         map_res_rad*sth_res, map_res_rad*cth_res, diff, 
+#         cmap=cmap, levels=n_lev, norm=mcl.CenteredNorm()
+#     )
+#     plt.contourf(
+#         -map_res_rad*sth_res, map_res_rad*cth_res, diff, 
+#         cmap=cmap, levels=n_lev, norm=mcl.CenteredNorm()
+#     )
+#     plt.plot( map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
+#     plt.plot(-map_res_rad[-1]*sth_res, map_res_rad[-1]*cth_res, 'k--',lw=0.5)
+#     plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
+#     plt.ylabel(r"$z/R_{\mathrm{eq}}$",fontsize=size)
+#     cbar = plt.colorbar()
+#     cbar.set_label(r"$\delta r$", fontsize=size)
+#     plt.gca().set_aspect("equal")
+#     plt.show()
+
+# def phidiff(phi_l_sph, phi_l_rad, map_sph, r,
+#             size=16, n_lev=201, res=501, cmap=cm.seismic) : 
+    
+#     N, L = phi_l_rad.shape
+#     dr_sph = find_metric_terms(map_sph)
+#     dr_sph = find_external_mapping(dr_sph)
+    
+#     cth_res = np.linspace(-1, 1, res)
+#     sth_res = np.sqrt(1-cth_res**2)
+#     map_l_sph = pl_project_2D(dr_sph._, L)
+#     map_res = pl_eval_2D(map_l_sph, cth_res)
+    
+#     phi2D_sph = pl_eval_2D(phi_l_sph, cth_res)
+#     phi2D_rad = pl_eval_2D(phi_l_rad, cth_res)
+#     l = np.arange(L)
+#     phi2D_int = np.array(
+#         [np.hstack(
+#             (interpolate_func(r, phik)(rk[rk < 1]), 
+#              pl_eval_2D(phi_l_rad[-1] * (rk[rk >= 1, None])**-(l+1), ck))
+#             )
+#          for rk, ck, phik in zip(map_res.T, cth_res, phi2D_rad.T)]
+#         ).T
+#     diff = phi2D_int - phi2D_sph
+    
+#     plt.close('all')
+#     plt.contourf(
+#         map_res*sth_res, map_res*cth_res, diff, 
+#         cmap=cmap, levels=n_lev, norm=mcl.CenteredNorm()
+#     )
+#     plt.contourf(
+#         -map_res*sth_res, map_res*cth_res, diff, 
+#         cmap=cmap, levels=n_lev, norm=mcl.CenteredNorm()
+#     )
+#     plt.plot( map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
+#     plt.plot(-map_res[N-1]*sth_res, map_res[N-1]*cth_res, 'k-',lw=0.5)
+#     plt.plot( map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--',lw=0.5)
+#     plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k--',lw=0.5)
+#     plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
+#     plt.ylabel(r"$z/R_{\mathrm{eq}}$",fontsize=size)
+#     cbar = plt.colorbar()
+#     cbar.set_label(r"$\delta \phi_g$", fontsize=size)
+#     plt.gca().set_aspect("equal")
+#     plt.show()
+
+# def phieff_lines(phi_g_l, dphi_g_l, r, zeta, omega, eval_phi_c,
+#                  size=16, n_lev=51, res=501, cmap=cm.seismic) : 
+    
+#     N, _ = r.shape
+#     _, L = phi_g_l.shape
+#     z = zeta[N:].reshape((-1, 1))
+        
+#     surf = r[-1]
+#     max_degree = 3
+#     r_ext = np.vstack((r, z - (1-surf)*(2-z)**max_degree))
+    
+#     cth_res = np.linspace(-1, 1, res)
+#     sth_res = np.sqrt(1-cth_res**2)
+#     map_l = pl_project_2D(r_ext, L)
+#     map_res = pl_eval_2D(map_l, cth_res)
+    
+#     phi2D_g = pl_eval_2D(phi_g_l, cth_res)
+#     phi2D_c = np.array(
+#         [eval_phi_c(rk, ck, omega)[0] for rk, ck in zip(map_res.T, cth_res)]
+#     ).T
+#     phi2D_eff = phi2D_g + phi2D_c
+    
+#     _, dom_unq = np.unique(zeta, return_index=True)
+#     phi_g_eq  = interpolate_func(
+#         pl_eval_2D(map_l  , 0.0)[dom_unq], 
+#         pl_eval_2D(phi_g_l, 0.0)[dom_unq]
+#     )
+#     dphi_g_eq = interpolate_func(
+#         pl_eval_2D(map_l   , 0.0)[dom_unq], 
+#         pl_eval_2D(dphi_g_l, 0.0)[dom_unq]
+#     )
+#     f  = lambda r :  phi_g_eq(r)  + eval_phi_c(r, 0.0, omega)[0]
+#     df = lambda r : dphi_g_eq(r)  + eval_phi_c(r, 0.0, omega)[1]
+#     from scipy.optimize import root_scalar
+    
+#     r_crit = root_scalar(df, bracket=[1.0, 2.0]).root
+#     phi_eff_crit = f(r_crit)
+#     phi2D_eff -= phi_eff_crit
+    
+#     phimax, phimin = phi2D_eff.max(), phi2D_eff.min()
+#     levels = (
+#         list(np.flip(phimin * np.linspace(0.0, 1.0, (n_lev+1)//2) ** 2))[:-1] +
+#         list(phimax * np.linspace(0.0, 1.0, (n_lev+1)//2) ** 2)
+#     )
+#     lw = 0.5 * np.ones(n_lev)
+#     lw[(n_lev - 1)//2] = 2.0
+#     if isinstance(cmap, list) :
+#         cmap = get_continuous_cmap(cmap)
+    
+#     rc('text', usetex=True)
+#     rc('xtick', labelsize=size)
+#     rc('ytick', labelsize=size)
+#     plt.close('all')
+#     plt.contour(
+#         map_res*sth_res, map_res*cth_res, phi2D_eff, 
+#         cmap=cmap, levels=levels, norm=mcl.CenteredNorm(), linewidths=lw
+#     )
+#     plt.contour(
+#         -map_res*sth_res, map_res*cth_res, phi2D_eff, 
+#         cmap=cmap, levels=levels, norm=mcl.CenteredNorm(), linewidths=lw
+#     )
+#     plt.xlabel(r"$s/R_{\mathrm{eq}}$",fontsize=size)
+#     plt.ylabel(r"$z/R_{\mathrm{eq}}$",fontsize=size)
+#     plt.gca().set_aspect("equal")
+#     plt.axis("off")
+#     plt.show()

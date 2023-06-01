@@ -8,7 +8,7 @@ Created on Wed Dec 21 12:19:57 2022
 
 import numpy as np
 
-from low_level import *
+from numerical import *
 
 def solid(r, cth, omega, return_profile=False) :
     """

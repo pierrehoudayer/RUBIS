@@ -1,0 +1,164 @@
+    ################ 1 #################    
+    
+    #### MODEL CHOICE ####
+    # model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf, res=1000)
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 0.9999
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 501
+    full_rate = 1
+    mapping_precision = 1e-11
+    lagrange_order = 3
+    spline_order = 5
+    
+    ################ 2 #################  
+    
+    #### MODEL CHOICE ####
+    # model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = DotDict(indices = 0.5, target_pressures = -np.inf, res=1000)
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 1.11
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 401
+    full_rate = 1
+    mapping_precision = 1e-11
+    lagrange_order = 3
+    spline_order = 5
+    
+    ################ 3 #################
+
+    #### MODEL CHOICE ####
+    # model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf, res=1000)
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = lorentzian
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 0.97
+    central_diff_rate = 5.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 201
+    full_rate = 3
+    mapping_precision = 1e-11
+    lagrange_order = 3
+    spline_order = 5
+
+    ################ 4 #################
+
+    #### MODEL CHOICE ####
+    # model_choice = "1Dmodel_1.97187607_G1.txt"     
+    model_choice = DotDict(indices = 4.5, target_pressures = -np.inf, res=1000)
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = lorentzian
+    # rotation_profile = la_bidouille('rota_eq.txt', smoothing=1e-5)
+    # rotation_target = 0.089195487 ** 0.5
+    rotation_target = 0.2
+    central_diff_rate = 200.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 401
+    full_rate = 3
+    mapping_precision = 1e-11
+    lagrange_order = 3
+    spline_order = 5
+
+    ################ 5 #################
+
+    #### MODEL CHOICE ####
+    model_choice = "Jupiter.txt"   
+    # model_choice = DotDict(
+    #     indices = (3.0, 1.0, 3.0), 
+    #     target_pressures = (-5.0, -8.0, -np.inf), 
+    #     density_jumps = (0.5, 0.5),
+    #     res=1001
+    # )
+    # model_choice = DotDict(
+    #     indices = 3.0, target_pressures = -np.inf, res=1001
+    # )
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    rotation_target = 1.03
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 101
+    full_rate = 5
+    mapping_precision = 1e-10
+    lagrange_order = 2
+    spline_order = 5
+
+    ################ 6 #################
+
+    #### MODEL CHOICE ####
+    model_choice = "Jupiter.txt"   
+    # model_choice = DotDict(
+    #     indices = (3.0, 1.0, 3.0), 
+    #     target_pressures = (-5.0, -8.0, -np.inf), 
+    #     density_jumps = (0.5, 0.5),
+    #     res=1001
+    # )
+    # model_choice = DotDict(
+    #     indices = 3.0, target_pressures = -np.inf, res=1001
+    # )
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = plateau
+    rotation_target = 0.4
+    central_diff_rate = 3.0
+    rotation_scale = 0.3
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 51
+    full_rate = 5
+    mapping_precision = 1e-10
+    lagrange_order = 2
+    spline_order = 5
+
+    ################ 7 #################
+
+    #### MODEL CHOICE ####
+    # model_choice = "Jupiter.txt"   
+    model_choice = DotDict(
+        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
+        target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
+        density_jumps = (0.3, 0.2, 1.2, 0.8, 0.2)
+    )
+    # model_choice = DotDict(
+    #     indices = 3.0, target_pressures = -np.inf, res=1001
+    # )
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    rotation_target = 0.8
+    central_diff_rate = 1.0
+    rotation_scale = 0.3
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 51
+    full_rate = 5
+    mapping_precision = 1e-10
+    lagrange_order = 2
+    spline_order = 5
+

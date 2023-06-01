@@ -1,170 +1,16 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Sep 23 18:36:42 2022
-
-@author: phoudayer
-"""
-
-#%% Modules cell
-
 import time
 import numpy             as np
 import scipy.sparse      as sps
 import scipy.special     as sp
-from gc                     import collect
-from pylab                  import cm
-from scipy.interpolate      import CubicHermiteSpline
-from scipy.linalg.lapack    import dgbsv
-from scipy.special          import roots_legendre, eval_legendre
+from gc                  import collect
+from scipy.interpolate   import CubicHermiteSpline
+from scipy.linalg.lapack import dgbsv
+from scipy.special       import roots_legendre, eval_legendre
 
-from dotdict                import DotDict
-from low_level              import (
-    integrate, 
-    integrate2D,
-    interpolate_func, 
-    find_r_eq,
-    find_r_pol,
-    pl_eval_2D,
-    pl_project_2D,
-    find_domains,
-    Legendre_coupling,
-    lagrange_matrix_P, 
-    give_me_a_name,
-    plot_f_map
-)
-from rotation_profiles      import solid, lorentzian, plateau, la_bidouille 
-from generate_polytrope     import composite_polytrope  
-
-
-#%% High-level functions cell
-    
-def set_params() : 
-    """
-    Function returning the main parameters of the file.
-
-    Returns
-    -------
-    model_choice : string or DotDict instance
-        Name of the file containing the 1D model or dictionary containing
-        the information requiered to compute a composite polytrope with
-        caracteristics: {
-            indices : array_like, shape(D, )
-                Each region polytropic index
-            target_pressures : array_like, shape(D, )
-                Normalised interface pressure values (surface included).
-            density_jumps : array_like, shape(D-1, )
-                Density ratios above and below each interface (surface excluded).
-                The default value is None
-            R : float, optional
-                Composite polytrope radius. The default value is 1.0
-            M : float, optional
-                Composite polytrope mass. The default value is 1.0
-            res : int, optional
-                Number of points. The default value is 1001
-        }
-        Please refer to the composite_polytrope() documentation for more information.
-    rotation_profile : function(r, cth, omega)
-        Function used to compute the centrifugal potential and its 
-        derivative. Possible choices are {solid, lorentzian, plateau}.
-        Explanations regarding this profiles are available in the 
-        corresponding functions.
-    rotation_target : float
-        Target for the rotation rate.
-    rate_difference : float
-        The rotation rate difference between the centre and equator in the
-        cylindrical rotation profile. For instance, rate_difference = 0.0
-        would corresond to a solid rotation profile while 
-        rate_difference = 0.5 indicates that the star's centre rotates 50%
-        faster than the equator.
-        Only appears in cylindrical rotation profiles.
-    rotation_scale : float
-        Homotesy factor on the x = r*sth / Req axis for the rotation profile.
-        Only appear in the plateau rotation profile.
-    max_degree : integer
-        Maximum l degree to be considered in order to do the
-        harmonic projection.
-    angular_resolution : integer
-        Angular resolution for the mapping. Better to take an odd number 
-        in order to include the equatorial radius.
-    full_rate : integer
-        Number of iterations before reaching full rotation rate. As a 
-        rule of thumb, ~ 1 + int(-np.log(1-rotation_target)) iterations
-        should be enough to ensure convergence (in the solid rotation case!).
-    mapping_precision : float
-        Precision target for the convergence criterion on the mapping.
-    lagrange_order : integer
-        Choice of Lagrange polynomial order in integration / interpolation
-        routines. 
-        2 should be enough.
-    spline_order : integer
-        Choice of B-spline order in integration / interpolation
-        routines. 
-        3 is recommanded (must be odd in anycase).
-    save_resolution : integer
-        Angular resolution for saving the mapping.
-    save_name : string
-        Filename in which to scaled model will be saved.
-        
-    use_Newton : boolean
-        Choose whether to use Newton's method in order to find the 
-        isopotentials or not. Use the reciprocal interpolation if set
-        to False. False is recommended for stability issues (might be 
-        depreciated soon).
-    newton_precision : float
-        Precision target for Newton's method (if use_Newton is set to True).
-    external_domain_res : integer
-        Radial resolution for the external domain. Low values enhance the
-        performances but too low values might cause instabilities.
-    derivable_mapping : boolean
-        Allows to choose between two external mapping prescriptions
-        (cf. find_external_mapping routine). False is highly recommended
-        unless performing some tests (might be depreciated soon).
-    rescale_ab : boolean
-        Whether to rescale the Poisson's matrix before calling 
-        LAPACK's LU decomposition routine. Seems to have a 
-        negligible impact on precision, but only slightly alter performance.
-
-    """
-    
-    #### MODEL CHOICE ####
-    # model_choice = "Jupiter.txt"   
-    model_choice = DotDict(
-        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
-        target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
-        density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
-    )
-    # model_choice = DotDict(
-    #     indices = (3.0, 3.0), target_pressures = (-6.0, -np.inf), density_jumps=(0.999,), res=3000
-    # )
-
-    #### ROTATION PARAMETERS ####      
-    rotation_profile = solid
-    rotation_target = 0.8
-    central_diff_rate = 0.7
-    rotation_scale = 0.3
-    
-    #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 51
-    full_rate = 3
-    mapping_precision = 1e-10
-    lagrange_order = 2
-    spline_order = 5
-    
-    #### OUTPUT PARAMETERS ####
-    plot_resolution = 501
-    save_name = give_me_a_name(model_choice, rotation_target)
-    
-    #### SPHEROIDAL PARAMETERS ####
-    external_domain_res = 201
-    rescale_ab = True
-    
-    return (
-        model_choice, rotation_target, full_rate, rotation_profile,
-        central_diff_rate, rotation_scale, mapping_precision,
-        spline_order, lagrange_order, max_degree, angular_resolution, 
-        plot_resolution, save_name, external_domain_res, rescale_ab
-    )
+from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D, Legendre_coupling
+from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
+from polytrope           import composite_polytrope
+from helpers             import DotDict, find_domains, plot_f_map, phi_g_harmonics
 
 def init_1D() : 
     """
@@ -193,14 +39,14 @@ def init_1D() :
         Additional variables found in 'MOD1D'.
 
     """
-    if isinstance(MOD_1D, DotDict) :        
+    if isinstance(model_choice, DotDict) :        
         # The model properties are user-defined
-        N = MOD_1D.res    or 1001
-        M = MOD_1D.mass   or 1.0
-        R = MOD_1D.radius or 1.0
+        N = model_choice.res    or 1001
+        M = model_choice.mass   or 1.0
+        R = model_choice.radius or 1.0
         
         # Polytrope computation
-        model = composite_polytrope(MOD_1D)
+        model = composite_polytrope(model_choice)
         
         # Normalisation
         r   = model.r     /  R
@@ -211,10 +57,10 @@ def init_1D() :
     else : 
         # Reading file 
         surface_pressure, radial_res = np.genfromtxt(
-            './Models/'+MOD_1D, max_rows=2, unpack=True
+            './Models/'+model_choice, max_rows=2, unpack=True
         )
         r1D, rho1D, *other_var = np.genfromtxt(
-            './Models/'+MOD_1D, skip_header=2, unpack=True
+            './Models/'+model_choice, skip_header=2, unpack=True
         )
         N = int(radial_res)
         
@@ -273,17 +119,43 @@ def init_phi_c() :
         Rotation profile
 
     """
-    nb_args = PROFILE.__code__.co_argcount - len(PROFILE.__defaults__ or '')
+    nb_args = (
+          rotation_profile.__code__.co_argcount 
+        - len(rotation_profile.__defaults__ or '')
+    )
     mask = np.array([0, 1]) < nb_args - 3
     
     # Creation of the centrifugal potential function
-    args_phi = np.array([ALPHA, SCALE])[mask]
-    phi_c = lambda r, cth, omega : PROFILE(r, cth, omega, *args_phi)
+    args_phi = np.array([central_diff_rate, rotation_scale])[mask]
+    phi_c = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_phi)
     
     # Creation of the rotation profile function
     args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
-    w = lambda r, cth, omega : PROFILE(r, cth, omega, *args_w)
+    w = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_w)
     return phi_c, w
+
+def init_sparse_matrices_per_domain() : 
+    """
+    Finds the interpolation and derivation matrices (in scipy sparse
+    storage format) for each spheroidal domain.
+
+    Returns
+    -------
+    Lsp, Dsp : list of array_like, shape (size_domain - 1, size_domain)
+        Interpolation and derivation matrices.
+
+    """
+    Lsp, Dsp = [], []
+    for D in dom.ranges : 
+        
+        # Find the lagrange matrices per domain
+        lag_mat = lagrange_matrix_P(zeta[D], order=KLAG)
+        
+        # Define sparse matrices 
+        Lsp.append(sps.dia_matrix(lag_mat[..., 0]))
+        Dsp.append(sps.dia_matrix(lag_mat[..., 1]))
+    
+    return Lsp, Dsp
 
 
 def find_gravitational_moments(map_n, rho_n, max_degree=14) :
@@ -340,6 +212,126 @@ def find_pressure(rho, dphi_eff) :
         zeta[dom.unq_int], dP[dom.unq_int], der=-1, k=KSPL, prim_cond=(-1, P0)
     )(zeta[dom.int])
     return P
+
+
+def find_metric_terms(map_n) : 
+    """
+    Finds the metric terms, i.e the derivatives of r(z, t) 
+    with respect to z or t (with z := zeta and t := cos(theta)).
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+
+    Returns
+    -------
+    dr : DotDict instance
+        The mapping derivatives : {
+            _   = r(z, t),
+            t   = r_t(z, t),
+            tt  = r_tt(z, t),
+            z   = r_z(z, t),
+            zt  = r_zt(z, t),
+            ztt = r_ztt(z, t)
+            }          
+    """
+    dr = DotDict()
+    dr._ = map_n
+    map_l = pl_project_2D(dr._, L)
+    _, dr.t, dr.tt = pl_eval_2D(map_l, cth, der=2)
+    dr.z = np.array(
+        [np.hstack(
+            [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
+             for D in dom.ranges[:-1]]
+        ) for rk in map_n.T]            # <- mapping derivative potentially
+    ).T                                 #    discontinous on the interfaces
+    map_l_z = pl_project_2D(dr.z, L)
+    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
+    return dr
+
+def find_external_mapping(dr) : 
+    """
+    Complete the internal mapping (0 <= z <= 1) to an external 
+    domain (1 <= z <= 2). By convention, this continuation reaches 
+    the spherical metric at z=2, thus making it handy to impose 
+    the boundary conditions on this point. Please note that the
+    mapping thus defined is not derivable at the interface between 
+    the internal and external domains (hence in z = 1).
+
+    Parameters
+    ----------
+    dr : DotDict instance
+        The internal mapping and its derivatives with respect to z and t
+
+    Returns
+    -------
+    dr : DotDict instance
+        The commplete mapping from 0 <= z <= 2.
+    """
+    # External zeta variable 
+    z = zeta[dom.ext].reshape((-1, 1))
+    
+    # Internal mapping constraints
+    surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
+    
+    # External mapping and derivatives
+    max_degree = 3
+    dr._  = np.vstack((dr._, z - (1-surf)*(2-z)**max_degree))
+    dr.t  = np.vstack((dr.t,       dsurf *(2-z)**max_degree))
+    dr.tt = np.vstack((dr.tt,     ddsurf *(2-z)**max_degree))
+    dr.z  = np.vstack((dr.z, 1 + (1-surf)*(2-z)**(max_degree-1)*max_degree))
+    
+    # Sanity check
+    assert not np.any(dr.z < 0)
+    
+    return dr
+
+def find_all_couplings(dr, alpha=2) :
+    """
+    Find all the couplings needed to solve Poisson's equation in 
+    spheroidal coordinates.
+
+    Parameters
+    ----------
+    dr : DotDict instance
+        The mapping and its derivatives with respect to z and t
+    alpha : float, optional
+        Constant to be either set to 1 (typically for divergences)
+        or 2 (Laplacians).
+
+    Returns
+    -------
+    Pll : DotDict instance
+        Harmonic couplings. They are caracterised by their related 
+        metric term : {
+            zz : array_like, shape (N+NE, Nl, Nl)
+                coupling associated to phi_zz,
+            zt : array_like, shape (N+NE, Nl, Nl)
+                            //         phi_zt,
+            tt : array_like, shape (N+NE, Nl, Nl)
+                            //         phi_tt,
+            BC : array_like, shape (N+NE, Nl, Nl)
+                coupling used to ensure the gradient continuity.
+        }
+
+    """
+    Pll = DotDict()
+    l = np.arange(0, L, 2)
+    
+    Pll.zz = Legendre_coupling(
+        (dr._**2 + (1-cth**2) * dr.t**2) / dr.z, L, der=(0, 0)
+    )
+    Pll.zt = Legendre_coupling(
+        (1-cth**2) * dr.tt - 2*cth * dr.t, L, der=(0, 0)
+    ) + alpha * Legendre_coupling(
+        (1-cth**2) * dr.t, L, der=(0, 1)
+    )
+    Pll.tt = Legendre_coupling(dr.z, L, der=(0, 0)) * l*(l+1)
+    
+    Pll.BC = Legendre_coupling(1/dr.z, L, der=(0, 0))
+    
+    return Pll 
 
 def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
     """
@@ -497,7 +489,7 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
     
     # Determination of matrix blocs (and b) from coupling harmonics (and rhs harmonics)
     # Rescale the coefficients in both coefs and b if AB_SCALE==True.
-    coefs, b, col_scale = find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale=AB_SCALE)  
+    coefs, b, col_scale = find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale=rescale_ab)  
     
     # Matrix filling (credits to N. Fargette for this part)
     ab = np.zeros((2*kl+ku+1, 2*Nl*(N+NE)))
@@ -535,7 +527,7 @@ def find_phi_eff(map_n, rho_n, phi_eff=None) :
     return phi_g_l, dphi_g_l, phi_eff
 
 
-def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
+def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) :
     """
     Find the new mapping by comparing the effective potential
     and the total potential (calculated from phi_g_l and omega_n).
@@ -551,7 +543,9 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     dphi_g_l : array_like, shape (N, L)
         Gravitation potential derivative harmonics.
     phi_eff : array_like, shape (N, )
-        Effective potential on each equipotential.
+        Effective potential on each level surface.
+    dphi_eff : array_like, shape (N, )
+        Effective potential derivative over the isopotentials.
 
     Returns
     -------
@@ -584,14 +578,11 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
     dphi1D = dphi2D_g[valid_z, eq] + dphi1D_c
     
-    dom = find_domains(valid_r)
+    dom_r = find_domains(valid_r)
     r_est = CubicHermiteSpline(
-        x=phi1D[dom.unq], y=valid_r[dom.unq], dydx=dphi1D[dom.unq] ** -1
+        x=phi1D[dom_r.unq], y=valid_r[dom_r.unq], dydx=dphi1D[dom_r.unq] ** -1
     )(targets[-1])
     omega_n_new = omega_n * r_est**(-1.5)
-    
-    # Find the domains based on zeta values
-    dom = find_domains(zeta)
                 
     ### Find the new mapping using the reciprocal interpolation
     # Define the adaptive mesh
@@ -729,171 +720,39 @@ def write_model(fname, map_n, *args) :
 
     """
     np.savetxt(
-        'Models/'+fname, np.hstack((map_n, np.vstack(args + (*VAR,)).T)), 
-        header=f"{N} {M} {mass} {radius} {ROT} {G}", 
+        'Models/'+fname, np.hstack((map_n, np.vstack(args + (*additional_var,)).T)), 
+        header=f"{N} {M} {mass} {radius} {rotation_target} {G}", 
         comments=''
-    )
-        
-    
-#%% Sph functions cell
+    )       
 
-def find_sparse_matrices_per_domain() : 
+def spheroidal_method(*params) : 
     """
-    Finds the interpolation and derivation matrices (in scipy sparse
-    storage format) for each spheroidal domain.
-
-    Returns
-    -------
-    Lsp, Dsp : list of array_like, shape (size_domain - 1, size_domain)
-        Interpolation and derivation matrices.
-
-    """
-    Lsp, Dsp = [], []
-    for D in dom.ranges : 
-        
-        # Find the lagrange matrices per domain
-        lag_mat = lagrange_matrix_P(zeta[D], order=KLAG)
-        
-        # Define sparse matrices 
-        Lsp.append(sps.dia_matrix(lag_mat[..., 0]))
-        Dsp.append(sps.dia_matrix(lag_mat[..., 1]))
-    
-    return Lsp, Dsp
-    
-
-def find_metric_terms(map_n) : 
-    """
-    Finds the metric terms, i.e the derivatives of r(z, t) 
-    with respect to z or t (with z := zeta and t := cos(theta)).
+    Main routine for the centrifugal deformation method in spheroidal coordinates.
 
     Parameters
     ----------
-    map_n : array_like, shape (N, M)
-        Isopotential mapping.
-
-    Returns
-    -------
-    dr : DotDict instance
-        The mapping derivatives : {
-            _   = r(z, t),
-            t   = r_t(z, t),
-            tt  = r_tt(z, t),
-            z   = r_z(z, t),
-            zt  = r_zt(z, t),
-            ztt = r_ztt(z, t)
-            }          
-    """
-    dr = DotDict()
-    dr._ = map_n
-    map_l = pl_project_2D(dr._, L)
-    _, dr.t, dr.tt = pl_eval_2D(map_l, cth, der=2)
-    dr.z = np.array(
-        [np.hstack(
-            [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
-             for D in dom.ranges[:-1]]
-        ) for rk in map_n.T]            # <- mapping derivative potentially
-    ).T                                 #    discontinous on the interfaces
-    map_l_z = pl_project_2D(dr.z, L)
-    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, cth, der=2)
-    return dr
-
-def find_external_mapping(dr) : 
-    """
-    Complete the internal mapping (0 <= z <= 1) to an external 
-    domain (1 <= z <= 2). By convention, this continuation reaches 
-    the spherical metric at z=2, thus making it handy to impose 
-    the boundary conditions on this point. Please note that the
-    mapping thus defined is not derivable at the interface between 
-    the internal and external domains (hence in z = 1).
-
-    Parameters
-    ----------
-    dr : DotDict instance
-        The internal mapping and its derivatives with respect to z and t
-
-    Returns
-    -------
-    dr : DotDict instance
-        The commplete mapping from 0 <= z <= 2.
-    """
-    # External zeta variable 
-    z = zeta[dom.ext].reshape((-1, 1))
-    
-    # Internal mapping constraints
-    surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
-    
-    # External mapping and derivatives
-    max_degree = 3
-    dr._  = np.vstack((dr._, z - (1-surf)*(2-z)**max_degree))
-    dr.t  = np.vstack((dr.t,       dsurf *(2-z)**max_degree))
-    dr.tt = np.vstack((dr.tt,     ddsurf *(2-z)**max_degree))
-    dr.z  = np.vstack((dr.z, 1 + (1-surf)*(2-z)**(max_degree-1)*max_degree))
-    
-    # Sanity check
-    assert not np.any(dr.z < 0)
-    
-    return dr
-
-def find_all_couplings(dr, alpha=2) :
-    """
-    Find all the couplings needed to solve Poisson's equation in 
-    spheroidal coordinates.
-
-    Parameters
-    ----------
-    dr : DotDict instance
-        The mapping and its derivatives with respect to z and t
-    alpha : float, optional
-        Constant to be either set to 1 (typically for divergences)
-        or 2 (Laplacians).
-
-    Returns
-    -------
-    Pll : DotDict instance
-        Harmonic couplings. They are caracterised by their related 
-        metric term : {
-            zz : array_like, shape (N+NE, Nl, Nl)
-                coupling associated to phi_zz,
-            zt : array_like, shape (N+NE, Nl, Nl)
-                            //         phi_zt,
-            tt : array_like, shape (N+NE, Nl, Nl)
-                            //         phi_tt,
-            BC : array_like, shape (N+NE, Nl, Nl)
-                coupling used to ensure the gradient continuity.
-        }
+    params : tuple
+        All method parameters. Please refer to the documentation in RUBIS.py
 
     """
-    Pll = DotDict()
-    l = np.arange(0, L, 2)
     
-    Pll.zz = Legendre_coupling(
-        (dr._**2 + (1-cth**2) * dr.t**2) / dr.z, L, der=(0, 0)
-    )
-    Pll.zt = Legendre_coupling(
-        (1-cth**2) * dr.tt - 2*cth * dr.t, L, der=(0, 0)
-    ) + alpha * Legendre_coupling(
-        (1-cth**2) * dr.t, L, der=(0, 1)
-    )
-    Pll.tt = Legendre_coupling(dr.z, L, der=(0, 0)) * l*(l+1)
+    # Global parameters
+    global model_choice, rotation_profile, rotation_target, central_diff_rate, \
+    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params, \
+    NE, rescale_ab
+    model_choice, rotation_profile, rotation_target, central_diff_rate, \
+    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params, \
+    NE, rescale_ab = params
     
-    Pll.BC = Legendre_coupling(1/dr.z, L, der=(0, 0))
-    
-    return Pll    
-    
-
-#%% Main cell
-
-if __name__ == '__main__' :
+    # Global constants, variables and functions
+    global G, P0, N, mass, radius, r, zeta, rho_n, additional_var, \
+    cth, weights, eval_phi_c, eval_w, Lsp, Dsp, dom
+    G = 6.67384e-8  # <- Gravitational constant
     
     start = time.perf_counter()
     
-    # Definition of global parameters
-    MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, KSPL, \
-    KLAG, L, M, RES, SAVE, NE, AB_SCALE = set_params()
-    G = 6.67384e-8     # <- value of the gravitational constant
-    
     # Definition of the 1D-model
-    P0, N, mass, radius, r, zeta, rho_n, VAR = init_1D() 
+    P0, N, mass, radius, r, zeta, rho_n, additional_var = init_1D() 
     
     # Domains identification
     dom = find_domains(zeta)
@@ -905,7 +764,7 @@ if __name__ == '__main__' :
     eval_phi_c, eval_w = init_phi_c()
     
     # Find the lagrange matrices per domain
-    Lsp, Dsp = find_sparse_matrices_per_domain()
+    Lsp, Dsp = init_sparse_matrices_per_domain()
     
     # Initialisation for the effective potential
     phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(map_n, rho_n)
@@ -922,18 +781,17 @@ if __name__ == '__main__' :
         "\n+---------------------+\n"
     )
     
-    # while n < 11 :
-    while abs(r_pol[-1] - r_pol[-2]) > EPS :
+    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision :
         
         # Current rotation rate
-        omega_n = min(ROT, ((n+1)/FULL) * ROT)
+        omega_n = min(rotation_target, ((n+1)/full_rate) * rotation_target)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(map_n, rho_n, phi_eff)
         
         # Update the mapping
         map_n, omega_n = find_new_mapping(
-            map_n, omega_n, phi_g_l, dphi_g_l, phi_eff
+            map_n, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
         )        
 
         # Renormalisation
@@ -952,7 +810,7 @@ if __name__ == '__main__' :
         
         # Iteration count
         n += 1
-        DEC = int(-np.log10(EPS))
+        DEC = int(-np.log10(mapping_precision))
         print(f"Iteration n°{n:02d}, R_pol = {r_pol[-1].round(DEC)}")
         
     finish = time.perf_counter()
@@ -966,30 +824,35 @@ if __name__ == '__main__' :
     # Estimated error on Poisson's equation
     dr = find_metric_terms(map_n)
     dr = find_external_mapping(dr)
-    from utils import phi_g_harmonics
-    phi_g_harmonics(r, phi_g_l, r_pol[-1], dr=dr, show=True)
+    if output_params.show_harmonics :
+        phi_g_harmonics(r, phi_g_l, r_pol[-1], dr=dr, show=True)
     
     # Virial test
-    virial = Virial_theorem(map_n, rho_n, omega_n, phi_g_l, P, verbose=True)   
+    if output_params.virial_test :
+        virial = Virial_theorem(map_n, rho_n, omega_n, phi_g_l, P, verbose=True)   
     
-    # Plot mapping
-    plot_f_map(
-        map_n, np.log10(rho_n+rho_n.max()**-1), 
-        phi_eff, L, cmap=cm.cividis, disc=dom.end[:-1]
-    )
+    # Plot model
+    if output_params.show_model :
+        plot_f_map(
+            map_n, np.log10(rho_n+rho_n.max()**-1), phi_eff, L, 
+            angular_res=output_params.plot_resolution,
+            cmap='cividis', 
+            disc=dom.end[:-1],
+            label=r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
+        )
     
-    # # Gravitational moments
-    # find_gravitational_moments(map_n, rho_n)
-    
-    # # Model scaling
-    # map_n    *=               radius
-    # rho_n    *=     mass    / radius**3
-    # phi_eff  *= G * mass    / radius   
-    # dphi_eff *= G * mass    / radius**2
-    # P        *= G * mass**2 / radius**4
+    # Gravitational moments
+    if output_params.gravitational_moments :
+        find_gravitational_moments(map_n, rho_n)
     
     # Model writing
-    # write_model(SAVE, map_n, P, rho_n, phi_eff[:N])
+    if output_params.save_model :
+        map_n    *=               radius
+        rho_n    *=     mass    / radius**3
+        phi_eff  *= G * mass    / radius   
+        dphi_eff *= G * mass    / radius**2
+        P        *= G * mass**2 / radius**4
+        write_model(output_params.save_name, map_n, r, P, rho_n, phi_eff)
     
         
     

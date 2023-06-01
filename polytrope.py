@@ -6,11 +6,12 @@ Created on Thu Jan  5 17:06:45 2023
 @author: phoudayer
 """
 
-import numpy as np
+import numpy             as np
 import matplotlib.pyplot as plt
-from matplotlib import rc
+from matplotlib      import rc
 from scipy.integrate import solve_ivp
-from dotdict import DotDict
+
+from helpers         import DotDict
 
 def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     """
