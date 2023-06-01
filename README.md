@@ -298,6 +298,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [x] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
 - [x] Improve the conditioning of Poisson's matrix in the spheroidal method.
 - [x] Improve the reciprocal interpolation in the spheroidal method thanks to an adaptive $\zeta$ grid.
+- [ ] Fix the Virial test for the spheroidal deformation method.
 - [ ] Add the global user interface `RUBIS.py`.   ⇨ `v1.0.0`
 - [ ] Rewrite the *completely* outdated `README.md`
 
