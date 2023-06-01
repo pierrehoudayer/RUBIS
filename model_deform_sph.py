@@ -20,8 +20,6 @@ from scipy.special          import roots_legendre, eval_legendre
 
 from dotdict                import DotDict
 from low_level              import (
-    lnxn, 
-    del_u_over_v,
     integrate, 
     integrate2D,
     interpolate_func, 
@@ -32,7 +30,6 @@ from low_level              import (
     find_domains,
     Legendre_coupling,
     lagrange_matrix_P, 
-    app_list, 
     give_me_a_name,
     plot_f_map
 )
