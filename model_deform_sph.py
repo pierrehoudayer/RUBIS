@@ -131,20 +131,20 @@ def set_params() :
     """
     
     #### MODEL CHOICE ####
-    model_choice = "Jupiter.txt"   
+    # model_choice = "Jupiter.txt"   
+    model_choice = DotDict(
+        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
+        target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
+        density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
+    )
     # model_choice = DotDict(
-    #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
-    #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
-    #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
-    # )
-    # model_choice = DotDict(
-    #     indices = 3.0, target_pressures = -np.inf, res=3000
+    #     indices = (3.0, 3.0), target_pressures = (-6.0, -np.inf), density_jumps=(0.999,), res=3000
     # )
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     rotation_target = 0.8
-    central_diff_rate = 1.0
+    central_diff_rate = 0.7
     rotation_scale = 0.3
     
     #### SOLVER PARAMETERS ####
@@ -159,18 +159,14 @@ def set_params() :
     save_name = give_me_a_name(model_choice, rotation_target)
     
     #### SPHEROIDAL PARAMETERS ####
-    use_Newton = False
-    newton_precision = 1e-11
     external_domain_res = 201
-    derivable_mapping = False
     rescale_ab = True
     
     return (
         model_choice, rotation_target, full_rate, rotation_profile,
         central_diff_rate, rotation_scale, mapping_precision,
         spline_order, lagrange_order, max_degree, angular_resolution, 
-        plot_resolution, save_name, use_Newton, newton_precision,
-        external_domain_res, derivable_mapping, rescale_ab
+        plot_resolution, save_name, external_domain_res, rescale_ab
     )
 
 def init_1D() : 
@@ -577,18 +573,19 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     dr = find_external_mapping(dr)
     
     # 2D gravitational potential
-    up = np.arange((M+1)//2)
+    eq = (M-1)//2
+    up = np.arange(eq+1)
     phi2D_g = pl_eval_2D( phi_g_l, cth[up])
     dphi2D_g_dz = pl_eval_2D(dphi_g_l, cth[up])
     dphi2D_g = dphi2D_g_dz / dr.z[:, up]
         
-    # Find a new value for ROT
+    ### Find the adaptive rotation rate
     valid_z = zeta > 0.5
-    valid_r = dr._[valid_z, (M-1)//2]
+    valid_r = dr._[valid_z, eq]
     phi1D_c, dphi1D_c = eval_phi_c(valid_r, 0.0, omega_n) / valid_r ** 3
     dphi1D_c -= 3 * phi1D_c / valid_r
-    phi1D  =  phi2D_g[valid_z, (M-1)//2] +  phi1D_c
-    dphi1D = dphi2D_g[valid_z, (M-1)//2] + dphi1D_c
+    phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
+    dphi1D = dphi2D_g[valid_z, eq] + dphi1D_c
     
     dom = find_domains(valid_r)
     r_est = CubicHermiteSpline(
@@ -598,98 +595,56 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     
     # Find the domains based on zeta values
     dom = find_domains(zeta)
-    
-    # Find the new mapping using Newton's method
-    if NEWTON :
-                    
-        # Gravitational potential interpolation
-        phi_g_func  = [CubicHermiteSpline(
-            x=dr._[dom.unq, k], y=phi2D_g[dom.unq, k], dydx=dphi2D_g[dom.unq, k]
-        ) for k in up]
-        
-        # Find the mapping
-        map_est = np.copy(map_n[:, up])
-        idx = np.indices(map_est.shape)
-        del_r = np.ones_like(map_n[:, up])
-        del_r[0] = 0.0        
-        
-        while np.any(np.abs(del_r) > DELTA) :
-            
-            # Terms that require corrections
-            C_est = (np.abs(del_r) > DELTA)
-            r_est = map_est[C_est]
-            k_est = idx[1,  C_est]        
                 
-            # Gravitational potential
-            inv_sort = np.argsort(app_list(np.arange(len(k_est)), k_est))
-            phi_g_est = np.array(
-                (app_list(r_est, k_est, phi_g_func        ),
-                app_list(r_est, k_est, phi_g_func, (1,)*M))
-            )[:, inv_sort]
-            
-            # Centrifugal potential
-            phi_c_est = np.array(
-                eval_phi_c(r_est, cth[k_est], omega_n_new)
-            )
-            
-            # Total potential
-            phi_t_est =  phi_g_est +  phi_c_est
-            
-            # Update map_est
-            del_r[C_est] = (targets[idx[0, C_est]] - phi_t_est[0]) / phi_t_est[1]
-            map_est[C_est] += del_r[C_est]
+    ### Find the new mapping using the reciprocal interpolation
+    # Define the adaptive mesh
+    new_res = int(1.0/(np.finfo(float).eps)**0.2)
+    d2phi_eff = np.hstack((0.0, np.abs(np.diff(dphi_eff[dom.unq]))))
+    z_new = interpolate_func(d2phi_eff.cumsum(), zeta[dom.unq], k=1)(
+        np.linspace(0.0, d2phi_eff.sum(), new_res)
+    )
+    z_new = 2 * (z_new - z_new[0]) / (z_new[-1] - z_new[0])
     
-    # Find the new mapping using the reciprocal interpolation
-    else :
-                
-        # Define the adaptive mesh
-        new_res = int(1.0/(np.finfo(float).eps)**0.2)
-        d2phi_eff = np.hstack((0.0, np.abs(np.diff(dphi_eff[dom.unq]))))
-        z_new = interpolate_func(d2phi_eff.cumsum(), zeta[dom.unq], k=1)(
-            np.linspace(0.0, d2phi_eff.sum(), new_res)
-        )
-        z_new = 2 * (z_new - z_new[0]) / (z_new[-1] - z_new[0])
+    # Cubic Hermite splines
+    r_splines = [CubicHermiteSpline(
+        x=zeta[dom.unq], y=dr._[dom.unq, k], dydx=dr.z[dom.unq, k]
+    ) for k in up]
+    p_splines = [CubicHermiteSpline(
+        x=zeta[dom.unq], y=phi2D_g[dom.unq, k], dydx=dphi2D_g_dz[dom.unq, k]
+    ) for k in up]
+    
+    # Interpolated variables
+    r_ipl, dr_ipl = [
+        np.array([r_spl(z_new, nu=nu) for r_spl in r_splines]).T for nu in [0, 1]
+    ]
+    phi_g_ipl, dphi_g_ipl = [
+        np.array([p_spl(z_new, nu=nu) for p_spl in p_splines]).T for nu in [0, 1]
+    ]
+    phi_c_ipl, dphi_c_ipl = np.moveaxis(np.array([
+        eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(r_ipl[:, up].T, cth[up])
+    ]), 0, 2)
+    phi_ipl  =  phi_c_ipl +  phi_g_ipl
+    dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
+    
+    # Finding the valid interpolation domain
+    valid = np.ones_like(phi_ipl, dtype='bool')
+    idx = np.arange(len(z_new))
+    safety = 1e-4
+    for k, dpk in enumerate(dphi_ipl.T) :
+        idx_max = len(z_new)
+        if np.any((dpk < safety)&(z_new > safety)) :
+            idx_max = np.min(np.argwhere((dpk < safety)&(z_new > safety)))
+        valid[:, k] = (idx < idx_max) & (z_new > safety)
         
-        # Cubic Hermite splines
-        r_splines = [CubicHermiteSpline(
-            x=zeta[dom.unq], y=dr._[dom.unq, k], dydx=dr.z[dom.unq, k]
-        ) for k in up]
-        p_splines = [CubicHermiteSpline(
-            x=zeta[dom.unq], y=phi2D_g[dom.unq, k], dydx=dphi2D_g_dz[dom.unq, k]
-        ) for k in up]
+    # Estimate at target values
+    map_est = np.zeros_like(map_n[:, up])
+    map_est[1:] = np.array([
+        CubicHermiteSpline(x=pk[vk], y=rk[vk], dydx=dpk[vk]**-1)(targets[1:]) 
+        for rk, pk, dpk, vk in zip(r_ipl.T, phi_ipl.T, dphi_ipl.T, valid.T)
+    ]).T
+    map_est[dom.beg[:-1]] = map_est[dom.end[:-1]]
         
-        # Interpolated variables
-        r_ipl, dr_ipl = [
-            np.array([r_spl(z_new, nu=nu) for r_spl in r_splines]).T for nu in [0, 1]
-        ]
-        phi_g_ipl, dphi_g_ipl = [
-            np.array([p_spl(z_new, nu=nu) for p_spl in p_splines]).T for nu in [0, 1]
-        ]
-        phi_c_ipl, dphi_c_ipl = np.moveaxis(np.array([
-            eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(r_ipl[:, up].T, cth[up])
-        ]), 0, 2)
-        phi_ipl  =  phi_c_ipl +  phi_g_ipl
-        dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
-        
-        # Finding the valid interpolation domain
-        valid = np.ones_like(phi_ipl, dtype='bool')
-        idx = np.arange(len(z_new))
-        safety = 1e-4
-        for k, dpk in enumerate(dphi_ipl.T) :
-            idx_max = len(z_new)
-            if np.any((dpk < safety)&(z_new > safety)) :
-                idx_max = np.min(np.argwhere((dpk < safety)&(z_new > safety)))
-            valid[:, k] = (idx < idx_max) & (z_new > safety)
-            
-        # Estimate at target values
-        map_est = np.zeros_like(map_n[:, up])
-        map_est[1:] = np.array([
-            CubicHermiteSpline(x=pk[vk], y=rk[vk], dydx=dpk[vk]**-1)(targets[1:]) 
-            for rk, pk, dpk, vk in zip(r_ipl.T, phi_ipl.T, dphi_ipl.T, valid.T)
-        ]).T
-        map_est[dom.beg[:-1]] = map_est[dom.end[:-1]]
-        
-    # New mapping
+    ### New mapping
     map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
         
     return map_n_new, omega_n_new
@@ -741,7 +696,6 @@ def Virial_theorem(map_n, rho_n, omega_n, phi_g_l, P, verbose=False) :
     internal_energy = integrate2D(map_n, P, domains=dom.ranges[:-1], k=KSPL)
     
     # Surface term
-    _, weights = roots_legendre(M)
     surface_term = 2*np.pi * (map_n[-1]**3 @ weights) * P[-1]
     
     # Compute the virial equation
@@ -851,9 +805,9 @@ def find_external_mapping(dr) :
     Complete the internal mapping (0 <= z <= 1) to an external 
     domain (1 <= z <= 2). By convention, this continuation reaches 
     the spherical metric at z=2, thus making it handy to impose 
-    the boundary conditions on this point. The two options proposed
-    consist in computing a mapping preserving dr/dz through the surface
-    (DERIV = True) or not (DERIV = False). The latter is recommended.
+    the boundary conditions on this point. Please note that the
+    mapping thus defined is not derivable at the interface between 
+    the internal and external domains (hence in z = 1).
 
     Parameters
     ----------
@@ -865,62 +819,18 @@ def find_external_mapping(dr) :
     dr : DotDict instance
         The commplete mapping from 0 <= z <= 2.
     """
+    # External zeta variable 
+    z = zeta[dom.ext].reshape((-1, 1))
     
-    if DERIV : 
-        ### DERIVABLE MAPPING ####
-        
-        # External zeta variable 
-        z = zeta[dom.ext].reshape((-1, 1))
-        
-        # a's derivatives
-        da_u = (1 + dr.z[-1], dr.zt[-1], dr.ztt[-1])
-        da_v = (2 - dr._[-1], -dr.t[-1], -dr.tt[-1])
-        a   = del_u_over_v(da_u, da_v, 0)
-        da  = del_u_over_v(da_u, da_v, 1)
-        dda = del_u_over_v(da_u, da_v, 2)
-        
-        # b's derivatives
-        db_u = (dr._[-1]  + 2*dr.z[-1], 
-                dr.t[-1]  + 2*dr.zt[-1], 
-                dr.tt[-1] + 2*dr.ztt[-1])
-        db_v = (1 + dr.z[-1], dr.zt[-1], dr.ztt[-1])
-        b   = del_u_over_v(db_u, db_v, 0)
-        db  = del_u_over_v(db_u, db_v, 1)
-        ddb = del_u_over_v(db_u, db_v, 2)
-        
-        # r's derivatives
-        dr_u = (
-            (z-1)**a - dr.z[-1]*(2-z)**a, 
-            da*lnxn(z-1, 1, a) - dr.z[-1]*da*lnxn(2-z, 1, a)
-              - dr.zt[-1]*(2-z)**a,
-            da**2*lnxn(z-1, 2, a) - dr.z[-1]*da**2*lnxn(2-z, 2, a)
-              + dda*lnxn(z-1, 1, a) - dr.z[-1]*dda*lnxn(2-z, 1, a)
-              - 2*dr.zt[-1]*da*lnxn(2-z, 1, a) - dr.ztt[-1]*(2-z)**a
-        )
-        dr_v = (a, da, dda)
-        
-        # External mapping and derivatives
-        dr._  = np.vstack((dr._,  del_u_over_v(dr_u, dr_v, 0) + b)     )
-        dr.t  = np.vstack((dr.t,  del_u_over_v(dr_u, dr_v, 1) + db)    )
-        dr.tt = np.vstack((dr.tt, del_u_over_v(dr_u, dr_v, 2) + ddb)   )
-        dr.z  = np.vstack((dr.z, (z-1)**(a-1) + dr.z[-1]*(2-z)**(a-1)) )
+    # Internal mapping constraints
+    surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
     
-    else :
-        #### NON DERIVABLE MAPPING ####
-        
-        # External zeta variable 
-        z = zeta[dom.ext].reshape((-1, 1))
-        
-        # Internal mapping constraints
-        surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
-        
-        # External mapping and derivatives
-        max_degree = 3
-        dr._  = np.vstack((dr._, z - (1-surf)*(2-z)**max_degree))
-        dr.t  = np.vstack((dr.t,       dsurf *(2-z)**max_degree))
-        dr.tt = np.vstack((dr.tt,     ddsurf *(2-z)**max_degree))
-        dr.z  = np.vstack((dr.z, 1 + (1-surf)*(2-z)**(max_degree-1)*max_degree))
-    
+    # External mapping and derivatives
+    max_degree = 3
+    dr._  = np.vstack((dr._, z - (1-surf)*(2-z)**max_degree))
+    dr.t  = np.vstack((dr.t,       dsurf *(2-z)**max_degree))
+    dr.tt = np.vstack((dr.tt,     ddsurf *(2-z)**max_degree))
+    dr.z  = np.vstack((dr.z, 1 + (1-surf)*(2-z)**(max_degree-1)*max_degree))
     
     # Sanity check
     assert not np.any(dr.z < 0)
@@ -982,7 +892,7 @@ if __name__ == '__main__' :
     
     # Definition of global parameters
     MOD_1D, ROT, FULL, PROFILE, ALPHA, SCALE, EPS, KSPL, \
-    KLAG, L, M, RES, SAVE, NEWTON, DELTA, NE, DERIV, AB_SCALE = set_params()
+    KLAG, L, M, RES, SAVE, NE, AB_SCALE = set_params()
     G = 6.67384e-8     # <- value of the gravitational constant
     
     # Definition of the 1D-model
