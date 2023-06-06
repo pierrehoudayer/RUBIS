@@ -10,7 +10,7 @@ from scipy.special       import roots_legendre, eval_legendre
 from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D, Legendre_coupling
 from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
 from polytrope           import composite_polytrope
-from helpers             import DotDict, find_domains, plot_f_map, phi_g_harmonics
+from helpers             import DotDict, find_domains, valid_reciprocal_domain, plot_f_map, phi_g_harmonics
 
 def init_1D() : 
     """
@@ -615,14 +615,7 @@ def find_new_mapping(map_n, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) :
     dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
     
     # Finding the valid interpolation domain
-    valid = np.ones_like(phi_ipl, dtype='bool')
-    idx = np.arange(len(z_new))
-    safety = 1e-4
-    for k, dpk in enumerate(dphi_ipl.T) :
-        idx_max = len(z_new)
-        if np.any((dpk < safety)&(z_new > safety)) :
-            idx_max = np.min(np.argwhere((dpk < safety)&(z_new > safety)))
-        valid[:, k] = (idx < idx_max) & (z_new > safety)
+    valid = valid_reciprocal_domain(z_new, dphi_ipl)
         
     # Estimate at target values
     map_est = np.zeros_like(map_n[:, up])

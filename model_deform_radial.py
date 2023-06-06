@@ -8,7 +8,7 @@ from scipy.special       import roots_legendre, eval_legendre
 from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D
 from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
 from polytrope           import composite_polytrope
-from helpers             import DotDict, plot_f_map, phi_g_harmonics
+from helpers             import DotDict, valid_reciprocal_domain, plot_f_map, phi_g_harmonics
 
 def init_1D() : 
     """
@@ -378,7 +378,8 @@ def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
 
     """    
     # 2D gravitational potential (interior)
-    up = np.arange((M+1)//2)
+    eq = (M-1)//2
+    up = np.arange(eq+1)
     phi2D_g_int  = pl_eval_2D( phi_g_l, cth[up])
     dphi2D_g_int = pl_eval_2D(dphi_g_l, cth[up])
     
@@ -397,10 +398,13 @@ def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
     dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
         
     # Find a new value for ROT
-    valid_r = r_tot > 0.5
-    phi1D_c = eval_phi_c(r_tot[valid_r], 0.0, omega_n)[0] / r_tot[valid_r] ** 3
-    phi1D  =  phi2D_g[valid_r, (M-1)//2] + phi1D_c
-    r_est = interpolate_func(x=phi1D, y=r_tot[valid_r], k=KSPL)(phi_eff[-1])
+    valid_z = r_tot > 0.5
+    valid_r = r_tot[valid_z]
+    phi1D_c, dphi1D_c = eval_phi_c(valid_r, 0.0, omega_n) / valid_r ** 3
+    dphi1D_c -= 3 * phi1D_c / valid_r
+    phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
+    dphi1D = dphi2D_g[valid_z, eq] + dphi1D_c
+    r_est = CubicHermiteSpline(x=phi1D, y=valid_r, dydx=dphi1D ** -1)(phi_eff[-1])
     omega_n_new = omega_n * r_est**(-1.5)
     
     # Centrifugal potential
@@ -413,14 +417,10 @@ def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
     dphi2D = dphi2D_g + dphi2D_c
     
     # Finding the valid interpolation domain
-    phi_valid = np.ones_like(phi2D, dtype='bool')
-    for k, dpk in enumerate(dphi2D.T) :
-        if np.any(dpk < 0.0) :
-            idx_max = np.min(np.argwhere((dpk < 0.0)&(r_tot > 0.0)))
-            phi_valid[:, k] = np.arange(len(r_tot)) < idx_max
+    valid = valid_reciprocal_domain(r_tot, dphi2D)
     
     # Central domain
-    lim = 5e-2
+    lim = 1e-1
     center = np.max(np.argwhere(r_tot < lim)) + 1
     r_cnt = np.linspace(0.0, 1.0, 5*center) ** 2 * lim
     phi2D_g_cnt = np.array([CubicHermiteSpline(
@@ -439,8 +439,8 @@ def find_new_mapping(omega_n, phi_g_l, dphi_g_l, phi_eff) :
             for pk in phi2D_cnt.T
         ]).T,
         np.array([
-            interpolate_func(x=pk[valid_k], y=r_tot[valid_k], k=KSPL)(phi_eff[center:]) 
-            for pk, valid_k in zip(phi2D.T, phi_valid.T)
+            interpolate_func(x=pk[vk], y=r_tot[vk], k=KSPL)(phi_eff[center:]) 
+            for pk, vk in zip(phi2D.T, valid.T)
         ]).T
     ))
             
