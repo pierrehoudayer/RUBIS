@@ -175,6 +175,37 @@ def find_domains(var) :
     
     return dom
 
+def valid_reciprocal_domain(x, df, safety=1e-4) :
+    """
+    Find the valid f domain for a reciprocal function interpolation (i.e. 
+    of the function x(f)) knowing df/dx. The function f is allowed to have
+    another variable y, in which case the valid domain have the same shape
+    as f and is estimated for each value of y.
+    
+    Parameters
+    ----------
+    x : array_like, shape (N, )
+        Variable along which the f-derivative is taken
+    df : array_like, shape (N, ) or shape (N, M)
+        Derivative of f with respect to f (the partial derivative w.r.t x should
+        correspond to the first axis).
+
+    Returns
+    -------
+    valid : array_like of boolean, shape (N, ) or shape (N, M)
+        Valid domain for the reciprocal function interpolation.
+    """
+    df = np.atleast_2d(df.T).T
+    valid = np.ones_like(df, dtype='bool')
+    idx = np.arange(len(x))
+    for k, dpk in enumerate(df.T) :
+        idx_max = len(idx)
+        condition = (dpk < safety) & (x > safety)
+        if np.any(condition) : idx_max = np.min(np.argwhere(condition))
+        valid[:, k] = (idx < idx_max) & (x > safety)
+    valid = np.squeeze(valid)
+    return valid
+
 def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None, show=False, verbose=True) : 
     # FIXME : comments
     # External domain
