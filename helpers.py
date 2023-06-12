@@ -1,13 +1,12 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcl
 import numpy             as np
-from matplotlib             import rc
+from matplotlib             import rc, ticker
 from matplotlib.collections import LineCollection
 from pylab                  import cm
 from scipy.special          import roots_legendre
 
 from legendre               import pl_eval_2D, pl_project_2D
-from numerical              import interpolate_func
 
 class DotDict(dict):  
     """
@@ -94,6 +93,67 @@ def give_me_a_name(model_choice, rotation_target) :
     )
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
+
+def init_2D(r, M) :
+    """
+    Init function for the angular domain.
+
+    Parameters
+    ----------
+    r : array_like, shape (N, ) 
+        Radial coordinate from the 1D model.
+    M : integer
+        Angular resolution.
+
+    Returns
+    -------
+    cth : array_like, shape (M, )
+        Angular coordinate (equivalent to cos(theta)).
+    map_n : array_like, shape (N, M)
+        Isopotential mapping 
+        (given by r(phi_eff, theta) = r for now).
+    """
+    map_n = np.tile(r, (M, 1)).T
+    cth, _ = roots_legendre(M)
+    return map_n, cth
+
+def init_phi_c(rotation_profile, central_diff_rate, rotation_scale) : 
+    """
+    Defines the functions used to compute the centrifugal potential
+    and the rotation profile with the adequate arguments.
+    
+    Parameters
+    ----------
+    rotation_profile : function(r, cth, omega, *args)
+        Function used to compute the centrifugal potential, given 
+        adequate additional arguments.
+    central_diff_rate : float
+        Parameter that may be used to compute the centrifugal potential
+    rotation_scale : float
+        Parameter that may be used to compute the centrifugal potential
+
+    Returns
+    -------
+    phi_c : function(r, cth, omega)
+        Centrifugal potential
+    w : function(r, cth, omega)
+        Rotation profile
+
+    """
+    nb_args = (
+          rotation_profile.__code__.co_argcount 
+        - len(rotation_profile.__defaults__ or '')
+    )
+    mask = np.array([0, 1]) < nb_args - 3
+    
+    # Creation of the centrifugal potential function
+    args_phi = np.array([central_diff_rate, rotation_scale])[mask]
+    phi_c = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_phi)
+    
+    # Creation of the rotation profile function
+    args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
+    w = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_w)
+    return phi_c, w
 
 def find_domains(var) :
     """
@@ -206,50 +266,57 @@ def valid_reciprocal_domain(x, df, safety=1e-4) :
     valid = np.squeeze(valid)
     return valid
 
-def phi_g_harmonics(r, phi_g_l, r_pol, cmap=cm.viridis, dr=None, show=False, verbose=True) : 
-    # FIXME : comments
-    # External domain
-    L = phi_g_l.shape[1]
-    outside = 1.3        # Some guess
-    r_ext = np.linspace(1.0, outside, 101)[1:]
-    r_tot = np.concatenate((r, r_ext))
+def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) : 
+    """
+    Displays the gravitational potential harmonics and gives an 
+    estimate of the error on Poisoon's equation induced by this 
+    decomposition.
     
-    # Definition of all harmonics
-    if dr is None :
-        phi_g_l_out  = np.vstack((
+    Parameters
+    ----------
+    zeta : array_like, shape (N, )
+        Variable labelling the isopotentials
+    phi_g_l : array_like, shape (N, L)
+        Gravitational potential harmonics.
+    cmap : ColorMap instance, optional
+        Colormap used to display the harmonics (as a function
+        of their degrees). Default is cm.viridis.
+    radial : boolean, optional
+        True if the harmonics come from the radial method routine
+        and false otherwise. Default is True.
+    """
+    z_max = 1.3
+    L = phi_g_l.shape[1]
+    if radial :
+        # External domain
+        z_ext = np.linspace(1.0, z_max, 101)
+        zeta = np.concatenate((zeta, z_ext))
+    
+        # Definition of all harmonics
+        phi_g_l = np.vstack((
             phi_g_l,
-            phi_g_l[-1] * (r_ext[:, None])**-(np.arange(L)+1)
+            phi_g_l[-1] * (z_ext[:, None])**-(np.arange(L)+1)
         ))
-    else :
-        dom = find_domains(dr._[:, (L-1)//2])
-        cth, _ = roots_legendre(L)
-        phi2D_g = pl_eval_2D(phi_g_l, cth)
-        phi2D_g_int = np.array(
-            [interpolate_func(rk, pk, k=5)(r_tot) 
-             for rk, pk in zip(dr._[dom.unq].T, phi2D_g[dom.unq].T)] 
-        ).T
-        phi_g_l_out = pl_project_2D(phi2D_g_int, L)
+    else : 
+        phi_g_l = phi_g_l[zeta < z_max]
+        zeta = zeta[zeta < z_max]
         
     # Error on Poisson's equation
-    if verbose:
-        Poisson_error = np.max(np.abs(phi_g_l_out[:, -1]/phi_g_l_out[:, 0]))
-        print(f"Estimated error on Poisson's equation: {round(Poisson_error, 16)}")
+    Poisson_error = np.abs(phi_g_l[:, -1]/phi_g_l[:, 0]).max()
+    print(f"Estimated error on Poisson's equation: {round(Poisson_error, 16)}")
     
     # Plot
-    if show:
-        ylims = (1e-23, 1e2)
-        for l in range(0, L, 2):
-            c = cmap(l/L)
-            plt.plot(r_tot, np.abs(phi_g_l_out[:, l]), color=c, lw=1.0, alpha=0.3)
-        if dr is not None :
-            plt.vlines(
-                dr._[dom.beg[:-1]].flatten(), 
-                ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=0.5, alpha=0.3
-            )
-        plt.vlines([r_pol, 1.0], ymin=ylims[0],  ymax=ylims[1], colors='k', linewidth=3.0)
-        plt.yscale('log')
-        plt.ylim(*ylims)
-        plt.show()
+    ylims = (1e-23, 1e2)
+    for l in range(0, L, 2):
+        c = cmap(l/L)
+        plt.plot(zeta, np.abs(phi_g_l[:, l]), color=c, lw=1.0, alpha=0.3)
+    plt.vlines(
+        find_domains(zeta).bounds, 
+        ymin=ylims[0],  ymax=ylims[1], colors='grey', linestyles='--', linewidth=1.0
+    )
+    plt.yscale('log')
+    plt.ylim(*ylims)
+    plt.show()
     
 def hex_to_rgb(hex_value) :
     '''
@@ -389,7 +456,7 @@ def plot_f_map(
     """
     
     # Angular interpolation
-    N, _ = map_n.shape
+    N, M = map_n.shape
     cth_res = np.linspace(-1, 1, angular_res)
     sth_res = np.sqrt(1-cth_res**2)
     map_l   = pl_project_2D(map_n, max_degree)
@@ -409,13 +476,22 @@ def plot_f_map(
     rc('axes', facecolor=background_color)
     
     # Init figure
-    if add_to_fig is None : 
-        fig, ax = plt.subplots(figsize=(15, 8.4), frameon=False)
-    else : 
-        fig, ax = add_to_fig
     norm = None
     if (cmap is cm.Blues)&(np.nanmin(f2D)*np.nanmax(f2D) < -0.01*np.nanmax(np.abs(f2D))**2) : 
         cmap, norm = cm.RdBu_r, mcl.CenteredNorm()
+    cbar_width = 0.1
+    if add_to_fig is None : 
+        margin = 0.05
+        x_scale = 2 * margin + (map_res[-1]*sth_res).max() + 4 * cbar_width
+        y_scale = 2 * margin + (map_res[-1]*cth_res).max()
+        factor = min(18/x_scale, 9.5/y_scale)
+        fig, ax = plt.subplots(figsize=(x_scale * factor, y_scale * factor), frameon=False)
+        plt.axis('equal')
+        plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
+        plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
+        plt.xlim((-1.0, 1.0))
+    else : 
+        fig, ax = add_to_fig
     
     # Right side
     csr = ax.contourf(
@@ -428,7 +504,10 @@ def plot_f_map(
         for i in disc :
             plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, color=disc_color, lw=lw)
     plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
-    cbr = fig.colorbar(csr, aspect=30)
+    cbr = fig.colorbar(csr, pad=0.7*cbar_width, fraction=cbar_width, shrink=0.85, aspect=25)
+    tick_locator = ticker.MaxNLocator(nbins=5)
+    cbr.locator = tick_locator
+    cbr.update_ticks()
     cbr.ax.set_title(label, y=1.03, fontsize=size+3)
     
     # Left side
@@ -443,9 +522,13 @@ def plot_f_map(
         )
         ls.set_array(phi_eff[::-N//n_lines])
         ax.add_collection(ls)
-        cbl = fig.colorbar(ls, location='left', pad=0.15, aspect=30)
+        cbl = fig.colorbar(
+            ls, location='left', pad=cbar_width, fraction=cbar_width, shrink=0.85, aspect=25
+        )
+        cbl.locator = tick_locator
+        cbl.update_ticks()
         cbl.ax.set_title(
-            r"$\phi_\mathrm{eff}(\zeta)$", 
+            r"$\phi_\mathrm{eff} \times \left(GM/R_\mathrm{eq}\right)^{-1}$", 
             y=1.03, fontsize=size+3
         )
     else : 
@@ -470,8 +553,34 @@ def plot_f_map(
             plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
     
     # Show figure
-    plt.axis('equal')
-    plt.xlim((-1, 1))
-    plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
-    plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
+    fig.tight_layout()
     plt.show()
+    
+def write_model(fname, params, map_n, additional_var, *args) : 
+    """
+    Saves the deformed model in the file named fname. The resulting 
+    table has dimension (N, M+N_args+N_var) where the last N_var columns
+    contains the additional variables given by the user (the lattest
+    are left unchanged during the whole deformation). The dimensions N & M,
+    as well as the global paramaters mass, radius, ROT, G
+    are written on the first line.
+
+    Parameters
+    ----------
+    fname : string
+        File name
+    params : tuple
+        Model parameters to write on the first line.
+    map_n : array_like, shape (N, M)
+        level surfaces mapping.
+    additional_var : tuple of arrays
+        Tuple of (unchanged) additional variables.
+    args : tuple with N_args elements
+        Variables to be saved in addition to map_n.
+
+    """
+    header = "".join(str(c)+" " for c in params)[:-1]
+    np.savetxt(
+        'Models/'+fname, np.hstack((map_n, np.vstack(args + (*additional_var,)).T)), 
+        header=header,  comments=''
+    )

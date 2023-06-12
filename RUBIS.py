@@ -118,9 +118,20 @@ def set_params() :
             plot_resolution : integer
                 Angular resolution used when displaying 2D variables with 
                 plot_f_map(). It is again recommended to choose an odd number.
+            plot_surfaces : boolean
+                Whether to display the isopotential surfaces on the right side of
+                the plot.
+            plot_cmap_f : string
+                Colormap used when displaying the f function (if show_model is 
+                True).
+            plot_cmap_surfaces : string
+                Colormap used when displaying the isopotentials (if plot_surfaces 
+                is True).
             gravitational_moments : boolean
                 Whether to compute the gravitational moments of the deformed 
                 model.
+            dim_model : boolean
+                Whether to redimension the model or not.
             save_model : boolean
                 Whether to save the deformed model. 
             save_name : string
@@ -146,34 +157,40 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    # model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
-    model_choice = DotDict(
-        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
-        target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
-        density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
-    )
-    # model_choice = 'Jupiter.txt'
+    # model_choice = DotDict(
+    #     indices = 3.0, target_pressures = -np.inf, res=2000
+    # )
+    # model_choice = DotDict(
+    #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
+    #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
+    #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
+    # )
+    model_choice = 'Jupiter.txt'
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     rotation_target = 0.8
-    central_diff_rate = 0.7
-    rotation_scale = 0.3
+    central_diff_rate = 5.0
+    rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 51
-    full_rate = 1
+    full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 3
+    lagrange_order = 2
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
     output_params = DotDict(
-        show_harmonics = True,
+        show_harmonics = False,
         virial_test = True,
         show_model = True,
         plot_resolution = 501,
+        plot_surfaces = True,
+        plot_cmap_f = "Reds",
+        plot_cmap_surfaces = "plasma_r",
         gravitational_moments = False,
+        dim_model = False,
         save_model = False,
         save_name = give_me_a_name(model_choice, rotation_target)
     )
@@ -206,7 +223,7 @@ if __name__ == '__main__' :
     )
     
     # Performing the deformation
-    method_func(
+    zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P = method_func(
         model_choice, 
         rotation_profile, rotation_target, central_diff_rate, rotation_scale, 
         max_degree, angular_resolution, full_rate,

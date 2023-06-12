@@ -672,3 +672,83 @@
 #     plt.gca().set_aspect("equal")
 #     plt.axis("off")
 #     plt.show()
+
+
+    # ### TESTS (DELME)
+    # import matplotlib.pyplot as plt
+    # import matplotlib.colors as mcl
+    # import matplotlib.cm as cm
+    # from scipy.interpolate import CubicHermiteSpline
+    # from scipy.special import roots_legendre
+    # from legendre  import pl_eval_2D, pl_project_2D
+    # from numerical import interpolate_func
+    # from helpers import find_domains, plot_f_map
+    
+    # N = len(r)
+    # L, M = max_degree, angular_resolution
+    # eq = (M-1)//2
+    # t, weights = roots_legendre(M)
+    # dom = find_domains(zeta)
+    
+    # Del = lambda x, f, der: interpolate_func(x, f, der=der, k=5)(x)
+    
+    # Sph = lambda func, *args, **kwargs: np.hstack(
+    #     [func(*[a[D] for a in args], **kwargs) for D in dom.ranges[:-1]]
+    # )
+    
+    # # metric terms
+    # dr = DotDict()
+    # dr._ = map_n
+    # map_l = pl_project_2D(dr._, L)
+    # _, dr.t = pl_eval_2D(map_l, t, der=1)
+    # if dom.Nd == 1 : 
+    #     dr.z = np.array([Del(zeta, rk, der=1) for rk in map_n.T]).T 
+    #     dP_dz = Del(zeta, P, der=1)
+    # else :
+    #     dr.z = np.array([Sph(Del, zeta, rk, der=1) for rk in map_n.T]).T
+    #     dP_dz = Sph(Del, zeta, P, der=1)
+    
+    # dP_dr = + (1.0  / dr.z) * dP_dz[:, None]
+    # dP_dt = - (dr.t / dr.z) * dP_dz[:, None]
+    
+    # phi_g = pl_eval_2D(phi_g_l, t)
+    # _, dphi_g_dt = pl_eval_2D(phi_g_l, t, der=1)
+    # dphi_g_dr = pl_eval_2D(dphi_g_l, t)
+    # if dom.Nd == 1 : 
+    #     dphi_g_dr = np.array(
+    #         [CubicHermiteSpline(r, pk, dpk)(rk, nu=1) for rk, pk, dpk in zip(map_n.T, phi_g.T, dphi_g_dr.T)]
+    #     ).T
+    #     dphi_g_dt = np.array(
+    #         [interpolate_func(r, dpk, k=5)(rk) for rk, dpk in zip(map_n.T, dphi_g_dt.T)]
+    #     ).T
+    # else :
+    #     dphi_g_dr[:N] /= dr.z
+    
+    # rota2D = np.array([eval_w(rk, tk, rotation_target) for rk, tk in zip(map_n.T, t)]).T
+    
+    # EQ_r = dP_dr + rho[:, None] * (dphi_g_dr[:N] - rota2D[:N]**2 * map_n[:N] * (1-t**2))
+    # EQ_t = dP_dt + rho[:, None] * (dphi_g_dt[:N] + rota2D[:N]**2 * map_n[:N]**2 * t    )
+    
+    # # N_r = np.abs(dP_dr) + np.abs(rho[:, None] * dphi_g_dr) + np.abs(rho[:, None] * rota2D**2 * map_n * (1-t**2))
+    # # N_t = np.abs(dP_dt) + np.abs(rho[:, None] * dphi_g_dt) + np.abs(rho[:, None] * rota2D**2 * map_n**2 * t)
+    
+    # # EQ_r = np.divide(EQ_r, N_r, out=np.zeros_like(EQ_r), where=(N_r!=0.0)&(np.abs(N_r)!=1.0))
+    # # EQ_t = np.divide(EQ_t, N_t, out=np.zeros_like(EQ_t), where=(N_t!=0.0)&(np.abs(N_t)!=1.0))
+    
+    
+    # plot_f_map(
+    #     map_n, np.log10(np.abs(EQ_r)), phi_eff, L, 
+    #     angular_res=output_params.plot_resolution,
+    #     cmap='viridis',
+    #     show_surfaces=False,
+    #     label=r"$\delta \mathrm{EQ}_r$",
+    #     disc=dom.end[:-1]
+    # )
+    # plot_f_map(
+    #     map_n, np.log10(np.abs(EQ_t)+1e-15), phi_eff, L, 
+    #     angular_res=output_params.plot_resolution,
+    #     cmap='cividis',
+    #     show_surfaces=False,
+    #     label=r"$\delta \mathrm{EQ}_t$",
+    #     disc=dom.end[:-1]
+    # )
