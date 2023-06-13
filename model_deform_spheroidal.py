@@ -16,9 +16,11 @@ from helpers             import (
     init_2D,
     init_phi_c,
     valid_reciprocal_domain, 
+    write_model
+)
+from plot                import (
     plot_f_map, 
     phi_g_harmonics,
-    write_model
 )
 
 def init_1D(model_choice) : 

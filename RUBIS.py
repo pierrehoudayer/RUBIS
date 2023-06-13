@@ -1,6 +1,7 @@
 import numpy as np
 
-from helpers                 import DotDict, give_me_a_name, assign_method, get_continuous_cmap
+from helpers                 import DotDict, give_me_a_name, assign_method
+from plot                    import get_cmap_from_proplot
 from rotation_profiles       import *
 from model_deform_radial     import radial_method
 from model_deform_spheroidal import spheroidal_method
@@ -144,6 +145,8 @@ def set_params() :
                 the precision on the surface flux, but considerably extend the computation
                 time. Values ~ 30 usually gives an honorable precision for not overly 
                 complex surfaces.
+            flux_cmap : ColorMap instance
+                Colormap used to display the surface radiative flux.
             dim_model : boolean
                 Whether to redimension the model or not.
             save_model : boolean
@@ -201,15 +204,14 @@ def set_params() :
         show_model = True,
         plot_resolution = 501,
         plot_surfaces = True,
-        plot_cmap_f = get_continuous_cmap(
-            ["#fcfdfe", "#9dc6f9", "#737eaf", "#453f5d", "#201828"][::-1]
-        ),
-        plot_cmap_surfaces = "plasma_r",
+        plot_cmap_f = get_cmap_from_proplot("Dusk_r"),
+        plot_cmap_surfaces = get_cmap_from_proplot("Algae"),
         gravitational_moments = False,
         radiative_flux = True,
         plot_flux_lines = True,
         flux_origin = 0.05,
         flux_lines_number = 50,
+        flux_cmap = get_cmap_from_proplot("Stellar_r"),
         dim_model = False,
         save_model = False,
         save_name = give_me_a_name(model_choice, rotation_target)
