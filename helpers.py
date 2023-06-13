@@ -1,3 +1,4 @@
+import matplotlib        as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcl
 import numpy             as np
@@ -393,6 +394,150 @@ def get_continuous_cmap(hex_list, float_list=None):
     cmap = mcl.LinearSegmentedColormap('my_cmap', segmentdata=cdict, N=256)
     return cmap
 
+def plot_flux_lines(r, t, **kwargs) : 
+    """
+    Return the fig and axes with the flux lines plotted upon.
+
+    Parameters
+    ----------
+    r : array_like, shape (N, M)
+        Radius values for each line.
+    f_l : array_like, shape (N, M)
+        Angular (cos theta) values along the radius for each line.
+    kwargs : 
+        keyboard arguments to be passed to plt.plot()
+
+    Returns
+    -------
+    None.
+
+    """
+    # Define the limit angles
+    r0, t0 = r[0] , t[0]
+    r1, t1 = r[-1], t[-1]
+    s0, s1 = (1-t0**2)**0.5, (1-t1**2)**0.5
+    
+    # Initialise the figure
+    margin, cbar_width = 0.05, 0.1
+    x_scale = 2 * margin + np.abs(r1 * s1).max() + 2 * cbar_width
+    y_scale = 2 * margin + np.abs(r1 * t1).max()
+    factor = min(18/x_scale, 9.5/y_scale)
+    fig, ax = plt.subplots(figsize=(x_scale * factor, y_scale * factor), frameon=False)
+    
+    # Plot the constant flux surface
+    x0_long = np.hstack(((r0*s0)[::-1], -r0*s0, (r0*s0)[-1]))
+    y0_long = np.hstack(((r0*t0)[::-1],  r0*t0, (r0*t0)[-1]))
+    ax.plot(x0_long, y0_long, lw=1.0, **kwargs)
+    
+    # Plot the characteristics
+    for rk, tk in zip(r.T, t.T) :
+        tk = np.where(tk > 1.0, 1.0, tk)
+        sk = (1-tk**2)**0.5
+        for sgn in [1, -1] : 
+            ax.plot(sgn*rk*sk, rk*tk, lw=0.5, alpha=0.5, zorder=10, **kwargs)
+    return (fig, ax)
+
+def set_axes_equal(ax) :
+    """
+    Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc.
+
+    Parameters
+    ----------
+      ax: matplotlib axis, e.g., as output from plt.gca().
+    """
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = max([x_range, y_range, z_range]) / 3
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+    
+def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) : 
+    """
+    Create a 3D plot of the star's surface, colored by the values 
+    of f.
+
+    Parameters
+    ----------
+    surf_l : array_like, shape (L, )
+        Surface mapping harmonics.
+    f_l : array_like, shape (L, )
+        Function values harmonics on the surface.
+    res_t : integer, optional
+        Plot resolution in the theta direction. The default is 500.
+    res_p : integer, optional
+        Plot resolution in the phi direction. The default is 100.
+    cmap : ColorMap instance, optional
+        Colormap used to display the f values on the surface. The default
+        is None, in which case a custom colormap is used.
+
+    Returns
+    -------
+    None.
+
+    """
+    # 1D variables
+    t = np.linspace(-1, 1, res_t)
+    r = pl_eval_2D(surf_l, t)
+    f = pl_eval_2D(f_l   , t)
+    s, z = r * (1-t**2)**0.5, r * t
+    p = np.linspace(0, 2*np.pi, res_p)
+
+    # 2D variables
+    X = s[:, None] * np.cos(p) 
+    Y = s[:, None] * np.sin(p)
+    Z = np.tile(z, (res_p, 1)).T
+    F = np.tile(f, (res_p, 1)).T
+    
+    # Colormap
+    stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
+    fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
+    if cmap is None : cmap = get_continuous_cmap(stellar_list)
+
+    # 3D Plot
+    fig = plt.figure(figsize=(10.0, 10.0))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_box_aspect([1.0, 1.0, 1.0])
+    ax_surf = ax.plot_surface(
+        X, Y, Z, facecolors=cmap(F/f.max()), shade=False, 
+        rcount=max(res_p, res_t), ccount=max(res_p, res_t)
+    )
+    ax_surf.set_edgecolor((1.0, 1.0, 1.0, 0.2))
+    ax_surf.set_linewidth(0.1)
+    ax.set_axis_off()
+    set_axes_equal(ax)
+    
+    # Colorbar
+    rc('text', usetex=True)
+    cbar_width = 0.1
+    cbr = fig.colorbar(
+        mpl.cm.ScalarMappable(norm=mcl.Normalize(vmax=f.max(), vmin=0.0), cmap=cmap), 
+        ticks=[0.0] + list(10**np.arange(5) < f.max()),
+        pad=0.0, fraction=cbar_width, shrink=0.8, aspect=25, extend="max"
+    )
+    cbr.ax.set_title(
+        r"$\displaystyle Q \times \left[\frac{L}{4\pi R_\mathrm{eq}}\right]^{-1}$", 
+        y=1.07, fontsize=20
+    )
+    
+    # Showing the figure
+    fig.tight_layout()
+    plt.show()
+
 def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
@@ -464,10 +609,11 @@ def plot_f_map(
     
     # 2D density
     if len(f.shape) == 1 :
-        f2D = np.tile(f, angular_res).reshape((angular_res, N)).T
+        f2D = np.tile(f, angular_res).reshape((angular_res, -1)).T
     else : 
         f_l = pl_project_2D(f, max_degree, even=False)
         f2D = np.atleast_3d(np.array(pl_eval_2D(f_l, cth_res, der=t_deriv)).T).T[-1]
+    Nf = f2D.shape[0]
         
     # Text formating 
     rc('text', usetex=True)
@@ -477,8 +623,8 @@ def plot_f_map(
     
     # Init figure
     norm = None
-    if (cmap is cm.Blues)&(np.nanmin(f2D)*np.nanmax(f2D) < -0.01*np.nanmax(np.abs(f2D))**2) : 
-        cmap, norm = cm.RdBu_r, mcl.CenteredNorm()
+    if sum((1.0-np.array(cm.get_cmap(cmap)(0.5)[:3]))**2) < 1e-2 : # ~ Test if the cmap is divergent
+        norm = mcl.CenteredNorm()
     cbar_width = 0.1
     if add_to_fig is None : 
         margin = 0.05
@@ -486,16 +632,12 @@ def plot_f_map(
         y_scale = 2 * margin + (map_res[-1]*cth_res).max()
         factor = min(18/x_scale, 9.5/y_scale)
         fig, ax = plt.subplots(figsize=(x_scale * factor, y_scale * factor), frameon=False)
-        plt.axis('equal')
-        plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
-        plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
-        plt.xlim((-1.0, 1.0))
     else : 
         fig, ax = add_to_fig
     
     # Right side
     csr = ax.contourf(
-        map_res*sth_res, map_res*cth_res, f2D, 
+        map_res[N-Nf:]*sth_res, map_res[N-Nf:]*cth_res, f2D, 
         cmap=cmap, norm=norm, levels=levels
     )
     for c in csr.collections:
@@ -533,7 +675,7 @@ def plot_f_map(
         )
     else : 
         csl = ax.contourf(
-            -map_res*sth_res, map_res*cth_res, f2D, 
+            -map_res[N-Nf:]*sth_res, map_res[N-Nf:]*cth_res, f2D, 
             cmap=cmap, norm=norm, levels=levels
         )
         for c in csl.collections:
@@ -553,6 +695,10 @@ def plot_f_map(
             plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
     
     # Show figure
+    plt.axis('equal')
+    plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
+    plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
+    plt.xlim((-1.0, 1.0))
     fig.tight_layout()
     plt.show()
     
