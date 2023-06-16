@@ -145,6 +145,12 @@ def set_params() :
                 the precision on the surface flux, but considerably extend the computation
                 time. Values ~ 30 usually gives an honorable precision for not overly 
                 complex surfaces.
+            show_T_eff : boolean
+                Whether to show the effective temperature instead of the radiative
+                flux amplitude on the 3D surface.
+            flux_res : tuple of floats (res_t, res_p)
+                Gives the resolution of the 3D surface in theta and phi coordinates 
+                respectively.
             flux_cmap : ColorMap instance
                 Colormap used to display the surface radiative flux.
             dim_model : boolean
@@ -187,13 +193,13 @@ def set_params() :
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
     rotation_target = 0.9
-    central_diff_rate = 5.0
+    central_diff_rate = 1.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
+    max_degree = angular_resolution = 201
     full_rate = 3
-    mapping_precision = 1e-11
+    mapping_precision = 1e-10
     lagrange_order = 3
     spline_order = 5
     
@@ -204,13 +210,15 @@ def set_params() :
         show_model = True,
         plot_resolution = 501,
         plot_surfaces = True,
-        plot_cmap_f = get_cmap_from_proplot("Dusk_r"),
-        plot_cmap_surfaces = get_cmap_from_proplot("Algae"),
+        plot_cmap_f = get_cmap_from_proplot("Greens1_r"),
+        plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
         gravitational_moments = False,
         radiative_flux = True,
         plot_flux_lines = True,
         flux_origin = 0.05,
-        flux_lines_number = 50,
+        flux_lines_number = 20,
+        show_T_eff = True,
+        flux_res = (200, 100),
         flux_cmap = get_cmap_from_proplot("Stellar_r"),
         dim_model = False,
         save_model = False,

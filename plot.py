@@ -61,7 +61,7 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
     plt.ylim(*ylims)
     plt.show()
     
-def get_cmap_from_proplot(cmap_name) :
+def get_cmap_from_proplot(cmap_name, **kwargs) :
     '''
     Get a colormap defined in the proplot extension. If proplot 
     isn't installed, then return a default colormap.
@@ -81,11 +81,12 @@ def get_cmap_from_proplot(cmap_name) :
     
     if spec is None :  # proplot is not installed
         stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
+        # fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
         cmap = get_continuous_cmap(stellar_list)
         return cmap
     else :             # proplot is installed
         import proplot as pplt
-        cmap = pplt.Colormap(cmap_name)
+        cmap = pplt.Colormap(cmap_name, **kwargs)
         return cmap
     
 def hex_to_rgb(hex_value) :
@@ -235,7 +236,7 @@ def set_axes_equal(ax) :
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
     
-def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) : 
+def plot_3D_surface(surf_l, f_l, show_T_eff, res, cmap) : 
     """
     Create a 3D plot of the star's surface, colored by the values 
     of f.
@@ -246,13 +247,14 @@ def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) :
         Surface mapping harmonics.
     f_l : array_like, shape (L, )
         Function values harmonics on the surface.
-    res_t : integer, optional
-        Plot resolution in the theta direction. The default is 500.
-    res_p : integer, optional
-        Plot resolution in the phi direction. The default is 100.
+    show_T_eff : boolean, optional
+        Whether to map the effective T_eff instead of the radiative flux
+        amplitude on the surface.       
+    res : tuple of floats (res_t, res_p)
+        Gives the resolution of the 3D surface in theta and phi coordinates 
+        respectively.
     cmap : ColorMap instance, optional
-        Colormap used to display the f values on the surface. The default
-        is None, in which case a custom colormap is used.
+        Colormap used to display the f values on the surface.
 
     Returns
     -------
@@ -260,9 +262,18 @@ def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) :
 
     """
     # 1D variables
+    res_t, res_p = res
     t = np.linspace(-1, 1, res_t)
     r = pl_eval_2D(surf_l, t)
-    f = pl_eval_2D(f_l   , t)
+    if show_T_eff : 
+        f = np.abs(pl_eval_2D(f_l, t)) ** 0.25
+        title = (
+              r"$\displaystyle T_\mathrm{eff} \times "
+            + r"\left[\frac{L}{4\pi \sigma {R_\mathrm{eq}}^2}\right]^{-1/4}$"
+        )
+    else : 
+        f = pl_eval_2D(f_l, t)
+        title = r"$\displaystyle Q \times \left[\frac{L}{4\pi {R_\mathrm{eq}}^2}\right]^{-1}$"
     s, z = r * (1-t**2)**0.5, r * t
     p = np.linspace(0, 2*np.pi, res_p)
 
@@ -274,7 +285,6 @@ def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) :
     
     # Colormap
     stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
-    fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
     if cmap is None : cmap = get_continuous_cmap(stellar_list)
 
     # 3D Plot
@@ -285,23 +295,21 @@ def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) :
         X, Y, Z, facecolors=cmap(F/f.max()), shade=False, 
         rcount=max(res_p, res_t), ccount=max(res_p, res_t)
     )
-    ax_surf.set_edgecolor((1.0, 1.0, 1.0, 0.2))
+    ax_surf.set_edgecolor((1.0, 1.0, 1.0, 0.1))
     ax_surf.set_linewidth(0.1)
     ax.set_axis_off()
     set_axes_equal(ax)
+    ax.view_init(-150, 0)
     
     # Colorbar
     rc('text', usetex=True)
-    cbar_width = 0.1
+    cbar_width, size, ticks = 0.1, 20, [0, 10**int(np.log10(f.max()))]
     cbr = fig.colorbar(
         mpl.cm.ScalarMappable(norm=mcl.Normalize(vmax=f.max(), vmin=0.0), cmap=cmap), 
-        ticks=[0.0] + list(10**np.arange(5) < f.max()),
-        pad=0.0, fraction=cbar_width, shrink=0.6, aspect=25, extend="max"
+        ticks=ticks, pad=0.0, fraction=cbar_width, shrink=0.6, aspect=25, extend="max"
     )
-    cbr.ax.set_title(
-        r"$\displaystyle Q \times \left[\frac{L}{4\pi {R_\mathrm{eq}}^2}\right]^{-1}$", 
-        y=1.07, fontsize=20
-    )
+    cbr.ax.set_title(title, y=1.07, fontsize=size)
+    cbr.ax.tick_params(labelsize=size)
     
     # Showing the figure
     fig.tight_layout()
@@ -310,7 +318,7 @@ def plot_3D_surface(surf_l, f_l, res_t=200, res_p=100, cmap=None) :
 def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
-    show_surfaces=False, n_lines=50, cmap_lines=cm.BuPu, lw=0.5,
+    show_surfaces=False, n_lines=30, cmap_lines=cm.BuPu, lw=0.5,
     disc=None, disc_color='white', map_ext=None, n_lines_ext=20,
     add_to_fig=None, background_color='white',
 ) :

@@ -616,13 +616,18 @@ def radial_method(*params) :
             z0 = output_params.flux_origin
             M1 = output_params.flux_lines_number
             Q_l, (fig, ax) = find_radiative_flux(
-                map_n, cth, z0, M1, 
-                output_params.plot_flux_lines, output_params.flux_cmap
+                map_n, cth, z0, M1,
+                add_flux_lines=output_params.plot_flux_lines, 
+                show_T_eff=output_params.show_T_eff,
+                res=output_params.flux_res,
+                flux_cmap=output_params.flux_cmap
             )
             plot_f_map(
                 map_n, rho, phi_eff, L, 
                 angular_res=output_params.plot_resolution,
                 cmap=output_params.plot_cmap_f,
+                show_surfaces=output_params.plot_surfaces,
+                cmap_lines=output_params.plot_cmap_surfaces,
                 label=r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$",
                 add_to_fig=(fig, ax) if output_params.plot_flux_lines else None
             )
@@ -798,7 +803,10 @@ def add_advanced_metric_terms(dr, t) :
     ) * dr.sf
     return dr
 
-def find_radiative_flux(map_n, cth, z0, M_lines, add_flux_lines, flux_cmap) :
+def find_radiative_flux(
+    map_n, cth, z0, M_lines, 
+    add_flux_lines, show_T_eff, res, flux_cmap
+) :
     """
     Determines the radiative flux lines and the surface flux, given 
     a model mapping (map_n) and a boundary on which to impose a 
@@ -819,6 +827,12 @@ def find_radiative_flux(map_n, cth, z0, M_lines, add_flux_lines, flux_cmap) :
     add_flux_lines : boolean
         Whether to return a figure containing the flux lines so that
         they may be plotted on top of plot_f_map().
+    show_T_eff : boolean
+        Whether to show the effective temperature instead of the radiative
+        flux amplitude on the 3D surface.
+    res : tuple of floats (res_t, res_p)
+        Gives the resolution of the 3D surface in theta and phi coordinates 
+        respectively.
     flux_cmap : Colormap instance
         Colormap to plot the radiative flux at the model surface.
 
@@ -889,13 +903,13 @@ def find_radiative_flux(map_n, cth, z0, M_lines, add_flux_lines, flux_cmap) :
     Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*M_lines)
     
     # 3D plot of the surface flux
-    plot_3D_surface(map_l[-1], Q_l, cmap=flux_cmap)
+    plot_3D_surface(map_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
     
     # Draw characteristics
     if add_flux_lines : 
         r = np.hstack((r, +r[:, ::-1]))
         t = np.hstack((t, -t[:, ::-1]))
-        (fig, ax) = plot_flux_lines(r, t, color='w')
+        (fig, ax) = plot_flux_lines(r, t, color='grey')
     else : 
         (fig, ax) = (None, None)
     return Q_l, (fig, ax)
