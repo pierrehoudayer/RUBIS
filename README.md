@@ -461,7 +461,7 @@ ACKNOWLEDGMENTS
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
 [plot-example-1]: Plots/example_poly3_deform_at_99.99.png
 [plot-example-2]: Plots/example_poly1_deform_at_99.99.png
-[flowchart]: Plots/deformation_method.png
+[flowchart]: Plots/deformation_method_scheme.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
