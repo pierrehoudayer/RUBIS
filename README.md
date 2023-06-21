@@ -113,6 +113,8 @@ Get a local copy of `RUBIS` by following the following steps.
 
 `RUBIS` has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only here to ensure that these libraries are up to date.
 
+*Note*: since `v1.1.0`, the program may benefit the use of [ProPlot][proplot-url] for displaying colormaps. It should not raise any error if not installed, however.
+
 ### Installation
 
 1. Clone the repo
@@ -463,6 +465,7 @@ ACKNOWLEDGMENTS
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
+[proplot-url]: https://github.com/proplot-dev/proplot
 [ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen
 [ORCID-url]: https://orcid.org/0000-0002-1245-9148
 [DOI-shield]: https://img.shields.io/badge/DOI-10.1051%2F0004--6361%2F202346403-blue
