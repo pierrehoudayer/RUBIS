@@ -52,9 +52,10 @@
       </ul>
     </li>
     <li><a href="#deformation-method">Deformation Method</a></li>
-    <li><a href="#usage">Usage</a></li>
+    <li><a href="#examples">Examples</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
     <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
     <li><a href="#citing-rubis">Citing RUBIS</a></li>
@@ -181,11 +182,11 @@ Finally, `polytrope.py` contains the function used to generate 1D polytropes and
 
 
 <!-- USAGE EXAMPLES -->
-## Usage
+## Examples
 
 With the method described, we will now give a few examples of how the code can be used. 
 
-### First example
+### First simple example
 
 Let's open the file `RUBIS.py`. 
 Most of the actions to be performed are limited to modifying the parameters in the `set_params()` function. 
@@ -226,7 +227,7 @@ It is not necessary to modify the other rotation parameters `central_diff_rate` 
 Let's now have a look at the parameters affecting the resolution itself. 
 The most important parameters are `max_degree` and `angular_resolution`. 
 To avoid complications, it is recommended to set them to the same value (as is the case by default). 
-In our case the use of $201$ spherical harmonics should be more than sufficient.
+In our case the use of $101$ spherical harmonics should be more than sufficient.
 To avoid convergence problems (from too brutal changes in the mapping from one itertion to the next), one can also include a transient period of `full_rate` iterations at the beginning of the deformation to gradually reach the target velocity `rotation_target`. 
 It won't be necessary in this case, and I'll keep a value of `full_rate = 1`.
 There should be no convergence difficulties in our example, and we can require the procedure to be highly precise by setting `mapping_precision` to `1e-12`, for instance. 
@@ -240,7 +241,7 @@ For discontinuous models, I would recommend setting it to $2$ whatever the resol
 Having this in mind, the solver parameters now look like:
 ```py
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 201
+    max_degree = angular_resolution = 101
     full_rate = 1
     mapping_precision = 1e-10
     lagrange_order = 3
@@ -354,6 +355,10 @@ It will also save the mapping $r(\zeta, \theta)$, the $\zeta$-variable, the pres
 Note that additional variables in the input file are automatically passed through the program without alterations and returned at the end of the output file for file-writting convenience.  
 However, make sure that these variables are invariant on the isopotentials during the deformation or they will no longer correspond to the 2D structure of the model! 
 
+### Higher rotation rate
+
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -368,7 +373,7 @@ However, make sure that these variables are invariant on the isopotentials durin
 <!-- ROADMAP -->
 ## Roadmap
 
-### Current development
+### Early development
 - [x] Implement a function for computing the gravitational moments from the deformed model.
 - [x] Allow the user to choose a multiple index $(N_1, N_2, \ldots, N_k)$ polytrope (with potential density discontinuities on the interfaces) as a 1D model to deform.
 - [x] Improve the density interpolation in the spherical method.
@@ -377,14 +382,16 @@ However, make sure that these variables are invariant on the isopotentials durin
 - [x] Exploit the invariance of Poisson's matrix in the spherical method ⇨ `v0.3.0` (*Efficiency*)
 - [x] Improve the conditioning of Poisson's matrix in the spheroidal method.
 - [x] Improve the reciprocal interpolation in the spheroidal method thanks to an adaptive $\zeta$ grid.
-- [ ] Fix the Virial test for the spheroidal deformation method.
 - [x] Add the global user interface `RUBIS.py`.
-- [ ] Rewrite the *completely* outdated `README.md`  ⇨ `v1.0.0`
+- [x] Rewrite the *completely* outdated `README.md`  ⇨ `v1.0.0`
+
+### Current development
+- [x] Implement a radiative flux model on the deformed surface to model the gravitaty darkening caused by the rotation. ⇨ `v1.1.0`
+- [ ] Find a way to improve the hydrostatic equilibrium in discontinuous models.
 
 ### Prospects
-- [ ] Look at the Van Wijngaarden transformation for the gravitational potential series.
-- [ ] Search for precise integration methods in order to provide an alternative version (in spherical coordinates) relying on the analytical solution to Poisson's equation.
-- [ ] Implement a radiative flux model on the deformed surface to model the gravitaty darkening caused by the rotation.
+- [ ] Look at series acceleration/transformation to accelerate the gravitational potential series convergence.
+- [ ] Propose 2D incomming flux map to simulate interferometric data and allow a parametric adjustment (rotation rate, inclinaison, luminosity, ...) of incoming flux maps.
 
 See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
 
@@ -401,7 +408,7 @@ See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list
 <!-- CONTRIBUTING -->
 ## Contributing
 
-`RUBIS` is in stage of early development. 
+`RUBIS` is still in stage of development. 
 If you have a suggestion to improve this repository, please fork the repo and create a pull request. 
 You can also simply open an issue with the tag "enhancement". 
 Any contribution is welcome and **greatly appreciated**!
@@ -422,18 +429,12 @@ Any contribution is welcome and **greatly appreciated**!
 
 
 
-<!-- 
-LICENSE
+<!-- LICENSE -->
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+Distributed under the GNU General Public License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
--->
-
-
-
-
 
 
 
@@ -529,8 +530,6 @@ ACKNOWLEDGMENTS
 [stars-url]: https://github.com/pierrehoudayer/RUBIS/stargazers
 [issues-shield]: https://img.shields.io/github/issues/pierrehoudayer/RUBIS.svg?style=for-the-badge
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
-[plot-example-1]: Plots/example_poly3_deform_at_99.99.png
-[plot-example-2]: Plots/example_poly1_deform_at_99.99.png
 [flowchart]: Plots/deformation_method_scheme.png
 [phi-critical]: Plots/critical_isopotentials.png
 [first-model]: Plots/poly3_rota0.9.png
