@@ -192,6 +192,10 @@ def plot_flux_lines(r, t, **kwargs) :
     s0, s1 = (1-t0**2)**0.5, (1-t1**2)**0.5
     
     # Initialise the figure
+    size = 20
+    rc('text', usetex=True)
+    rc('xtick', labelsize=size)
+    rc('ytick', labelsize=size)
     margin, cbar_width = 0.05, 0.1
     x_scale = 2 * margin + np.abs(r1 * s1).max() + 2 * cbar_width
     y_scale = 2 * margin + np.abs(r1 * t1).max()
