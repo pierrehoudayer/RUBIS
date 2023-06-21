@@ -33,11 +33,11 @@ def set_params() :
             density_jumps : array_like, shape(D-1, )
                 Density ratios above and below each interface (surface excluded).
                 The default value is None
-            R : float, optional
+            radius : float, optional
                 Composite polytrope radius. The default value is 1.0
-            M : float, optional
+            mass : float, optional
                 Composite polytrope mass. The default value is 1.0
-            res : int, optional
+            resolution : int, optional
                 Number of points. The default value is 1001
         }
         Please refer to the composite_polytrope() documentation for more information.

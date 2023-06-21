@@ -137,11 +137,11 @@ def composite_polytrope(model_parameters) :
         density_jumps : array_like, shape(N-1, )
             Density ratios above and below each interface (surface excluded).
             The default value is np.ones((number_of_regions-1,))
-        R : float, optional
+        radius : float, optional
             Composite polytrope radius. Set to 1.0 if None
-        M : float, optional
+        mass : float, optional
             Composite polytrope mass. Set to 1.0 if None
-        res : int, optional
+        resolution : int, optional
             Number of points. Set to 1001 if None
     }
         
@@ -164,9 +164,9 @@ def composite_polytrope(model_parameters) :
     number_of_regions = len(indices)
     target_pressures  = np.hstack((0.0, model_parameters.target_pressures))
     density_jumps     = model_parameters.density_jumps or np.ones((number_of_regions-1,))
-    R                 = model_parameters.R or 1.0
-    M                 = model_parameters.M or 1.0
-    res               = model_parameters.res or 1001
+    R                 = model_parameters.radius        or 1.0
+    M                 = model_parameters.mass          or 1.0
+    res               = model_parameters.resolution    or 1001
     
     # Solver arguments
     dxi_est = 20.0
