@@ -195,7 +195,7 @@ def set_params() :
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 201
+    max_degree = angular_resolution = 101
     full_rate = 1
     mapping_precision = 1e-10
     lagrange_order = 3
@@ -211,7 +211,7 @@ def set_params() :
         plot_cmap_f = get_cmap_from_proplot("Greens1_r"),
         plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
         gravitational_moments = False,
-        radiative_flux = True,
+        radiative_flux = False,
         plot_flux_lines = True,
         flux_origin = 0.05,
         flux_lines_number = 20,

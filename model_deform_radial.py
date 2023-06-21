@@ -659,7 +659,7 @@ def radial_method(*params) :
             (N, M, mass, radius, rotation_target, G),
             map_n, 
             additional_var,
-            zeta, P, rho, phi_eff, rota, 5/3*np.ones_like(zeta)
+            zeta, P, rho, phi_eff, rota
         )
     # return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
     
