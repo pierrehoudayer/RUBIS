@@ -183,13 +183,17 @@ Finally, `polytrope.py` contains the function used to generate 1D polytropes and
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-With the method described, we will now give a brief example of how the code can be used. 
-Let's open the file `model_deform.py`. 
-Most of the actions to be performed are limited to modifying the `set_params()` function. 
+With the method described, we will now give a few examples of how the code can be used. 
+
+### First example
+
+Let's open the file `RUBIS.py`. 
+Most of the actions to be performed are limited to modifying the parameters in the `set_params()` function. 
 Let's start by choosing a 1D model to deform. 
-If I do not have a model at hand (and I do not want to deform a model already present in the `./Models/` directory), I can choose to deform a polytrope of index `index` by providing a dictionary instead of a file name in `model_choice`:
+If I do not have a model at hand (and I do not want to deform a model already present in the `./Models/` directory), I can choose to deform a polytrope of index `indices`, specify its surface pressure with `target_pressures` (in $\log_{10}$) and provide it as a dictionary instead of a file name in `model_choice`:
 ```py
-model_choice = DotDict(index=3.0)
+    #### MODEL CHOICE ####
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
 ```
 
 I can specify more options to build the polytrope like its mass or radius for instance. The above dictionary is equivalent in practice to the following choice:
