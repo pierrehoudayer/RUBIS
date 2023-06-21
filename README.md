@@ -325,8 +325,7 @@ A plot with the mapping and the density in the deformed model should also appear
 
 | ![First model][first-model] | 
 |:--:| 
-| Deformation of a polytropic structure with index $N=3$ at $90$% of the Keplerian rotation rate. 
-Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of a polytropic structure with index $N=3$ at $90$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
 The angular resolution of the plot can be modified with the `plot_resolution` parameter in `output_params`, as well as whether to show the isopotentials on the left, and the colormaps to use.
 
