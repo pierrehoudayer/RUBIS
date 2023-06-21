@@ -160,7 +160,7 @@ Another option for the user is to give as an input the numerical rotation profil
 Before this step, however, an adaptive rotation rate, ${\Omega_\mathrm{eq}}^*$, is computed to ensure that new level surfaces remain in the sub-critical range, as shown in the Fig. [2][phi-critical] below. 
 This adaptive rate is designed to reach the user specified rotation rate, $\Omega_\mathrm{eq}$, as the iterative scheme converges.
 
-| ![Adaptive][phi-critical] | 
+| <img src="Plots/critical_isopotentials.png" alt="phi-critical" width="300"> | 
 |:--:| 
 | Plot showing sub and super-critical isopotential lines. Finding an adaptive rotation rate ensures that new level surfaces remain in the sub-critical range. |
 
@@ -176,10 +176,6 @@ Finally, `polytrope.py` contains the function used to generate 1D polytropes and
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-
 
 
 
