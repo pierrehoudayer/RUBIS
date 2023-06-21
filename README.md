@@ -72,21 +72,28 @@ This lightness is made possible by the central procedure assumption which consis
 The latter makes it possible, in particular, to avoid the standard complications arising from the conservation of energy in the resulting model ([Jackson (1970)](https://ui.adsabs.harvard.edu/abs/1970ApJ...161..579J), [Roxburgh (2004)](https://doi.org/10.1051/0004-6361:20041202), [Jackson et al. (2005)](https://iopscience.iop.org/article/10.1086/426587), [MacGregor et al. (2007)](https://iopscience.iop.org/article/10.1086/518303)). 
 In this sense, the method is analogous to the one presented by [Roxburgh et al. (2006)](https://doi.org/10.1051/0004-6361:20065109), but simpler since it does not require the calculation of the first adiabatic exponent, $\Gamma_1$, during the deformation and thus the explicit specification of an equation of state. 
 
-As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to a very fast deformation of the model, even when high angular accuracies are required. 
-Another feature of the method is its excellent stability, which allows for the deformation of models at speeds very close to the critical rotation rate (cf. figures [1][plot-example-1] & [2][plot-example-2] below). 
+As a result, the only equation effectively solved by the program is Poisson's equation, $\Delta \Phi = 4\pi G \rho$, leading to very fast deformations of models, even when high angular accuracies are required. 
+Another feature of the method is its excellent stability, enhanced by the determination of an adaptive rotation rate, which allows for the deformation of models at speeds very close to the critical rotation rate (and sometimes even above the Keplerian one).
+<!-- (cf. figures [1][plot-example-1] & [2][plot-example-2] below). -->
 Finally, the code has been designed to allow both stellar and planetary models to be deformed, thereby dealing with potential discontinuities in the density profile. 
 This is made possible by solving Poisson's equation in spheroidal rather than spherical coordinates whenever a discontinuity is present. 
 More details regarding the <a href="#deformation-method">Deformation Method</a> can be found below.
 
-Regarding the program itself, `RUBIS` is fully witten in `Python` since `v0.1.0`.
+Regarding the program itself, `RUBIS` is currently in version `v.1.1.0`, reflecting the major changes that follow:
 
-| ![Example 1][plot-example-1] | 
+* `v.0.1.0` : `RUBIS` relies on an adaptive rotation rate to imporve the stability of the iterative scheme.
+* `v.0.2.0` : `RUBIS` integrates diagnostics to evaluate the solution's precision, such as the precision on Poisson's equation and the Virial test. The precision of numerous interpolation routines has also been improved.
+* `v.0.3.0` : `RUBIS` finds the new mappping using a reciprocal interpolation on an adaptive grid instead of Newton's method, considerably improving the stability of the spheroidal method. The performance of the spherical method is also improved by solving Poisson's equation only once.
+* `v.1.0.0` : `RUBIS` integrates a proper user interface, `RUBIS.py`, allowing all parameters to be tuned from the same file.
+* `v.1.1.0` : `RUBIS` offers a new feature, the radiative-flux computation on the deformed model surface.
+
+<!-- | ![Example 1][plot-example-1] | 
 |:--:| 
 | Deformation of a polytropic structure with index $N=3$ at $99.99$% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right |
   
 | ![Example 2][plot-example-2] | 
 |:--:| 
-| Idem for a $N=1$ polytrope.  |
+| Idem for a $N=1$ polytrope.  | -->
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -104,7 +111,7 @@ Get a local copy of `RUBIS` by following the following steps.
 
 ### Prerequisites
 
-`RUBIS` has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only used to ensure that these libraries are up to date.
+`RUBIS` has been written in such a way that it only depends on the standard Python libraries: [NumPy][numpy-url], [SciPy][scipy-url] and [Matplotlib][matplotlib-url]. The `setup.py` is only here to ensure that these libraries are up to date.
 
 ### Installation
 
