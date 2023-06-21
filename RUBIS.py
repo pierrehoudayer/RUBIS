@@ -180,9 +180,7 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    model_choice = DotDict(
-        indices = 3.0, target_pressures = -np.inf, res=1000
-    )
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
     # model_choice = DotDict(
     #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
     #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
@@ -198,7 +196,7 @@ def set_params() :
     
     #### SOLVER PARAMETERS ####
     max_degree = angular_resolution = 201
-    full_rate = 3
+    full_rate = 1
     mapping_precision = 1e-10
     lagrange_order = 3
     spline_order = 5

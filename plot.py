@@ -64,7 +64,8 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
 def get_cmap_from_proplot(cmap_name, **kwargs) :
     '''
     Get a colormap defined in the proplot extension. If proplot 
-    isn't installed, then return a default colormap.
+    isn't installed, then return a matplotlib colormap corresponding
+    to cmap_name.
     
     Parameters
     ----------
@@ -80,9 +81,12 @@ def get_cmap_from_proplot(cmap_name, **kwargs) :
     spec = find_spec('proplot')
     
     if spec is None :  # proplot is not installed
-        stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
-        # fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
-        cmap = get_continuous_cmap(stellar_list)
+        try : 
+            cmap = cm.get_cmap(cmap_name)
+        except : 
+            stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
+            # fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
+            cmap = get_continuous_cmap(stellar_list)
         return cmap
     else :             # proplot is installed
         import proplot as pplt
