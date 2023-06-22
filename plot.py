@@ -49,7 +49,7 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
     print(f"Estimated error on Poisson's equation: {round(Poisson_error, 16)}")
     
     # Plot
-    ylims = (1e-23, 1e2)
+    ylims = (1e-22, 1e2)
     for l in range(0, L, 2):
         c = cmap(l/L)
         plt.plot(zeta, np.abs(phi_g_l[:, l]), color=c, lw=1.0, alpha=0.3)
@@ -59,6 +59,10 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
     )
     plt.yscale('log')
     plt.ylim(*ylims)
+    plt.yticks(
+        [1e-20, 1e-15, 1e-10, 1e-5, 1], 
+        [r"$10^{-20}$", r"$10^{-15}$", r"$10^{-10}$", r"$10^{-5}$", r"$1$"]
+    )
     plt.show()
     
 def get_cmap_from_proplot(cmap_name, **kwargs) :

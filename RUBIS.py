@@ -190,20 +190,20 @@ def set_params() :
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.9
+    rotation_target = 0.9999
     central_diff_rate = 1.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
-    full_rate = 1
+    max_degree = angular_resolution = 401
+    full_rate = 3
     mapping_precision = 1e-10
     lagrange_order = 3
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
     output_params = DotDict(
-        show_harmonics = False,
+        show_harmonics = True,
         virial_test = True,
         show_model = True,
         plot_resolution = 501,

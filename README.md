@@ -357,7 +357,95 @@ However, make sure that these variables are invariant on the isopotentials durin
 
 ### Higher rotation rate
 
+Let's say that I want to test `RUBIS`' stability, and therefore deform the very same model at a rotation rate close to the critical one. 
+Since the $N=3$ polytrope is a rather heterogeneous model, the critical rotation rate $\Omega_\mathrm{crit}$ should be very close to the Kepleria rotation rate $\Omega_\mathrm{K}$ (we will see later that it is not always the case).
+I can therefore try setting the `rotation_target` as follows:
+```py
+    rotation_target = 0.9999
+```
 
+As we will likely be dealing with a considerably deformed model, the number of harmonics, $L$, to use must be increase in order to correctly resolve the surface:
+```py
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 401
+    full_rate = 3
+``` 
+
+The deformation procedure (for a continuous model) scaling roughly with $L$, we can expect this deformation being about $4$ times longer than the previous one, *i.e.* taking ~ $16$ secs.
+Note that I have also added a transcient phase of $3$ iterations by precaution.
+
+We can run the `RUBIS.py` without any other changes:
+```sh
+In [2]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
+
++---------------------+ 
+| Deformation started | 
++---------------------+
+
+Iteration n°01, R_pol = 0.9473783921
+Iteration n°02, R_pol = 0.8174127887
+Iteration n°03, R_pol = 0.6652743254
+Iteration n°04, R_pol = 0.6640548366
+Iteration n°05, R_pol = 0.6616264593
+Iteration n°06, R_pol = 0.6638080392
+Iteration n°07, R_pol = 0.66378137
+Iteration n°08, R_pol = 0.6637704632
+Iteration n°09, R_pol = 0.663765638
+Iteration n°10, R_pol = 0.6637635109
+Iteration n°11, R_pol = 0.6637625834
+Iteration n°12, R_pol = 0.6637621725
+Iteration n°13, R_pol = 0.6637619902
+Iteration n°14, R_pol = 0.6637619097
+Iteration n°15, R_pol = 0.663761874
+Iteration n°16, R_pol = 0.6637618582
+Iteration n°17, R_pol = 0.6637618512
+Iteration n°18, R_pol = 0.6637618481
+Iteration n°19, R_pol = 0.6637618467
+Iteration n°20, R_pol = 0.6637618461
+Iteration n°21, R_pol = 0.6637618459
+Iteration n°22, R_pol = 0.6637618457
+Iteration n°23, R_pol = 0.6637618457
+
++------------------+ 
+| Deformation done | 
++------------------+
+
+Time taken: 20.58 secs
+Kinetic energy  : 0.0193605344
+Internal energy : 0.7020113009
+Potential energy: 4.2895099430
+Surface term    : 0.0000000000
+Virial theorem verified at -3.0337e-12
+```
+
+The procedure took slighly longer than expected (probably because of the transcient phase): ~ $20$ secs.
+I can see that the Virial test is verified at the same precision than before.
+The Virial theorem is a highly relevant test for a program precision, and therefore is implemented in many codes.
+Note that this criterion only reveal a facet of a program's fiability, however, *i.e.* the one related to the hydrostatic equilibrium.
+While having a Virial test this low is to be appreciated, it doesn't really inform us on how well do we solve Poisson's equation in the procedure, which depends on the number of harmonics $L$ we considered.
+To test this second aspect of the problem, we can rerun the algorithm setting `show_harmonics = True` in `output_params`.
+This will show us a plot in log scale of the gravitational potential harmonics: 
+
+| <img src="Plots/harms_poly3_rota0.9999.png" alt="harms" width="500"> | 
+|:--:| 
+| Gravitational potential harmonics. Lower and higher degrees correspond to darker and lighter shades, respectively. |
+
+As it is clear that the gravitational potential cannot be known with more precision than the higher degree harmonic's amplitude, this plot informs us on the precision to which Poisson's equation is solved.
+A message should also appear in the shell:
+```sh
+Estimated error on Poisson's equation: 4e-16
+```
+
+We see here that there should not be any problems coming our Poisson's equation solving. 
+A plot of the model should again be available:
+
+| ![Second model][second-model] | 
+|:--:| 
+| Deformation of a polytropic structure with index $N=3$ at $99.99$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
+
+We can see here a clear cusp on the edges, reflecting that we are indeed rather close to the critical rotation rate on the equator.
+
+### Even Higher?
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -533,6 +621,7 @@ ACKNOWLEDGMENTS
 [flowchart]: Plots/deformation_method_scheme.png
 [phi-critical]: Plots/critical_isopotentials.png
 [first-model]: Plots/poly3_rota0.9.png
+[second-model]: Plots/poly3_rota0.9999.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
