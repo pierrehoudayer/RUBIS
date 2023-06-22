@@ -53,6 +53,11 @@
     </li>
     <li><a href="#deformation-method">Deformation Method</a></li>
     <li><a href="#examples">Examples</a></li>
+      <ul>
+        <li><a href="#first-simple-example">First Simple Example</a></li>
+        <li><a href="#higher-rotation-rate">Higher Rotation Rate</a></li>
+        <li><a href="#even-higher">Even Higher?</a></li>
+      </ul>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -186,7 +191,7 @@ Finally, `polytrope.py` contains the function used to generate 1D polytropes and
 
 With the method described, we will now give a few examples of how the code can be used. 
 
-### First simple example
+### First Simple Example
 
 Let's open the file `RUBIS.py`. 
 Most of the actions to be performed are limited to modifying the parameters in the `set_params()` function. 
@@ -355,7 +360,7 @@ It will also save the mapping $r(\zeta, \theta)$, the $\zeta$-variable, the pres
 Note that additional variables in the input file are automatically passed through the program without alterations and returned at the end of the output file for file-writting convenience.  
 However, make sure that these variables are invariant on the isopotentials during the deformation or they will no longer correspond to the 2D structure of the model! 
 
-### Higher rotation rate
+### Higher Rotation Rate
 
 Let's say that I want to test `RUBIS`' stability, and therefore deform the very same model at a rotation rate close to the critical one. 
 Since the $N=3$ polytrope is a rather heterogeneous model, the critical rotation rate $\Omega_\mathrm{crit}$ should be very close to the Kepleria rotation rate $\Omega_\mathrm{K}$ (we will see later that it is not always the case).
