@@ -60,9 +60,9 @@ def init_1D(model_choice) :
     G = 6.67384e-8  # <- Gravitational constant
     if isinstance(model_choice, dict) :        
         # The model properties are user-defined
-        N      = model_choice.res    or 1001
-        mass   = model_choice.mass   or 1.0
-        radius = model_choice.radius or 1.0
+        N      = model_choice.resolution or 1001
+        mass   = model_choice.mass       or 1.0
+        radius = model_choice.radius     or 1.0
         
         # Polytrope computation
         model = composite_polytrope(model_choice)
