@@ -25,7 +25,7 @@
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS"><strong>Explore the docs</strong></a>
     <br />
-    <a href="https://github.com/pierrehoudayer/RUBIS/releases/tag/v0.3.0">v0.3.0</a>
+    <a href="https://github.com/pierrehoudayer/RUBIS/releases/tag/v1.1.0">v1.1.0</a>
     <br />
     <a href="https://github.com/pierrehoudayer/RUBIS">View Demo</a>
     ·
