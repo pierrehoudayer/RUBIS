@@ -57,6 +57,8 @@
         <li><a href="#first-simple-example">First Simple Example</a></li>
         <li><a href="#higher-rotation-rate">Higher Rotation Rate</a></li>
         <li><a href="#even-higher">Even Higher?</a></li>
+        <li><a href="#deforming-jupiter">Deforming Jupiter</a></li>
+        <li><a href="#differential-rotation-profiles">Differential Rotation Profiles</a></li>
       </ul>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -557,7 +559,7 @@ Here is the resulting model:
 |:--:| 
 | Deformation of a polytropic structure with index $N=1/2$ at $110.5$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
-We see again that we are close to the critical rotation rate, which we can test by running the program with `rotation_target = 1.11`:
+We see that there is a considerable flattening due to the more homogeneous mass distribution, and that we are again close to the critical rotation rate, which we can test by running the program with `rotation_target = 1.11`:
 ```sh
 In [4]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
 
@@ -581,8 +583,101 @@ ValueError: Error on input data
 
 ### Deforming Jupiter
 
+In the `Models/` directory, there is a model of Jupiter that we can try to deform:
+```py
+    #### MODEL CHOICE ####
+    model_choice = 'Jupiter.txt'
+```
 
+This model contains two discontinuities (the first resulting from the presence of a solid core and the second from an hydrogen phase change), meaning that `RUBIS` will call the `deform_spheroidal()` method as long as ot run in auto mode (highly recommended!):
+```py
+    #### METHOD CHOICE ####
+    method_choice = 'auto'
+```
 
+This method being much more costly than `deform_radial()` from a numerical point of view (see the [article][Citing RUBIS] for more details), it is preferable to reduce the number of harmonics to use:
+```py
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    rotation_target = 0.9
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 101
+    full_rate = 1
+    mapping_precision = 1e-10
+    lagrange_order = 2
+    spline_order = 5
+```
+
+When running the program, we obtain:
+```sh
+In [5]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
+
++---------------------+ 
+| Deformation started | 
++---------------------+
+
+Iteration n°01, R_pol = 0.7117437964
+Iteration n°02, R_pol = 0.6642329043
+Iteration n°03, R_pol = 0.6385151656
+Iteration n°04, R_pol = 0.6265341389
+Iteration n°05, R_pol = 0.6205290412
+Iteration n°06, R_pol = 0.6174305796
+Iteration n°07, R_pol = 0.6158408091
+Iteration n°08, R_pol = 0.6150241936
+Iteration n°09, R_pol = 0.6146033552
+Iteration n°10, R_pol = 0.6143862351
+Iteration n°11, R_pol = 0.6142741791
+Iteration n°12, R_pol = 0.6142163285
+Iteration n°13, R_pol = 0.6141864558
+Iteration n°14, R_pol = 0.6141710286
+Iteration n°15, R_pol = 0.6141630611
+Iteration n°16, R_pol = 0.614158946
+Iteration n°17, R_pol = 0.6141568205
+Iteration n°18, R_pol = 0.6141557227
+Iteration n°19, R_pol = 0.6141551556
+Iteration n°20, R_pol = 0.6141548627
+Iteration n°21, R_pol = 0.6141547114
+Iteration n°22, R_pol = 0.6141546332
+Iteration n°23, R_pol = 0.6141545929
+Iteration n°24, R_pol = 0.614154572
+Iteration n°25, R_pol = 0.6141545612
+Iteration n°26, R_pol = 0.6141545557
+Iteration n°27, R_pol = 0.6141545528
+Iteration n°28, R_pol = 0.6141545513
+Iteration n°29, R_pol = 0.6141545505
+Iteration n°30, R_pol = 0.6141545501
+Iteration n°31, R_pol = 0.6141545499
+Iteration n°32, R_pol = 0.6141545498
+Iteration n°33, R_pol = 0.6141545498
+
++------------------+ 
+| Deformation done | 
++------------------+
+
+Time taken: 99.46 secs
+Estimated error on Poisson's equation: 9.217224e-10
+Kinetic energy  : 0.0905246063
+Internal energy : 0.2451316995
+Potential energy: 1.8326119730
+Surface term    : 0.0000000057
+Virial theorem verified at 7.54707317054e-05
+```
+
+As expected, the spheroidal method is slower ($100$ secs for $33$ iterations).
+For the first time, we also have a Virial test considerably higher than our estimate on Poisson's equation.
+This is a common behavior in discontinuous models with considerable discontinuities (in `Jupiter.txt`, the jump in density caused by the core is about $-75$%), and it is related to the fact that the hydrostatic equilibrium is not satisfied with a high precision on these discontinuities.
+I still need to figure out why.
+
+Here is the plot with the option `plot_surfaces = False` in `output_params`, so that we can clearly see the discontinuities:
+
+| ![Fourth model][fourth-model] | 
+|:--:| 
+| Deformation of a model of Jupiter at $90$% of the Keplerian rotation rate with its density distribution (in log scale). The discontinuities are shown in white. |
+
+### Differential Rotation Profiles
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -760,6 +855,7 @@ ACKNOWLEDGMENTS
 [first-model]: Plots/poly3_rota0.9.png
 [second-model]: Plots/poly3_rota0.9999.png
 [third-model]: Plots/poly0.5_rota1.105.png
+[fourth-model]: Plots/jupiter_rota0.9.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib
