@@ -4,6 +4,7 @@ import scipy.sparse as sps
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.special       import roots_legendre, eval_legendre
+from scipy.integrate     import solve_ivp
 
 from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D
 from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
@@ -12,9 +13,13 @@ from helpers             import (
     init_2D,
     init_phi_c,
     valid_reciprocal_domain, 
+    write_model
+)
+from plot                import (
+    plot_flux_lines,
+    plot_3D_surface,
     plot_f_map, 
     phi_g_harmonics,
-    write_model
 )
 
 def init_1D(model_choice) : 
@@ -55,9 +60,9 @@ def init_1D(model_choice) :
     G = 6.67384e-8  # <- Gravitational constant
     if isinstance(model_choice, dict) :        
         # The model properties are user-defined
-        N      = model_choice.res    or 1001
-        mass   = model_choice.mass   or 1.0
-        radius = model_choice.radius or 1.0
+        N      = model_choice.resolution or 1001
+        mass   = model_choice.mass       or 1.0
+        radius = model_choice.radius     or 1.0
         
         # Polytrope computation
         model = composite_polytrope(model_choice)
@@ -607,14 +612,43 @@ def radial_method(*params) :
     
     # Plot model
     if output_params.show_model :
-        plot_f_map(
-            map_n, rho, phi_eff, L, 
-            angular_res=output_params.plot_resolution,
-            cmap=output_params.plot_cmap_f,
-            show_surfaces=output_params.plot_surfaces,
-            cmap_lines=output_params.plot_cmap_surfaces,
-            label=r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        )      
+        
+        # Variable to plot
+        f = rho
+        label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
+        rota2D = np.array([eval_w(rk, ck, rotation_target) for rk, ck in zip(map_n.T, cth)]).T
+        if rota2D.max() - rota2D.min() > 1e-2 : 
+            f = np.log10(rota2D)
+            label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
+            
+        if output_params.radiative_flux : 
+            z0 = output_params.flux_origin
+            M1 = output_params.flux_lines_number
+            Q_l, (fig, ax) = find_radiative_flux(
+                map_n, cth, z0, M1,
+                add_flux_lines=output_params.plot_flux_lines, 
+                show_T_eff=output_params.show_T_eff,
+                res=output_params.flux_res,
+                flux_cmap=output_params.flux_cmap
+            )
+            plot_f_map(
+                map_n, f, phi_eff, L, 
+                angular_res=output_params.plot_resolution,
+                cmap=output_params.plot_cmap_f,
+                show_surfaces=output_params.plot_surfaces,
+                cmap_lines=output_params.plot_cmap_surfaces,
+                label=label,
+                add_to_fig=(fig, ax) if output_params.plot_flux_lines else None
+            )
+        else : 
+            plot_f_map(
+                map_n, f, phi_eff, L, 
+                angular_res=output_params.plot_resolution,
+                cmap=output_params.plot_cmap_f,
+                show_surfaces=output_params.plot_surfaces,
+                cmap_lines=output_params.plot_cmap_surfaces,
+                label=label
+            )      
     
     # Gravitational moments
     if output_params.gravitational_moments :
@@ -634,9 +668,257 @@ def radial_method(*params) :
             (N, M, mass, radius, rotation_target, G),
             map_n, 
             additional_var,
-            zeta, P, rho, phi_eff, rota, 5/3*np.ones_like(zeta)
+            zeta, P, rho, phi_eff, rota
         )
-    return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
+    # return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
     
     
+#----------------------------------------------------------------#
+#                   Radiative flux computation                   #
+#----------------------------------------------------------------#
+
+from helpers import DotDict
+
+def find_metric_terms(map_n, t, z0=0.0, z1=1.0) : 
+    """
+    Finds the metric terms, i.e the derivatives of r(z, t) 
+    with respect to z or t (with z := zeta and t := cos(theta)),
+    for z0 <= z <= z1.
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Isopotential mapping.
+    t : array_like, shape (M, )
+        Angular variable.
+
+    Returns
+    -------
+    dr : DotDict instance
+        The mapping derivatives : {
+            _   = r(z, t),
+            t   = r_t(z, t),
+            tt  = r_tt(z, t),
+            z   = r_z(z, t),
+            zt  = r_zt(z, t),
+            ztt = r_ztt(z, t),
+            zz  = r_zz(z, t),
+            S   = \Delta_S r(z, t)
+        }          
+    """
+    valid = np.squeeze(np.argwhere((zeta >= z0)&(zeta <= z1)))
+    z = zeta[valid]
+    dr = DotDict()
+    dr._ = map_n[valid]
+    map_l = pl_project_2D(dr._, L)
+    _, dr.t, dr.tt = pl_eval_2D(map_l, t, der=2)
+    dr.z = np.array(
+        [interpolate_func(z, rk, der=1, k=KSPL)(z) for rk in dr._.T]
+    ).T 
+    map_l_z = pl_project_2D(dr.z, L)
+    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, t, der=2)
+    dr.zz = np.array(
+        [interpolate_func(z, rk, der=2, k=KSPL)(z) for rk in dr._.T]
+    ).T 
+    dr.S = (1-t**2) * dr.tt - 2*t * dr.t
+    return dr
+
+
+def add_advanced_metric_terms(dr, t) : 
+    """
+    Finds the more advanced metric terms, useful in very specific cases.
+
+    Parameters
+    ----------
+    dr : DotDict instance
+        The object containing the mapping derivatives.
+    t : array_like, shape (M, )
+        Angular variable.
+
+    Returns
+    -------
+    dr : DotDict instance
+        Same object but enhanced with the following terms : {
+            sf = 1.0 / (r**2 + r_theta**2) :
+                inverse sphere deformation. This term is computed 
+                for convenience as it avoid raising many exceptions
+                for the other metric terms.
+            c2 = cos(b^z, b_z) ** 2 : 
+                squared cosinus between the covariant and 
+                contravariant zeta vectors in the natural basis.
+            cs = cos(b^z, b_z) * sin(b^z, b_z) :
+                cosinus by sinus of the same angle.
+                /!\ The orientation of this angle has been chosen
+                    to be the same as theta (i.e. inverse trigonometric)
+            gzz : zeta/zeta covariant metric term.
+            gzt : zeta/theta covariant metric term.
+            gtt : theta/theta covariant metric term.
+            gg = gzt / gzz : 
+                covariant ratio.
+                /!\ The latter has been multiplied by -(1 - t**2) ** 0.5
+            divz = div(b^z) : 
+                divergence of the zeta covariant vector
+            divt = div(b^t) : 
+                divergence of the theta covariant vector
+            divrelz = div(b^z) / gzz : 
+                relative divergence of the zeta covariant vector
+            divrelt = div(b^t) / gtt : 
+                relative divergence of the theta covariant vector
+            jac = df/dt :
+                where f designates the rhs of the divergence free equation.
+        }          
+    """
+    # Trigonometric terms
+    with np.errstate(all='ignore'):
+        dr.sf = np.where(
+            dr._ == 0.0, np.nan, 1.0 / (dr._ ** 2 + (1-t**2) * dr.t ** 2)
+        )
+    dr.c2 = dr._ ** 2 * dr.sf
+    dr.cs = (1-t**2) ** 0.5 * dr._ * dr.t * dr.sf
         
+    # Covariant metric terms
+    dr.gzz = 1.0 / (dr.z ** 2 * dr.c2)
+    with np.errstate(all='ignore'):
+        dr.gzt = np.where(
+            dr._ == 0.0, np.nan, (1-t**2) ** 0.5 * dr.t / (dr.z * dr._ ** 2)
+        )
+        dr.gtt = np.where(
+            dr._ == 0.0, np.nan, dr._ ** (-2)
+        )
+    dr.gg = - (1-t**2) * dr.z * dr.t * dr.sf
+    
+    # Divergence
+    with np.errstate(all='ignore'):
+        dr.divz = (
+            np.where(
+                dr._ == 0.0, np.nan, 
+                (2 * dr._ + 2 * (1-t**2) * dr.t * dr.zt / dr.z - dr.S) / (dr.z * dr._ ** 2)
+            )   
+            - dr.gzz * dr.zz / dr.z
+        )
+    dr.divt = t * dr.gtt / (1-t**2) ** 0.5
+    
+    # Relative divergence
+    dr.divrelz = (
+        (2 * dr._ + 2 * (1-t**2) * dr.t * dr.zt / dr.z - dr.S) * dr.z * dr.sf - dr.zz / dr.z
+    )
+    dr.divrelt = t / (1-t**2) ** 0.5 * np.ones_like(dr._)
+    
+    # Divergence free jacobian
+    dr.jac = (
+        2 * dr.z * dr.t * (
+            t + (dr._ - t * dr.t + (1-t**2) * dr.tt) * (1-t**2) * dr.t * dr.sf
+        ) - (1-t**2) * (dr.t * dr.zt + dr.z * dr.tt)
+    ) * dr.sf
+    return dr
+
+def find_radiative_flux(
+    map_n, cth, z0, M_lines, 
+    add_flux_lines, show_T_eff, res, flux_cmap
+) :
+    """
+    Determines the radiative flux lines and the surface flux, given 
+    a model mapping (map_n) and a boundary on which to impose a 
+    constant flux (characteristed by z0).
+
+    Parameters
+    ----------
+    map_n : array_like, shape (N, M)
+        Model mapping.
+    cth : array_like, shape (M, )
+        Angular variable.
+    z0 : float
+        Zeta value for which the radiative flux is assumed to be constant.
+        The value of the constant is determined by setting the rescaling
+        the integrated flux on the surface by the star's luminosity.
+    M_lines : integer
+        Number of flux lines to be computed.
+    add_flux_lines : boolean
+        Whether to return a figure containing the flux lines so that
+        they may be plotted on top of plot_f_map().
+    show_T_eff : boolean
+        Whether to show the effective temperature instead of the radiative
+        flux amplitude on the 3D surface.
+    res : tuple of floats (res_t, res_p)
+        Gives the resolution of the 3D surface in theta and phi coordinates 
+        respectively.
+    flux_cmap : Colormap instance
+        Colormap to plot the radiative flux at the model surface.
+
+    Returns
+    -------
+    Q_l : array_like, shape (2*M_lines, )
+        Radiative flux harmonics
+    (fig, ax) : Subplot object
+        Figure and axis containing the flux lines.
+
+    """
+    # Find domain
+    from scipy.special import roots_legendre
+    t1, w1 = np.array(roots_legendre(2*M_lines))[:, :M_lines]
+    valid = np.squeeze(np.argwhere(zeta >= z0))
+    z = zeta[valid]
+    x = (1 - z)[::-1]
+    
+    # Metric terms computation
+    dr = find_metric_terms(map_n, cth, z0=z0)
+    dr = add_advanced_metric_terms(dr, cth)
+    map_l = pl_project_2D(dr._  , L)
+    rhs_l = pl_project_2D(dr.gg , L, even=False)
+    jac_l = pl_project_2D(dr.jac, L)
+    
+    # Differential equation dt_dx = f(x, t)    
+    def fun(xi, tk) : 
+        rhs_t = np.atleast_2d(pl_eval_2D(rhs_l, tk.flatten()))
+        f = np.array([
+            interpolate_func(x, -rhs_tk[::-1], k=3)(xi) for rhs_tk in rhs_t.T
+        ]).reshape(*tk.shape)
+        return f
+    
+    def jac(xi, tk) : 
+        jac_t = np.atleast_2d(pl_eval_2D(jac_l, tk.flatten()))
+        J = np.diag([
+            interpolate_func(x, -jac_tk[::-1], k=3)(xi) for jac_tk in jac_t.T
+        ]).reshape(-1, *tk.shape)
+        return J
+    
+    # Actual solving
+    a = time.perf_counter()
+    t = solve_ivp(
+        fun=fun, 
+        t_span=(0.0, 1-z0), 
+        y0=t1, 
+        method='LSODA', 
+        dense_output=True, 
+        rtol=1e-4, 
+        atol=1e-4,
+        jac=jac,
+        vectorized=True
+    ).sol(x).T[::-1]
+    b = time.perf_counter()
+    print(f"\nFlux lines found in {b-a:.2f} secs")
+    
+    # Integrate the flux along the characteristics
+    r, r_t = np.moveaxis(
+        np.array([pl_eval_2D(map_l[i], ti, der=1) for i, ti in enumerate(t)]), 0, 1
+    )
+    r_z_l      = pl_project_2D(dr.z      , L)
+    divrel_z_l = pl_project_2D(dr.divrelz, L)
+    r_z      = np.array([pl_eval_2D(     r_z_l[i], ti) for i, ti in enumerate(t)])
+    divrel_z = np.array([pl_eval_2D(divrel_z_l[i], ti) for i, ti in enumerate(t)])
+    Q_z = np.exp([-integrate(z, divrel_zk) for divrel_zk in divrel_z.T])
+    Q_0 = 1.0 / sum(Q_z * (r[-1]**2 + (1-t1**2) * r_t[-1]**2) / r_z[-1] * w1)
+    Q   = Q_0 * Q_z * np.abs(pl_eval_2D(pl_project_2D(dr.gzz[-1], L), t[-1])) ** 0.5
+    Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*M_lines)
+    
+    # 3D plot of the surface flux
+    plot_3D_surface(map_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
+    
+    # Draw characteristics
+    if add_flux_lines : 
+        r = np.hstack((r, +r[:, ::-1]))
+        t = np.hstack((t, -t[:, ::-1]))
+        (fig, ax) = plot_flux_lines(r, t, color='grey')
+    else : 
+        (fig, ax) = (None, None)
+    return Q_l, (fig, ax)

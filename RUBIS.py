@@ -1,6 +1,7 @@
 import numpy as np
 
 from helpers                 import DotDict, give_me_a_name, assign_method
+from plot                    import get_cmap_from_proplot
 from rotation_profiles       import *
 from model_deform_radial     import radial_method
 from model_deform_spheroidal import spheroidal_method
@@ -32,11 +33,11 @@ def set_params() :
             density_jumps : array_like, shape(D-1, )
                 Density ratios above and below each interface (surface excluded).
                 The default value is None
-            R : float, optional
+            radius : float, optional
                 Composite polytrope radius. The default value is 1.0
-            M : float, optional
+            mass : float, optional
                 Composite polytrope mass. The default value is 1.0
-            res : int, optional
+            resolution : int, optional
                 Number of points. The default value is 1001
         }
         Please refer to the composite_polytrope() documentation for more information.
@@ -130,6 +131,28 @@ def set_params() :
             gravitational_moments : boolean
                 Whether to compute the gravitational moments of the deformed 
                 model.
+            radiative_flux : boolean
+                Whether to compute the radiative flux at the surface of the model
+                by estimating the gravity darkening.
+            plot_flux_lines : boolean
+                Should the flux lines be added on top of the model plot?
+            flux_origin : float
+                Zeta value on which the flux will be assumed to be constant. Because the
+                metric terms are not all defined on the origin, this value must be greater
+                than zero (but can eventualy chosen to be quite small).
+            flux_lines_number : integer
+                Number of flux lines to be computed. High values will tend to increase
+                the precision on the surface flux, but considerably extend the computation
+                time. Values ~ 30 usually gives an honorable precision for not overly 
+                complex surfaces.
+            show_T_eff : boolean
+                Whether to show the effective temperature instead of the radiative
+                flux amplitude on the 3D surface.
+            flux_res : tuple of floats (res_t, res_p)
+                Gives the resolution of the 3D surface in theta and phi coordinates 
+                respectively.
+            flux_cmap : ColorMap instance
+                Colormap used to display the surface radiative flux.
             dim_model : boolean
                 Whether to redimension the model or not.
             save_model : boolean
@@ -157,39 +180,48 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    # model_choice = DotDict(
-    #     indices = 3.0, target_pressures = -np.inf, res=2000
-    # )
+    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
     # model_choice = DotDict(
     #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
     #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
     #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
     # )
-    model_choice = 'Jupiter.txt'
+    # model_choice = 'Jupiter.txt'
 
     #### ROTATION PARAMETERS ####      
-    rotation_profile = solid
-    rotation_target = 0.8
-    central_diff_rate = 5.0
+    rotation_profile = lorentzian
+    rotation_target = 0.99
+    central_diff_rate = 3.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 51
+    max_degree = angular_resolution = 201
     full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 2
+    lagrange_order = 3
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
     output_params = DotDict(
+        # Tests
         show_harmonics = False,
         virial_test = True,
+        # Model
         show_model = True,
         plot_resolution = 501,
         plot_surfaces = True,
-        plot_cmap_f = "Reds",
-        plot_cmap_surfaces = "plasma_r",
+        plot_cmap_f = get_cmap_from_proplot("ColdHot_r"),
+        plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
         gravitational_moments = False,
+        # Radiative flux
+        radiative_flux = True,
+        plot_flux_lines = True,
+        flux_origin = 0.05,
+        flux_lines_number = 70,
+        show_T_eff = True,
+        flux_res = (200, 100),
+        flux_cmap = get_cmap_from_proplot("Stellar_r"),
+        # Model writting
         dim_model = False,
         save_model = False,
         save_name = give_me_a_name(model_choice, rotation_target)
@@ -223,7 +255,7 @@ if __name__ == '__main__' :
     )
     
     # Performing the deformation
-    zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P = method_func(
+    method_func(
         model_choice, 
         rotation_profile, rotation_target, central_diff_rate, rotation_scale, 
         max_degree, angular_resolution, full_rate,

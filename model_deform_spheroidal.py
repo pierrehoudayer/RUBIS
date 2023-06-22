@@ -16,9 +16,11 @@ from helpers             import (
     init_2D,
     init_phi_c,
     valid_reciprocal_domain, 
+    write_model
+)
+from plot                import (
     plot_f_map, 
     phi_g_harmonics,
-    write_model
 )
 
 def init_1D(model_choice) : 
@@ -59,9 +61,9 @@ def init_1D(model_choice) :
     G = 6.67384e-8  # <- Gravitational constant
     if isinstance(model_choice, dict) :        
         # The model properties are user-defined
-        N = model_choice.res    or 1001
-        M = model_choice.mass   or 1.0
-        R = model_choice.radius or 1.0
+        N = model_choice.resolution or 1001
+        M = model_choice.mass       or 1.0
+        R = model_choice.radius     or 1.0
         
         # Polytrope computation
         model = composite_polytrope(model_choice)
@@ -808,7 +810,7 @@ def spheroidal_method(*params) :
             additional_var,
             zeta, P, rho, phi_eff, rota, 5/3*np.ones_like(zeta)
         )
-    return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
+    # return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
     
         
     
