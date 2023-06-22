@@ -679,6 +679,123 @@ Here is the plot with the option `plot_surfaces = False` in `output_params`, so 
 
 ### Differential Rotation Profiles
 
+There are multiple ways to define a differential rotation profile for a model.
+`RUBIS` implements two analytical profiles: `lorentzian` and `plateau`. 
+
+* The first needs a single additional parameter compared to the `solid` profile (which only depends on `rotation_target`) that gives the relative rate difference between the center and the equator: $\alpha = (\Omega_0 - \Omega_\mathrm{eq}) / \Omega_\mathrm{eq}$. 
+The latter is obtained by specifying the value of `central_diff_rate`.
+
+* The `plateau` profile needs an extra parameter in addition to `rotation_target` and `central_diff_rate`, which is `rotation_scale`.
+The latter indicates the lenght scale of the plateau in the rotation profile.
+For instance, the combinaison `central_diff_rate = 1.0` and `rotation_scale = 0.5` results in a profile with a central plateau rotating twice as fast as the equatorial rotation rate over ~ $R_\mathrm{eq}/2$, followed by a decrease to reach the equatorial rotation rate at $R_\mathrm{eq}$.
+
+* `RUBIS` also allows the user to specify its own function $\Omega(s)$ numerically by providing a discretisation of this profile on a grid going from $s = 0$ to $s = 1$.
+The latter should be contained on a file located in the `Models/` directory and can be called with the command `rotation_profile = la_bidouille(fname, smoothing)`, where `fname` is the name of the file and `smoothing` can be used to smooth the numerical profile.
+
+In the following, we will consider the deformation of an $N=3$ with the following lorentzian profile:
+```py
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = lorentzian
+    rotation_target = 0.97
+    central_diff_rate = 5.0
+```
+
+This is a quite extreme example, close to the critical rotation rate at multiple locations in the model, but the procedure converges without too much difficulty:
+```sh
++---------------------+ 
+| Deformation started | 
++---------------------+
+
+Iteration n°01, R_pol = 0.818195594
+Iteration n°02, R_pol = 0.5463293458
+Iteration n°03, R_pol = 0.3583846729
+Iteration n°04, R_pol = 0.3001048147
+Iteration n°05, R_pol = 0.2940297034
+Iteration n°06, R_pol = 0.2834783666
+Iteration n°07, R_pol = 0.2740794419
+Iteration n°08, R_pol = 0.2689482907
+Iteration n°09, R_pol = 0.2653685831
+Iteration n°10, R_pol = 0.2629754631
+Iteration n°11, R_pol = 0.2614954317
+Iteration n°12, R_pol = 0.2605639267
+Iteration n°13, R_pol = 0.2599678942
+Iteration n°14, R_pol = 0.2596621136
+Iteration n°15, R_pol = 0.2594861206
+Iteration n°16, R_pol = 0.2591778582
+Iteration n°17, R_pol = 0.2589535797
+Iteration n°18, R_pol = 0.2588484694
+Iteration n°19, R_pol = 0.2588099488
+Iteration n°20, R_pol = 0.258799086
+Iteration n°21, R_pol = 0.2587978365
+Iteration n°22, R_pol = 0.2587992407
+Iteration n°23, R_pol = 0.2588009542
+Iteration n°24, R_pol = 0.2588023379
+Iteration n°25, R_pol = 0.258803317
+Iteration n°26, R_pol = 0.258803969
+Iteration n°27, R_pol = 0.2588043898
+Iteration n°28, R_pol = 0.2588046565
+Iteration n°29, R_pol = 0.2588048238
+Iteration n°30, R_pol = 0.2588049281
+Iteration n°31, R_pol = 0.2588049928
+Iteration n°32, R_pol = 0.2588050329
+Iteration n°33, R_pol = 0.2588050578
+Iteration n°34, R_pol = 0.2588050731
+Iteration n°35, R_pol = 0.2588050826
+Iteration n°36, R_pol = 0.2588050884
+Iteration n°37, R_pol = 0.2588050921
+Iteration n°38, R_pol = 0.2588050943
+Iteration n°39, R_pol = 0.2588050957
+Iteration n°40, R_pol = 0.2588050965
+Iteration n°41, R_pol = 0.258805097
+Iteration n°42, R_pol = 0.2588050974
+Iteration n°43, R_pol = 0.2588050976
+Iteration n°44, R_pol = 0.2588050977
+Iteration n°45, R_pol = 0.2588050978
+
++------------------+ 
+| Deformation done | 
++------------------+
+
+Time taken: 39.82 secs
+Estimated error on Poisson's equation: 5.6e-15
+Kinetic energy  : 0.1023561421
+Internal energy : 1.6513168494
+Potential energy: 10.3173256664
+Surface term    : 0.0000000000
+Virial theorem verified at -5.92941e-11
+```
+
+We can already see the considerable flattening caused by this profile; $R_\mathrm{pol} \simeq 0.259 R_\mathrm{eq}$ is quite extreme.
+The model looks like this:
+
+| ![Fifth model][fifth-model] | 
+|:--:| 
+| Deformation of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.97\Omega_K$ and $\Omega_0 = 6\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the density distribution on the right. |
+
+Its shape is rather original, as it is often the case with highly differential rotation profiles.
+You can find below a last example using the options:
+```py
+    #### MODEL CHOICE ####
+    model_choice = DotDict(indices = 4.5, target_pressures = -np.inf)
+
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = lorentzian
+    rotation_target = 0.2
+    central_diff_rate = 200.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 401
+    full_rate = 3
+    mapping_precision = 1e-10
+    lagrange_order = 3
+    spline_order = 5
+```
+
+| ![Sixth model][sixth-model] | 
+|:--:| 
+| Deformation of an $N=9/2$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.2\Omega_K$ and $\Omega_0 = 201\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the density distribution on the right. |
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -713,7 +830,7 @@ Here is the plot with the option `plot_surfaces = False` in `output_params`, so 
 - [ ] Look at series acceleration/transformation to accelerate the gravitational potential series convergence.
 - [ ] Propose 2D incomming flux map to simulate interferometric data and allow a parametric adjustment (rotation rate, inclinaison, luminosity, ...) of incoming flux maps.
 
-See the [open issues](https://github.com/pierrehoudayer/RUBIS/issues) for a list of proposed features (and known issues).
+See the [open issues][issues-url] for a list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -769,7 +886,7 @@ Pierre Houdayer -  pierre.houdayer@obspm.fr
 [![ORCID][ORCID-shield]][ORCID-url]
 
 
-Project Link: [https://github.com/pierrehoudayer/RUBIS](https://github.com/pierrehoudayer/RUBIS)
+Project Link: [https://github.com/pierrehoudayer/RUBIS][project]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -842,6 +959,7 @@ ACKNOWLEDGMENTS
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[project]: https://github.com/pierrehoudayer/RUBIS
 [contributors-shield]: https://img.shields.io/github/contributors/pierrehoudayer/RUBIS.svg?style=for-the-badge
 [contributors-url]: https://github.com/pierrehoudayer/RUBIS/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/pierrehoudayer/RUBIS.svg?style=for-the-badge
@@ -856,6 +974,8 @@ ACKNOWLEDGMENTS
 [second-model]: Plots/poly3_rota0.9999.png
 [third-model]: Plots/poly0.5_rota1.105.png
 [fourth-model]: Plots/jupiter_rota0.9.png
+[fifth-model]: Plots/poly3_rota0.97_diff5.png
+[sixth-model]: Plots/poly4.5_rota0.2_diff200.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib

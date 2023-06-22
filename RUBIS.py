@@ -180,25 +180,25 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    # model_choice = DotDict(indices = 0.5, target_pressures = -np.inf, resolution=3001)
+    model_choice = DotDict(indices = 4.5, target_pressures = -np.inf)
     # model_choice = DotDict(
     #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
     #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
     #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
     # )
-    model_choice = 'Jupiter.txt'
+    # model_choice = 'Jupiter.txt'
 
     #### ROTATION PARAMETERS ####      
-    rotation_profile = solid
-    rotation_target = 0.9
-    central_diff_rate = 1.0
+    rotation_profile = lorentzian
+    rotation_target = 0.2
+    central_diff_rate = 200.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 101
-    full_rate = 1
+    max_degree = angular_resolution = 401
+    full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 2
+    lagrange_order = 3
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
@@ -207,7 +207,7 @@ def set_params() :
         virial_test = True,
         show_model = True,
         plot_resolution = 501,
-        plot_surfaces = False,
+        plot_surfaces = True,
         plot_cmap_f = get_cmap_from_proplot("Greens1_r"),
         plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
         gravitational_moments = False,
