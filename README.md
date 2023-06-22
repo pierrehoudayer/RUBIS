@@ -595,7 +595,7 @@ This model contains two discontinuities (the first resulting from the presence o
     method_choice = 'auto'
 ```
 
-This method being much more costly than `deform_radial()` from a numerical point of view (see the [article][Citing RUBIS] for more details), it is preferable to reduce the number of harmonics to use:
+This method being much more costly than `deform_radial()` from a numerical point of view (see the [article][DOI-url] for more details), it is preferable to reduce the number of harmonics to use:
 ```py
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
