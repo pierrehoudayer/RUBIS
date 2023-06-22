@@ -60,6 +60,7 @@
         <li><a href="#deforming-jupiter">Deforming Jupiter</a></li>
         <li><a href="#differential-rotation-profiles">Differential Rotation Profiles</a></li>
       </ul>
+    <li><a href="#radiative-flux">Radiative Flux</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -702,6 +703,8 @@ In the following, we will consider the deformation of an $N=3$ with the followin
 
 This is a quite extreme example, close to the critical rotation rate at multiple locations in the model, but the procedure converges without too much difficulty:
 ```sh
+In [6]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
+
 +---------------------+ 
 | Deformation started | 
 +---------------------+
@@ -770,7 +773,7 @@ The model looks like this:
 
 | ![Fifth model][fifth-model] | 
 |:--:| 
-| Deformation of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.97\Omega_K$ and $\Omega_0 = 6\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.97\Omega_K$ and $\Omega_0 = 6\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 Its shape is rather original, as it is often the case with highly differential rotation profiles.
 You can find below a last example using the options:
@@ -794,10 +797,78 @@ You can find below a last example using the options:
 
 | ![Sixth model][sixth-model] | 
 |:--:| 
-| Deformation of an $N=9/2$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.2\Omega_K$ and $\Omega_0 = 201\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of an $N=9/2$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.2\Omega_K$ and $\Omega_0 = 201\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+
+
+<!-- RADIATIVE FLUX -->
+## Radiative Flux
+
+Since `v1.1.0`, `RUBIS` allows the user to visualise the outcoming flux at the surface of the model.
+This is made possible using an assumption expressed in ([Espinosa Lara & Rieutord (2011)](https://ui.adsabs.harvard.edu/abs/2011A%26A...533A..43E/abstract)), *i.e* considering that the energy flux propagates along effective gravity lines (which is well verified, cf. their Fig. 1).
+In this article, the authors solved analytically the radiative flux transfer $\mathbf{\nabla}\cdot\mathbf{Q} = 0$, assuming isopotential lines corresponding to a Roche model (*i.e* a $N=5$ polytrope).
+This method (known as the $\omega$-model) is very useful for providing analytical approximations of the radiative flux at the surface given a rotation rate.
+However, it cannot take into account the structure of more complex models (or generally estimate the flux of models that would differ from a $N=5$ polytrope), as well as reflecting the impact of a differential rotation.
+
+In `RUBIS` however, effective gravity lines correspond to lines normal to the isopotentials (since their is a total potential as long as the rotation profile is conservative) and we know exactly their shapes when deforming the model.
+The radiative flux transfer can therefore be solved numerically for basically free: we only need to compute the lines normal to the isopotential and integrate the flux equation along those lines.
+This procedure works whatever the model structure and the rotation profile, whether it is differential or not.
+
+To compute the radiative flux in `RUBIS`, one simply needs to set the option `radiative_flux = True` in `output_params`. The other options can be chosen as follows:
+```py
+        radiative_flux = True,
+        plot_flux_lines = True,
+        flux_origin = 0.05,
+        flux_lines_number = 20,
+        show_T_eff = True,
+        flux_res = (200, 100),
+        flux_cmap = get_cmap_from_proplot("Stellar_r"),
+```
+
+`plot_flux_lines` decides whether to add the flux lines to the model plot, and `flux_lines_number` gives the number of flux lines to be computed:
+
+| ![First flux lines][first-flux-lines] | 
+|:--:| 
+| Flux lines on top of the [first example][first-simple-example]. |
+
+The calculation is rather rapid:
+```sh 
+Flux lines found in 0.47 secs
+```
+
+We indeed see that the flux lines are normal to the isopotentials.
+The `flux_origin` defines the $\zeta$ value at which the flux is supposed to be constant, which is necessary to fully constrain the problem.
+
+The last three parameters impact the 3D rendering of the radiative flux at the surface.
+`show_T_eff` decides whether to show the the effective temperature instead of the flux norm on the surface, `flux_res` gives the mesh resolution in the $\theta$ and $\varphi$ directions, while `flux_cmap` defines the colormap:
+
+| ![First radiative flux][first-radiative-flux] | 
+|:--:| 
+| Corresponding $T_\mathrm{eff}$ over the surface. |
+
+We can clearly see the effect of the [gravity darkening][wiki-gravity-darkening-url] on the equator.
+The flux of this model can still be approximated with the $\omega$-model.
+Let's now have a look at a more extreme case:
+
+| ![Second flux lines][second-flux-lines] | 
+|:--:| 
+| Flux lines shown on top of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.99\Omega_K$ and $\Omega_0 = 4\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
+
+| ![Second radiative flux][second-radiative-flux] | 
+|:--:| 
+| Corresponding $T_\mathrm{eff}$ over the surface. |
+
+Here the surface is so deformed that almost no flux comes from the equator while the poles are considerably hotter than the rest of the surface.
+
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 
 
@@ -968,6 +1039,10 @@ ACKNOWLEDGMENTS
 [stars-url]: https://github.com/pierrehoudayer/RUBIS/stargazers
 [issues-shield]: https://img.shields.io/github/issues/pierrehoudayer/RUBIS.svg?style=for-the-badge
 [issues-url]: https://github.com/pierrehoudayer/RUBIS/issues
+[numpy-url]: https://github.com/numpy/numpy
+[scipy-url]: https://github.com/scipy/scipy
+[matplotlib-url]: https://github.com/matplotlib/matplotlib
+[proplot-url]: https://github.com/proplot-dev/proplot
 [flowchart]: Plots/deformation_method_scheme.png
 [phi-critical]: Plots/critical_isopotentials.png
 [first-model]: Plots/poly3_rota0.9.png
@@ -976,10 +1051,11 @@ ACKNOWLEDGMENTS
 [fourth-model]: Plots/jupiter_rota0.9.png
 [fifth-model]: Plots/poly3_rota0.97_diff5.png
 [sixth-model]: Plots/poly4.5_rota0.2_diff200.png
-[numpy-url]: https://github.com/numpy/numpy
-[scipy-url]: https://github.com/scipy/scipy
-[matplotlib-url]: https://github.com/matplotlib/matplotlib
-[proplot-url]: https://github.com/proplot-dev/proplot
+[first-flux-lines]: Plots/flux_lines_poly3_rota0.9.png
+[first-radiative-flux]: Plots/flux_poly3_rota0.9.png
+[second-flux-lines]: Plots/flux_lines_poly3_rota0.99_diff3.png
+[second-radiative-flux]: Plots/flux_poly3_rota0.99_diff3.png
+[wiki-gravity-darkening-url]: https://en.wikipedia.org/wiki/Gravity_darkening
 [ORCID-shield]: https://img.shields.io/badge/ORCID-0000--0002--1245--9148-brightgreen
 [ORCID-url]: https://orcid.org/0000-0002-1245-9148
 [DOI-shield]: https://img.shields.io/badge/DOI-10.1051%2F0004--6361%2F202346403-blue

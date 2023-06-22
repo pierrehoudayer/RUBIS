@@ -612,6 +612,15 @@ def radial_method(*params) :
     
     # Plot model
     if output_params.show_model :
+        
+        # Variable to plot
+        f = rho
+        label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
+        rota2D = np.array([eval_w(rk, ck, rotation_target) for rk, ck in zip(map_n.T, cth)]).T
+        if rota2D.max() - rota2D.min() > 1e-2 : 
+            f = np.log10(rota2D)
+            label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
+            
         if output_params.radiative_flux : 
             z0 = output_params.flux_origin
             M1 = output_params.flux_lines_number
@@ -623,22 +632,22 @@ def radial_method(*params) :
                 flux_cmap=output_params.flux_cmap
             )
             plot_f_map(
-                map_n, rho, phi_eff, L, 
+                map_n, f, phi_eff, L, 
                 angular_res=output_params.plot_resolution,
                 cmap=output_params.plot_cmap_f,
                 show_surfaces=output_params.plot_surfaces,
                 cmap_lines=output_params.plot_cmap_surfaces,
-                label=r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$",
+                label=label,
                 add_to_fig=(fig, ax) if output_params.plot_flux_lines else None
             )
         else : 
             plot_f_map(
-                map_n, rho, phi_eff, L, 
+                map_n, f, phi_eff, L, 
                 angular_res=output_params.plot_resolution,
                 cmap=output_params.plot_cmap_f,
                 show_surfaces=output_params.plot_surfaces,
                 cmap_lines=output_params.plot_cmap_surfaces,
-                label=r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
+                label=label
             )      
     
     # Gravitational moments
