@@ -189,13 +189,13 @@ def set_params() :
     # model_choice = 'Jupiter.txt'
 
     #### ROTATION PARAMETERS ####      
-    rotation_profile = lorentzian
-    rotation_target = 0.99
-    central_diff_rate = 3.0
+    rotation_profile = solid
+    rotation_target = 0.9
+    central_diff_rate = 1.0
     rotation_scale = 1.0
     
     #### SOLVER PARAMETERS ####
-    max_degree = angular_resolution = 201
+    max_degree = angular_resolution = 101
     full_rate = 3
     mapping_precision = 1e-10
     lagrange_order = 3
@@ -210,14 +210,14 @@ def set_params() :
         show_model = True,
         plot_resolution = 501,
         plot_surfaces = True,
-        plot_cmap_f = get_cmap_from_proplot("ColdHot_r"),
+        plot_cmap_f = get_cmap_from_proplot("Greens1_r"),
         plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
         gravitational_moments = False,
         # Radiative flux
-        radiative_flux = True,
+        radiative_flux = False,
         plot_flux_lines = True,
         flux_origin = 0.05,
-        flux_lines_number = 70,
+        flux_lines_number = 30,
         show_T_eff = True,
         flux_res = (200, 100),
         flux_cmap = get_cmap_from_proplot("Stellar_r"),
