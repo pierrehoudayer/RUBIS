@@ -452,6 +452,138 @@ We can see here a clear cusp on the edges, reflecting that we are indeed rather 
 
 ### Even Higher?
 
+As said above, the critical rotation rate might not correspond to the Keplerian one for models with more homogeneous mass distributions, which can allow us to exceed the Keplerian rotation rate.
+We will test this assumption by considering here a polytrope of index $N=1/2$:
+```py
+    #### MODEL CHOICE ####
+    model_choice = DotDict(indices = 0.5, target_pressures = -np.inf, resolution=3001)
+```
+
+Since it will end up being considerably more deformed than the previous polytrope, it is recommended to use more points in the radial resolution, here $3001$.
+I will run the code with following options:
+```py
+    #### ROTATION PARAMETERS ####      
+    rotation_profile = solid
+    rotation_target = 1.105
+    central_diff_rate = 1.0
+    rotation_scale = 1.0
+    
+    #### SOLVER PARAMETERS ####
+    max_degree = angular_resolution = 401
+    full_rate = 3
+    mapping_precision = 1e-10
+    lagrange_order = 2
+    spline_order = 5
+```
+
+I reduced the order of the finite-differences scheme (as I have increased the resolution) but, more importantly, I set the equatorial rotation rate to $\Omega_\mathrm{eq} = 1.105 \Omega_K$, thus considerably above the Keplerian rotation rate.
+Here is the result:
+```sh
+In [3]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
+
++---------------------+ 
+| Deformation started | 
++---------------------+
+
+Iteration n°01, R_pol = 0.9364745134
+Iteration n°02, R_pol = 0.7672390968
+Iteration n°03, R_pol = 0.6175574971
+Iteration n°04, R_pol = 0.5466449736
+Iteration n°05, R_pol = 0.5046344772
+Iteration n°06, R_pol = 0.4791713897
+Iteration n°07, R_pol = 0.4633433499
+Iteration n°08, R_pol = 0.4551258659
+Iteration n°09, R_pol = 0.450644672
+Iteration n°10, R_pol = 0.447623725
+Iteration n°11, R_pol = 0.4456423532
+Iteration n°12, R_pol = 0.4444527056
+Iteration n°13, R_pol = 0.4435563768
+Iteration n°14, R_pol = 0.4430896373
+Iteration n°15, R_pol = 0.4427447297
+Iteration n°16, R_pol = 0.4425369649
+Iteration n°17, R_pol = 0.4423929664
+Iteration n°18, R_pol = 0.4422978062
+Iteration n°19, R_pol = 0.4422369117
+Iteration n°20, R_pol = 0.442197209
+Iteration n°21, R_pol = 0.4421713782
+Iteration n°22, R_pol = 0.4421546071
+Iteration n°23, R_pol = 0.4421436031
+Iteration n°24, R_pol = 0.4421365426
+Iteration n°25, R_pol = 0.442131964
+Iteration n°26, R_pol = 0.4421289567
+Iteration n°27, R_pol = 0.4421269855
+Iteration n°28, R_pol = 0.4421257097
+Iteration n°29, R_pol = 0.4421248793
+Iteration n°30, R_pol = 0.4421243146
+Iteration n°31, R_pol = 0.4421239646
+Iteration n°32, R_pol = 0.442123728
+Iteration n°33, R_pol = 0.4421235724
+Iteration n°34, R_pol = 0.4421234701
+Iteration n°35, R_pol = 0.442123404
+Iteration n°36, R_pol = 0.4421233624
+Iteration n°37, R_pol = 0.4421233364
+Iteration n°38, R_pol = 0.4421233205
+Iteration n°39, R_pol = 0.4421233108
+Iteration n°40, R_pol = 0.4421233049
+Iteration n°41, R_pol = 0.4421233013
+Iteration n°42, R_pol = 0.4421232992
+Iteration n°43, R_pol = 0.4421232979
+Iteration n°44, R_pol = 0.4421232971
+Iteration n°45, R_pol = 0.4421232965
+Iteration n°46, R_pol = 0.4421232963
+Iteration n°47, R_pol = 0.4421232961
+Iteration n°48, R_pol = 0.4421232961
+
++------------------+ 
+| Deformation done | 
++------------------+
+
+Time taken: 79.13 secs
+Estimated error on Poisson's equation: 1.534198839e-07
+Kinetic energy  : 0.1627972894
+Internal energy : 0.1920031872
+Potential energy: 1.8032089377
+Surface term    : 0.0000000000
+Virial theorem verified at -1.820523534e-07
+```
+
+We see that more iterations were required for convergence ($48$), and that we a much higher Virial test (~ `2e-7`).
+A look at the gravitational potential harmonics shows that we have a very slow convergence of the partial series $\Phi_G(r, \theta) = \displaystyle \sum_{\ell = 0}^L {\Phi_G}^\ell P_\ell(\cos \theta)$, and the error on Poisson's equation shows that it is the main limit in this specific case. 
+But note that those precisions are more than enough for many applications!
+
+Here is the resulting model:
+
+| ![Third model][third-model] | 
+|:--:| 
+| Deformation of a polytropic structure with index $N=1/2$ at $110.5$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
+
+We see again that we are close to the critical rotation rate, which we can test by running the program with `rotation_target = 1.11`:
+```sh
+In [4]: %run "/home/phoudayer/Documents/Codes/RUBIS/RUBIS.py"
+
++---------------------+ 
+| Deformation started | 
++---------------------+
+
+Iteration n°01, R_pol = 0.9359352379
+Iteration n°02, R_pol = 0.7656043185
+Iteration n°03, R_pol = 0.6185886618
+Iteration n°04, R_pol = 0.5482268566
+Iteration n°05, R_pol = 0.506512168
+Iteration n°06, R_pol = 0.4809454073
+Iteration n°07, R_pol = 0.4648374205
+Iteration n°08, R_pol = 0.4545022485
+Iteration n°09, R_pol = 0.4493768901
+Iteration n°10, R_pol = 0.4462242424
+---------------------------------------------------------------------------
+ValueError: Error on input data
+```
+
+### Deforming Jupiter
+
+
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -627,6 +759,7 @@ ACKNOWLEDGMENTS
 [phi-critical]: Plots/critical_isopotentials.png
 [first-model]: Plots/poly3_rota0.9.png
 [second-model]: Plots/poly3_rota0.9999.png
+[third-model]: Plots/poly0.5_rota1.105.png
 [numpy-url]: https://github.com/numpy/numpy
 [scipy-url]: https://github.com/scipy/scipy
 [matplotlib-url]: https://github.com/matplotlib/matplotlib

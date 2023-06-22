@@ -180,7 +180,7 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
+    model_choice = DotDict(indices = 0.5, target_pressures = -np.inf, resolution=3001)
     # model_choice = DotDict(
     #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
     #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
@@ -190,7 +190,7 @@ def set_params() :
 
     #### ROTATION PARAMETERS ####      
     rotation_profile = solid
-    rotation_target = 0.9999
+    rotation_target = 1.11
     central_diff_rate = 1.0
     rotation_scale = 1.0
     
@@ -198,7 +198,7 @@ def set_params() :
     max_degree = angular_resolution = 401
     full_rate = 3
     mapping_precision = 1e-10
-    lagrange_order = 3
+    lagrange_order = 2
     spline_order = 5
     
     #### OUTPUT PARAMETERS ####
