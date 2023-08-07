@@ -971,27 +971,28 @@ Project Link: [https://github.com/pierrehoudayer/RUBIS][project]
 <!-- CITING RUBIS -->
 ## Citing RUBIS
 
-Find the article here: https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H/abstract
+Find the A&A article here: [https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H/abstract](https://ui.adsabs.harvard.edu/abs/2023A%26A...675A.181H/abstract)
 
 [![DOI][DOI-shield]][DOI-url]
 
 Bibtex entry : 
 
 ```
-@ARTICLE{2023arXiv230308077H,
-       author = {{Houdayer}, Pierre S. and {Reese}, Daniel R.},
-        title = "{RUBIS: a simple tool for calculating the centrifugal deformation of stars and planets}",
-      journal = {arXiv e-prints},
-     keywords = {Astrophysics - Solar and Stellar Astrophysics, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics},
+@ARTICLE{2023A&A...675A.181H,
+       author = {{Houdayer}, P.~S. and {Reese}, D.~R.},
+        title = "{RUBIS: A simple tool for calculating the centrifugal deformation of stars and planets}",
+      journal = {\aap},
+     keywords = {stars: rotation, stars: interiors, planets and satellites: interiors, stars: oscillations, methods: numerical, Astrophysics - Solar and Stellar Astrophysics, Astrophysics - Earth and Planetary Astrophysics, Astrophysics - Instrumentation and Methods for Astrophysics},
          year = 2023,
-        month = mar,
-          eid = {arXiv:2303.08077},
-        pages = {arXiv:2303.08077},
-          doi = {10.48550/arXiv.2303.08077},
+        month = jul,
+       volume = {675},
+          eid = {A181},
+        pages = {A181},
+          doi = {10.1051/0004-6361/202346403},
 archivePrefix = {arXiv},
        eprint = {2303.08077},
  primaryClass = {astro-ph.SR},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2023arXiv230308077H},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023A&A...675A.181H},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```
