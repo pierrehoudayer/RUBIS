@@ -159,7 +159,7 @@ Because the decomposition of Poisson's equation over spherical harmonics can be 
 The reason for this change is that discontinuities follows isopotentials (which are also isobars from the hydrostatic equilibrium), and therefore that fixed values of $r$ cross multiple domains, making unhandly to solve the equation in the (simpler) spherical coordinate system. 
 Since the isopotential shapes $\zeta(r, \theta)$ are known from the previous iteration, the gravitational can simply be reexpressed as $\Phi_G(r, \theta)$, leading to the same quantity as the other path.
 
-The hydrostatic equilibrium implies that the total potential (expressed on the isopotentials, $\Phi_\mathrm{eff}(\zeta)$ only varies by an additive constant from one iteration to the next. Therefore, once the gravitational potential has been calculated, the constant can be determined by applying this relationship on the origin which allows to express the total potential on each isopotential, $\Phi_\mathrm{eff}(\zeta)$.
+The hydrostatic equilibrium implies that the total potential (expressed on the isopotentials, $\Phi_\mathrm{eff}(\zeta)$) only varies by an additive constant from one iteration to the next. Therefore, once the gravitational potential has been calculated, the constant can be determined by applying this relationship on the origin which allows to express the total potential on each isopotential, $\Phi_\mathrm{eff}(\zeta)$.
 
 In parallel the total potential, $\Phi_\mathrm{eff}(r, \theta)$, can also be determined by adding the centrifugal potential, $\Phi_c(r, \theta)$ to the gravitational one. 
 The latter is computed from a rotation profile and a rotation rate on the equator, both specified by the user at the beginning of the procedure. 
@@ -332,7 +332,7 @@ I can see here that the deformation only took about 4 seconds (and 22 iterations
 I also have a quantification of how well the Virial theorem is verified, here about `3e-12`, since I have set the option `virial_test = True`.
 A plot with the mapping and the density in the deformed model should also appear, as specified by the requierement `show_model = True`:
 
-| ![First model][first-model] | 
+| ![FirstModel][first-model] | 
 |:--:| 
 | Deformation of a polytropic structure with index $N=3$ at $90$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
@@ -447,7 +447,7 @@ Estimated error on Poisson's equation: 4e-16
 We see here that there should not be any problems coming our Poisson's equation solving. 
 A plot of the model should again be available:
 
-| ![Second model][second-model] | 
+| ![SecondModel][second-model] | 
 |:--:| 
 | Deformation of a polytropic structure with index $N=3$ at $99.99$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
@@ -556,7 +556,7 @@ But note that those precisions are more than enough for many applications!
 
 Here is the resulting model:
 
-| ![Third model][third-model] | 
+| ![ThirdModel][third-model] | 
 |:--:| 
 | Deformation of a polytropic structure with index $N=1/2$ at $110.5$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
@@ -674,7 +674,7 @@ I still need to figure out why.
 
 Here is the plot with the option `plot_surfaces = False` in `output_params`, so that we can clearly see the discontinuities:
 
-| ![Fourth model][fourth-model] | 
+| ![FourthModel][fourth-model] | 
 |:--:| 
 | Deformation of a model of Jupiter at $90$% of the Keplerian rotation rate with its density distribution (in log scale). The discontinuities are shown in white. |
 
@@ -771,7 +771,7 @@ Virial theorem verified at -5.92941e-11
 We can already see the considerable flattening caused by this profile; $R_\mathrm{pol} \simeq 0.259 R_\mathrm{eq}$ is quite extreme.
 The model looks like this:
 
-| ![Fifth model][fifth-model] | 
+| ![FifthModel][fifth-model] | 
 |:--:| 
 | Deformation of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.97\Omega_K$ and $\Omega_0 = 6\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
@@ -795,7 +795,7 @@ You can find below a last example using the options:
     spline_order = 5
 ```
 
-| ![Sixth model][sixth-model] | 
+| ![SixthModel][sixth-model] | 
 |:--:| 
 | Deformation of an $N=9/2$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.2\Omega_K$ and $\Omega_0 = 201\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
@@ -832,9 +832,9 @@ To compute the radiative flux in `RUBIS`, one simply needs to set the option `ra
 
 `plot_flux_lines` decides whether to add the flux lines to the model plot, and `flux_lines_number` gives the number of flux lines to be computed:
 
-| ![First flux lines][first-flux-lines] | 
+| ![FirstFluxLines][first-flux-lines] | 
 |:--:| 
-| Flux lines on top of the [first example][first-simple-example]. |
+| Flux lines on top of the [First Example][first-simple-example]. |
 
 The calculation is rather rapid:
 ```sh 
@@ -847,7 +847,7 @@ The `flux_origin` defines the $\zeta$ value at which the flux is supposed to be 
 The last three parameters impact the 3D rendering of the radiative flux at the surface.
 `show_T_eff` decides whether to show the the effective temperature instead of the flux norm on the surface, `flux_res` gives the mesh resolution in the $\theta$ and $\varphi$ directions, while `flux_cmap` defines the colormap:
 
-| ![First radiative flux][first-radiative-flux] | 
+| ![FirstRadiativeFlux][first-radiative-flux] | 
 |:--:| 
 | Corresponding $T_\mathrm{eff}$ over the surface. |
 
@@ -855,11 +855,11 @@ We can clearly see the effect of the [gravity darkening][wiki-gravity-darkening-
 The flux of this model can still be approximated with the $\omega$-model.
 Let's now have a look at a more extreme case:
 
-| ![Second flux lines][second-flux-lines] | 
+| ![SecondFluxLines][second-flux-lines] | 
 |:--:| 
 | Flux lines shown on top of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.99\Omega_K$ and $\Omega_0 = 4\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
-| ![Second radiative flux][second-radiative-flux] | 
+| ![SecondRadiativeFlux][second-radiative-flux] | 
 |:--:| 
 | Corresponding $T_\mathrm{eff}$ over the surface. |
 
