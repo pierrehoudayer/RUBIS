@@ -96,15 +96,6 @@ Regarding the program itself, `RUBIS` is currently in version `v.1.1.0`, reflect
 * `v.1.0.0` : `RUBIS` integrates a proper user interface, `RUBIS.py`, allowing all parameters to be tuned from the same file.
 * `v.1.1.0` : `RUBIS` offers a new feature, the radiative-flux computation on the deformed model surface.
 
-<!-- | ![Example 1][plot-example-1] | 
-|:--:| 
-| Deformation of a polytropic structure with index $N=3$ at $99.99$% of the critical rotation rate. Isopotentials are shown on the left and the density distribution on the right |
-  
-| ![Example 2][plot-example-2] | 
-|:--:| 
-| Idem for a $N=1$ polytrope.  | -->
-
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
