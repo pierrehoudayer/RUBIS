@@ -325,7 +325,7 @@ A plot with the mapping and the density in the deformed model should also appear
 
 | ![FirstModel][first-model] | 
 |:--:| 
-| Deformation of a polytropic structure with index $N=3$ at $90$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of a polytropic structure with index N=3 at 90% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
 The angular resolution of the plot can be modified with the `plot_resolution` parameter in `output_params`, as well as whether to show the isopotentials on the left, and the colormaps to use.
 
@@ -440,7 +440,7 @@ A plot of the model should again be available:
 
 | ![SecondModel][second-model] | 
 |:--:| 
-| Deformation of a polytropic structure with index $N=3$ at $99.99$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of a polytropic structure with index N=3 at 99.99% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
 We can see here a clear cusp on the edges, reflecting that we are indeed rather close to the critical rotation rate on the equator.
 
@@ -549,7 +549,7 @@ Here is the resulting model:
 
 | ![ThirdModel][third-model] | 
 |:--:| 
-| Deformation of a polytropic structure with index $N=1/2$ at $110.5$% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
+| Deformation of a polytropic structure with index N=1/2 at 110.5% of the Keplerian rotation rate. Isopotentials are shown on the left and the density distribution on the right. |
 
 We see that there is a considerable flattening due to the more homogeneous mass distribution, and that we are again close to the critical rotation rate, which we can test by running the program with `rotation_target = 1.11`:
 ```sh
@@ -667,7 +667,7 @@ Here is the plot with the option `plot_surfaces = False` in `output_params`, so 
 
 | ![FourthModel][fourth-model] | 
 |:--:| 
-| Deformation of a model of Jupiter at $90$% of the Keplerian rotation rate with its density distribution (in log scale). The discontinuities are shown in white. |
+| Deformation of a model of Jupiter at 90% of the Keplerian rotation rate with its density distribution (in log scale). The discontinuities are shown in white. |
 
 ### Differential Rotation Profiles
 
@@ -764,7 +764,7 @@ The model looks like this:
 
 | ![FifthModel][fifth-model] | 
 |:--:| 
-| Deformation of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.97\Omega_K$ and $\Omega_0 = 6\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
+| Deformation of an N=3 polytrope with a Lorentzian profile (the equatorial rotation rate reaches 97% of the keplerian rotation rate and the center spins 6 times faster than the equator). Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 Its shape is rather original, as it is often the case with highly differential rotation profiles.
 You can find below a last example using the options:
@@ -788,7 +788,7 @@ You can find below a last example using the options:
 
 | ![SixthModel][sixth-model] | 
 |:--:| 
-| Deformation of an $N=9/2$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.2\Omega_K$ and $\Omega_0 = 201\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
+| Deformation of an $N=9/2$ polytrope with a Lorentzian profile (the equatorial rotation rate reaches 20% of the keplerian rotation rate and the center spins 201 times faster than the equator). Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -840,7 +840,7 @@ The last three parameters impact the 3D rendering of the radiative flux at the s
 
 | ![FirstRadiativeFlux][first-radiative-flux] | 
 |:--:| 
-| Corresponding $T_\mathrm{eff}$ over the surface. |
+| Corresponding effective temperature over the surface. |
 
 We can clearly see the effect of the [gravity darkening][wiki-gravity-darkening-url] on the equator.
 The flux of this model can still be approximated with the $\omega$-model.
@@ -848,11 +848,11 @@ Let's now have a look at a more extreme case:
 
 | ![SecondFluxLines][second-flux-lines] | 
 |:--:| 
-| Flux lines shown on top of an $N=3$ polytrope with a Lorentzian profile: $\Omega_\mathrm{eq} = 0.99\Omega_K$ and $\Omega_0 = 4\Omega_\mathrm{eq}$. Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
+| Flux lines shown on top of an N=3 polytrope with a Lorentzian profile (the equatorial rotation rate reaches 99% of the keplerian rotation rate and the center spins 4 times faster than the equator). Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 | ![SecondRadiativeFlux][second-radiative-flux] | 
 |:--:| 
-| Corresponding $T_\mathrm{eff}$ over the surface. |
+| Corresponding effective temperature over the surface. |
 
 Here the surface is so deformed that almost no flux comes from the equator while the poles are considerably hotter than the rest of the surface.
 
