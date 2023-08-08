@@ -788,7 +788,7 @@ You can find below a last example using the options:
 
 | ![SixthModel][sixth-model] | 
 |:--:| 
-| Deformation of an $N=9/2$ polytrope with a Lorentzian profile (the equatorial rotation rate reaches 20% of the keplerian rotation rate and the center spins 201 times faster than the equator). Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
+| Deformation of an N=9/2 polytrope with a Lorentzian profile (the equatorial rotation rate reaches 20% of the keplerian rotation rate and the center spins 201 times faster than the equator). Isopotentials are shown on the left and the rotation profile on the right (in log scale). |
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
