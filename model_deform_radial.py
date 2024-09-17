@@ -617,9 +617,9 @@ def radial_method(*params) :
         f = rho
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
         rota2D = np.array([eval_w(rk, ck, rotation_target) for rk, ck in zip(map_n.T, cth)]).T
-        if rota2D.max() - rota2D.min() > 1e-2 : 
-            f = np.log10(rota2D)
-            label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
+        # if rota2D.max() - rota2D.min() > 1e-2 : 
+        #     f = np.log10(rota2D)
+        #     label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
             
         if output_params.radiative_flux : 
             z0 = output_params.flux_origin
