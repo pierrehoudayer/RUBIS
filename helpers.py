@@ -1,15 +1,8 @@
 import numpy as np
 from scipy.special  import roots_legendre
 
-class DotDict(dict):  
-    """
-    Class that defines dictionaries with dot attributes.
-    """   
-    def __getattr__(*args):        
-        val = dict.get(*args)         
-        return DotDict(val) if type(val) is dict else val     
-    __setattr__ = dict.__setitem__     
-    __delattr__ = dict.__delitem__ 
+from rubis._utils import DotDict
+
     
 def assign_method(method_choice, model_choice, radial_method, spheroidal_method) : 
     """
@@ -177,7 +170,7 @@ def find_domains(var) :
                 All domain sizes
             id : array_like, shape (Nvar, ) of integer
                 Domain identification number. 
-                /!\ if var is zeta, the Nvar = N+Ne!
+                NOTE: if var is zeta, the Nvar = N+Ne!
             id_val : array_like, shape (Nd, ) of integer
                 The id values.
             int, ext : array_like, shape (Nvar, ) of boolean
