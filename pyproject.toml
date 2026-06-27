@@ -1,0 +1,35 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rubis"
+version = "1.1.0"
+description = "Compute rotating barotropic stellar models"
+readme = "README.md"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.setuptools]
+py-modules = [
+    "RUBIS",
+    "helpers",
+    "legendre",
+    "model_deform_radial",
+    "model_deform_spheroidal",
+    "numerical",
+    "plot",
+    "polytrope",
+    "rotation_profiles",
+]
