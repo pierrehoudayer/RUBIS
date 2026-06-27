@@ -4,7 +4,7 @@ import pytest
 from helpers import DotDict
 from model_deform_radial import radial_method
 from model_deform_spheroidal import spheroidal_method
-from rotation_profiles import lorentzian, solid
+from rubis.rotation_profiles import lorentzian, solid
 
 
 def output_options():

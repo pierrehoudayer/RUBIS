@@ -1,6 +1,6 @@
 import numpy as np
 
-from rotation_profiles import lorentzian, plateau, solid
+from rubis.rotation_profiles import lorentzian, plateau, solid
 
 
 def test_solid_rotation_profile_is_constant():

@@ -4,7 +4,7 @@ import numpy as np
 
 from helpers import DotDict
 from model_deform_radial import radial_method
-from rotation_profiles import solid
+from rubis.rotation_profiles import solid
 
 
 def test_radial_solver_returns_normalised_state():

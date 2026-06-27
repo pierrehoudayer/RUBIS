@@ -5,7 +5,7 @@ from helpers import (
     init_phi_c,
     valid_reciprocal_domain,
 )
-from rotation_profiles import lorentzian, plateau, solid
+from rubis.rotation_profiles import lorentzian, plateau, solid
 
 
 def test_find_domains_for_continuous_coordinate():

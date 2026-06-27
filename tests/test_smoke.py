@@ -3,7 +3,7 @@ def test_core_modules_import():
     import rubis.legendre
     import rubis.numerical
     import polytrope
-    import rotation_profiles
+    import rubis.rotation_profiles as rotation_profiles
     
 def test_rubis_package_import():
     import rubis

@@ -8,7 +8,15 @@ Created on Wed Dec 21 12:19:57 2022
 
 import numpy as np
 
-from rubis.numerical import expI, expinv, interpolate_func
+from .numerical import expI, expinv, interpolate_func
+
+
+__all__ = [
+    "solid",
+    "lorentzian",
+    "plateau",
+    "la_bidouille",
+]
 
 
 def solid(r, cth, omega, return_profile=False) :

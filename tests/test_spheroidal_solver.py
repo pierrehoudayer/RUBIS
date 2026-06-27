@@ -4,7 +4,7 @@ import numpy as np
 
 from helpers import DotDict
 from model_deform_spheroidal import spheroidal_method
-from rotation_profiles import solid
+from rubis.rotation_profiles import solid
 
 
 def test_spheroidal_solver_returns_normalised_state():

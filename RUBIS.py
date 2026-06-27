@@ -2,7 +2,7 @@ import numpy as np
 
 from helpers                 import DotDict, give_me_a_name, assign_method
 from plot                    import get_cmap_from_proplot
-from rotation_profiles       import *
+from rubis.rotation_profiles import solid, lorentzian, plateau
 from model_deform_radial     import radial_method
 from model_deform_spheroidal import spheroidal_method
 
