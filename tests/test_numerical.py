@@ -1,6 +1,6 @@
 import numpy as np
 
-from numerical import lagrange_matrix_P
+from numerical import integrate, lagrange_matrix_P
 
 
 def test_lagrange_matrix_reproduces_polynomials():
@@ -63,4 +63,46 @@ def test_lagrange_matrix_reproduces_polynomials():
         3.0 * x_eval[interior]**2,
         rtol=1.0e-11,
         atol=1.0e-12,
+    )
+    
+    
+def test_integrate_reproduces_cubic_polynomial():
+    x = np.linspace(0.0, 1.0, 21) ** 2
+
+    def function(x):
+        return 3.0 * x**2 - 2.0 * x + 1.0
+
+    def primitive(x):
+        return x**3 - x**2 + x
+
+    y = function(x)
+
+    full_integral = integrate(x, y)
+    expected_full_integral = primitive(1.0) - primitive(0.0)
+
+    np.testing.assert_allclose(
+        full_integral,
+        expected_full_integral,
+        rtol=1.0e-13,
+        atol=1.0e-14,
+    )
+
+    lower_bound = 0.13
+    upper_bound = 0.82
+
+    partial_integral = integrate(
+        x,
+        y,
+        a=lower_bound,
+        b=upper_bound,
+    )
+    expected_partial_integral = (
+        primitive(upper_bound) - primitive(lower_bound)
+    )
+
+    np.testing.assert_allclose(
+        partial_integral,
+        expected_partial_integral,
+        rtol=1.0e-13,
+        atol=1.0e-14,
     )
