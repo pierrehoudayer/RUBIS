@@ -67,3 +67,120 @@ def test_radial_solver_returns_normalised_state():
     ).all()
 
     assert result.iterations >= 1
+    
+    
+def test_nonrotating_radial_model_remains_spherical():
+    resolution = 65
+    angular_resolution = 9
+    max_degree = 9
+
+    model = DotDict(
+        indices=1.0,
+        target_pressures=-np.inf,
+        density_jumps=None,
+        radius=1.0,
+        mass=1.0,
+        resolution=resolution,
+    )
+
+    output = DotDict(
+        show_harmonics=False,
+        virial_test=False,
+        show_model=False,
+        gravitational_moments=False,
+        save_model=False,
+    )
+
+    result = radial_method(
+        model,
+        solid,
+        0.0,
+        0.0,
+        1.0,
+        max_degree,
+        angular_resolution,
+        1,
+        1.0e-10,
+        3,
+        2,
+        output,
+        21,
+        True,
+    )
+
+    # Every material surface must have the same radius
+    # in all angular directions.
+    angular_spread = np.ptp(
+        result.mapping,
+        axis=1,
+    )
+
+    np.testing.assert_allclose(
+        angular_spread,
+        0.0,
+        rtol=0.0,
+        atol=1.0e-11,
+    )
+
+    # That common radius must coincide with the original
+    # spherical material coordinate.
+    radial_mapping = np.mean(
+        result.mapping,
+        axis=1,
+    )
+
+    central = result.zeta < 0.1
+
+    # Outside the specially treated central region, the original
+    # spherical mapping should be recovered very accurately.
+    np.testing.assert_allclose(
+        radial_mapping[~central],
+        result.zeta[~central],
+        rtol=1.0e-9,
+        atol=1.0e-11,
+    )
+
+    # The central reciprocal interpolation introduces a small
+    # absolute error because Phi - Phi(0) scales as r**2.
+    assert np.max(
+        np.abs(
+            radial_mapping[central]
+            - result.zeta[central]
+        )
+    ) < 3.0e-6
+
+    # Only the monopole gravitational potential may remain.
+    monopole_scale = np.max(
+        np.abs(
+            result.gravitational_potential_harmonics[:, 0]
+        )
+    )
+    nonspherical_scale = np.max(
+        np.abs(
+            result.gravitational_potential_harmonics[:, 1:]
+        )
+    )
+
+    assert nonspherical_scale <= 1.0e-11 * monopole_scale
+
+    # Req is normalised to unity by construction.
+    np.testing.assert_allclose(
+        result.mapping[-1],
+        np.ones(angular_resolution),
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+
+    np.testing.assert_allclose(
+        result.polar_radius_history[-1],
+        1.0,
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+
+    np.testing.assert_allclose(
+        result.rotation_rate,
+        0.0,
+        rtol=0.0,
+        atol=0.0,
+    )
