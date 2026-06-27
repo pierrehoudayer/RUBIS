@@ -9,11 +9,12 @@ from scipy.integrate     import solve_ivp
 from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D
 from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
 from polytrope           import composite_polytrope
-from helpers             import (
+from helpers import (
+    DotDict,
     init_2D,
     init_phi_c,
-    valid_reciprocal_domain, 
-    write_model
+    valid_reciprocal_domain,
+    write_model,
 )
 from plot                import (
     plot_flux_lines,
@@ -601,6 +602,28 @@ def radial_method(*params) :
         "\n+------------------+\n"
     )
     print(f'Time taken: {round(finish-start, 2)} secs')  
+    
+    
+    # Store the normalised solver state before any output
+    # operation can modify the arrays in place.
+    result = DotDict(
+        zeta=zeta.copy(),
+        radial_grid=r.copy(),
+        cos_theta=cth.copy(),
+        mapping=map_n.copy(),
+        density=rho.copy(),
+        pressure=P.copy(),
+        effective_potential=phi_eff.copy(),
+        effective_potential_derivative=dphi_eff.copy(),
+        gravitational_potential_harmonics=phi_g_l.copy(),
+        gravitational_potential_derivative_harmonics=dphi_g_l.copy(),
+        mass=mass,
+        radius=radius,
+        rotation_target=rotation_target,
+        rotation_rate=omega_n,
+        polar_radius_history=np.asarray(r_pol),
+        iterations=n,
+    )
 
     # Estimated error on Poisson's equation
     if output_params.show_harmonics : 
@@ -670,16 +693,15 @@ def radial_method(*params) :
             additional_var,
             zeta, P, rho, phi_eff, rota
         )
-    # return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
-    
+        
+    return result
+
     
 #----------------------------------------------------------------#
 #                   Radiative flux computation                   #
 #----------------------------------------------------------------#
 
-from helpers import DotDict
-
-def find_metric_terms(map_n, t, z0=0.0, z1=1.0) : 
+def find_metric_terms(map_n, t, z0=0.0, z1=1.0) :
     """
     Finds the metric terms, i.e the derivatives of r(z, t) 
     with respect to z or t (with z := zeta and t := cos(theta)),
@@ -703,7 +725,7 @@ def find_metric_terms(map_n, t, z0=0.0, z1=1.0) :
             zt  = r_zt(z, t),
             ztt = r_ztt(z, t),
             zz  = r_zz(z, t),
-            S   = \Delta_S r(z, t)
+            S   = Delta_S r(z, t)
         }          
     """
     valid = np.squeeze(np.argwhere((zeta >= z0)&(zeta <= z1)))
@@ -748,14 +770,14 @@ def add_advanced_metric_terms(dr, t) :
                 contravariant zeta vectors in the natural basis.
             cs = cos(b^z, b_z) * sin(b^z, b_z) :
                 cosinus by sinus of the same angle.
-                /!\ The orientation of this angle has been chosen
-                    to be the same as theta (i.e. inverse trigonometric)
+                NOTE: The orientation of this angle has been chosen
+                      to be the same as theta (i.e. inverse trigonometric)
             gzz : zeta/zeta covariant metric term.
             gzt : zeta/theta covariant metric term.
             gtt : theta/theta covariant metric term.
             gg = gzt / gzz : 
                 covariant ratio.
-                /!\ The latter has been multiplied by -(1 - t**2) ** 0.5
+                NOTE: The latter has been multiplied by -(1 - t**2) ** 0.5
             divz = div(b^z) : 
                 divergence of the zeta covariant vector
             divt = div(b^t) : 
