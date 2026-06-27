@@ -1,6 +1,6 @@
 import numpy as np
 
-from rotation_profiles import lorentzian, solid
+from rotation_profiles import lorentzian, plateau, solid
 
 
 def test_solid_rotation_profile_is_constant():
@@ -177,4 +177,136 @@ def test_lorentzian_derivative_matches_finite_difference():
         numerical_derivative,
         rtol=1.0e-9,
         atol=1.0e-11,
+    )
+    
+    
+def test_plateau_rotation_profile_normalization():
+    omega = 0.63
+    alpha = 0.4
+    scale = 0.25
+
+    central_profile = plateau(
+        np.array([0.0]),
+        0.0,
+        omega,
+        alpha,
+        scale,
+        return_profile=True,
+    )
+    equatorial_profile = plateau(
+        np.array([1.0]),
+        0.0,
+        omega,
+        alpha,
+        scale,
+        return_profile=True,
+    )
+
+    np.testing.assert_allclose(
+        central_profile,
+        (1.0 + alpha) * omega,
+        rtol=1.0e-14,
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(
+        equatorial_profile,
+        omega,
+        rtol=1.0e-14,
+        atol=1.0e-15,
+    )
+
+
+def test_plateau_reduces_to_solid_rotation():
+    r = np.linspace(0.0, 1.0, 11)
+    cos_theta = 0.37
+    omega = 0.63
+    scale = 0.25
+
+    plateau_profile = plateau(
+        r,
+        cos_theta,
+        omega,
+        alpha=0.0,
+        scale=scale,
+        return_profile=True,
+    )
+    solid_profile = solid(
+        r,
+        cos_theta,
+        omega,
+        return_profile=True,
+    )
+
+    plateau_potential, plateau_derivative = plateau(
+        r,
+        cos_theta,
+        omega,
+        alpha=0.0,
+        scale=scale,
+    )
+    solid_potential, solid_derivative = solid(
+        r,
+        cos_theta,
+        omega,
+    )
+
+    np.testing.assert_allclose(
+        plateau_profile,
+        solid_profile,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        plateau_potential,
+        solid_potential,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        plateau_derivative,
+        solid_derivative,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+
+def test_plateau_potential_derivative_matches_finite_difference():
+    r = np.array([0.1, 0.4, 0.9])
+    cos_theta = 0.37
+    omega = 0.63
+    alpha = 0.4
+    scale = 0.25
+    step = 1.0e-6
+
+    potential_plus, _ = plateau(
+        r + step,
+        cos_theta,
+        omega,
+        alpha,
+        scale,
+    )
+    potential_minus, _ = plateau(
+        r - step,
+        cos_theta,
+        omega,
+        alpha,
+        scale,
+    )
+    _, derivative = plateau(
+        r,
+        cos_theta,
+        omega,
+        alpha,
+        scale,
+    )
+
+    numerical_derivative = (
+        potential_plus - potential_minus
+    ) / (2.0 * step)
+
+    np.testing.assert_allclose(
+        derivative,
+        numerical_derivative,
+        rtol=1.0e-8,
+        atol=1.0e-10,
     )
