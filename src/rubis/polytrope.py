@@ -11,7 +11,14 @@ import matplotlib.pyplot as plt
 from matplotlib      import rc
 from scipy.integrate import solve_ivp
 
-from helpers         import DotDict
+from ._utils         import DotDict
+
+
+__all__ = [
+    "polytrope",
+    "composite_polytrope",
+]
+
 
 def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     """

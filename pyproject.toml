@@ -28,7 +28,6 @@ py-modules = [
     "model_deform_radial",
     "model_deform_spheroidal",
     "plot",
-    "polytrope",
     "rotation_profiles",
 ]
 

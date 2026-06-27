@@ -2,7 +2,7 @@ import numpy as np
 from scipy.integrate import simpson
 
 from helpers import DotDict
-from polytrope import composite_polytrope, polytrope
+from rubis.polytrope import composite_polytrope, polytrope
 
 
 G = 6.67384e-8

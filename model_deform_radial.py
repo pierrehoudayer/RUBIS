@@ -18,7 +18,7 @@ from rubis.numerical     import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from polytrope           import composite_polytrope
+from rubis.polytrope     import composite_polytrope
 from helpers import (
     DotDict,
     init_2D,
