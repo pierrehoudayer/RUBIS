@@ -33,3 +33,7 @@ py-modules = [
     "polytrope",
     "rotation_profiles",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["rubis*"]
