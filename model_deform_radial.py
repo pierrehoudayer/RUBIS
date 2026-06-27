@@ -519,7 +519,7 @@ def find_gravitational_moments(map_n, cth, rho, max_degree=14) :
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
         
 
-def radial_method(*params) : 
+def radial_method(*params, max_iterations=200):
     """
     Main routine for the centrifugal deformation method in radial coordinates.
 
@@ -564,7 +564,30 @@ def radial_method(*params) :
         "\n+---------------------+\n"
     )    
     
-    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision :
+    if max_iterations < 1:
+        raise ValueError(
+            "max_iterations must be a positive integer."
+        )
+    
+    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision:
+        if n >= max_iterations:
+            delta_polar = abs(
+                r_pol[-1] - r_pol[-2]
+            )
+
+            recent_radii = np.asarray(
+                r_pol[-4:]
+            )
+
+            raise RuntimeError(
+                "Radial deformation did not converge after "
+                f"{max_iterations} iterations. "
+                f"Last |delta R_pol| = "
+                f"{delta_polar:.3e}, "
+                f"target = {mapping_precision:.3e}. "
+                f"Recent polar radii: "
+                f"{recent_radii!r}"
+            )
         
         # Current rotation rate
         omega_n = min(rotation_target, ((n+1)/full_rate) * rotation_target)

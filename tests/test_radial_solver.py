@@ -1,3 +1,5 @@
+import pytest
+
 import numpy as np
 
 from helpers import DotDict
@@ -303,3 +305,44 @@ def test_uniform_rotation_produces_oblate_model():
         odd_scale
         <= 1.0e-14 * monopole_scale
     )
+    
+    
+def test_radial_solver_enforces_iteration_limit():
+    model = DotDict(
+        indices=1.0,
+        target_pressures=-np.inf,
+        density_jumps=None,
+        radius=1.0,
+        mass=1.0,
+        resolution=65,
+    )
+
+    output = DotDict(
+        show_harmonics=False,
+        virial_test=False,
+        show_model=False,
+        gravitational_moments=False,
+        save_model=False,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="did not converge after 1 iterations",
+    ):
+        radial_method(
+            model,
+            solid,
+            0.3,
+            0.0,
+            1.0,
+            9,
+            9,
+            1,
+            1.0e-10,
+            3,
+            2,
+            output,
+            21,
+            True,
+            max_iterations=1,
+        )
