@@ -680,7 +680,7 @@ def Virial_theorem(map_n, rho, omega_n, phi_g_l, P, verbose=False) :
     return virial
 
 
-def spheroidal_method(*params) : 
+def spheroidal_method(*params, max_iterations=200) : 
     """
     Main routine for the centrifugal deformation method in spheroidal coordinates.
 
@@ -728,7 +728,25 @@ def spheroidal_method(*params) :
         "\n+---------------------+\n"
     )
     
-    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision :
+    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision:
+        if n >= max_iterations:
+            delta_polar = abs(
+                r_pol[-1] - r_pol[-2]
+            )
+
+            recent_radii = np.asarray(
+                r_pol[-4:]
+            )
+
+            raise RuntimeError(
+                "Spheroidal deformation did not converge after "
+                f"{max_iterations} iterations. "
+                f"Last |delta R_pol| = "
+                f"{delta_polar:.3e}, "
+                f"target = {mapping_precision:.3e}. "
+                f"Recent polar radii: "
+                f"{recent_radii!r}"
+            )
         
         # Current rotation rate
         omega_n = min(rotation_target, ((n+1)/full_rate) * rotation_target)
@@ -747,7 +765,7 @@ def spheroidal_method(*params) :
         radius   *= r_corr
         mass     *= m_corr
         map_n    /=             r_corr
-        rho    /= m_corr    / r_corr**3
+        rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr    # <- /!\ This is a derivative w.r.t. to zeta
         P        /= m_corr**2 / r_corr**4
