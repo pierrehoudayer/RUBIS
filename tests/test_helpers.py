@@ -1,6 +1,7 @@
 import numpy as np
 
-from helpers import find_domains
+from helpers import find_domains, init_phi_c
+from rotation_profiles import lorentzian, plateau, solid
 
 
 def test_find_domains_for_continuous_coordinate():
@@ -104,3 +105,62 @@ def test_find_domains_with_duplicated_interfaces():
         domains.ext,
         ~domains.int,
     )
+    
+    
+def test_init_phi_c_dispatches_rotation_parameters():
+    r = np.linspace(0.0, 1.0, 11)
+    cos_theta = 0.37
+    omega = 0.63
+    alpha = 0.4
+    scale = 0.25
+
+    cases = [
+        (solid, ()),
+        (lorentzian, (alpha,)),
+        (plateau, (alpha, scale)),
+    ]
+
+    for rotation_profile, profile_args in cases:
+        potential_function, profile_function = init_phi_c(
+            rotation_profile,
+            central_diff_rate=alpha,
+            rotation_scale=scale,
+        )
+
+        potential, derivative = potential_function(
+            r,
+            cos_theta,
+            omega,
+        )
+        profile = profile_function(
+            r,
+            cos_theta,
+            omega,
+        )
+
+        expected_potential, expected_derivative = rotation_profile(
+            r,
+            cos_theta,
+            omega,
+            *profile_args,
+        )
+        expected_profile = rotation_profile(
+            r,
+            cos_theta,
+            omega,
+            *profile_args,
+            return_profile=True,
+        )
+
+        np.testing.assert_array_equal(
+            potential,
+            expected_potential,
+        )
+        np.testing.assert_array_equal(
+            derivative,
+            expected_derivative,
+        )
+        np.testing.assert_array_equal(
+            profile,
+            expected_profile,
+        )
