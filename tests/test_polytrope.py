@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.integrate import simpson
 
-from polytrope import polytrope
+from helpers import DotDict
+from polytrope import composite_polytrope, polytrope
 
 
 G = 6.67384e-8
@@ -181,3 +182,125 @@ def test_n3_polytrope_global_properties():
     assert np.all(model.rho >= 0.0)
     assert np.all(model.p >= 0.0)
     assert np.all(model.g >= 0.0)
+    
+    
+def test_single_region_composite_matches_simple_polytrope():
+    radius = 2.0
+    mass = 3.0
+    resolution = 501
+    index = 3.0
+
+    simple_model = polytrope(
+        index,
+        R=radius,
+        M=mass,
+        res=resolution,
+    )
+
+    composite_model = composite_polytrope(
+        DotDict(
+            indices=index,
+            target_pressures=-np.inf,
+            density_jumps=None,
+            radius=radius,
+            mass=mass,
+            resolution=resolution,
+        )
+    )
+
+    np.testing.assert_allclose(
+        composite_model.r,
+        simple_model.r,
+        rtol=1.0e-13,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        composite_model.rho,
+        simple_model.rho,
+        rtol=1.0e-10,
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(
+        composite_model.p,
+        simple_model.p,
+        rtol=1.0e-10,
+        atol=1.0e-22,
+    )
+    np.testing.assert_allclose(
+        composite_model.g,
+        simple_model.g,
+        rtol=1.0e-10,
+        atol=1.0e-20,
+    )
+    
+    
+def test_composite_polytrope_interface_conditions():
+    radius = 2.0
+    mass = 3.0
+    resolution = 301
+    density_jump = 0.4
+
+    model = composite_polytrope(
+        DotDict(
+            indices=(1.0, 1.0),
+            target_pressures=(-1.0, -np.inf),
+            density_jumps=(density_jump,),
+            radius=radius,
+            mass=mass,
+            resolution=resolution,
+        )
+    )
+
+    assert model.r.size == resolution
+    assert model.rho.size == resolution
+    assert model.p.size == resolution
+    assert model.g.size == resolution
+
+    # A two-region model contains one duplicated radius.
+    interface_indices = np.flatnonzero(
+        np.diff(model.r) == 0.0
+    )
+
+    assert interface_indices.size == 1
+
+    lower = interface_indices[0]
+    upper = lower + 1
+
+    # The two copies represent the same geometrical surface.
+    np.testing.assert_equal(
+        model.r[lower],
+        model.r[upper],
+    )
+
+    # Pressure and gravity remain continuous.
+    np.testing.assert_allclose(
+        model.p[upper],
+        model.p[lower],
+        rtol=1.0e-11,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        model.g[upper],
+        model.g[lower],
+        rtol=1.0e-11,
+        atol=0.0,
+    )
+
+    # Density follows the prescribed jump from the inner
+    # to the outer side of the interface.
+    np.testing.assert_allclose(
+        model.rho[upper],
+        density_jump * model.rho[lower],
+        rtol=1.0e-11,
+        atol=0.0,
+    )
+
+    # The interface is placed at P / Pc = 10^-1.
+    np.testing.assert_allclose(
+        model.p[lower] / model.p[0],
+        1.0e-1,
+        rtol=1.0e-11,
+        atol=0.0,
+    )
+
+    assert np.all(np.diff(model.r) >= 0.0)
