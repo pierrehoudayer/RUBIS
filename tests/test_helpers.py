@@ -1,6 +1,10 @@
 import numpy as np
 
-from helpers import find_domains, init_phi_c
+from helpers import (
+    find_domains,
+    init_phi_c,
+    valid_reciprocal_domain,
+)
 from rotation_profiles import lorentzian, plateau, solid
 
 
@@ -164,3 +168,59 @@ def test_init_phi_c_dispatches_rotation_parameters():
             profile,
             expected_profile,
         )
+        
+        
+def test_valid_reciprocal_domain_for_monotonic_function():
+    x = np.linspace(0.0, 1.0, 6)
+    derivative = np.array([
+        0.0,
+        0.8,
+        0.7,
+        0.6,
+        0.5,
+        0.4,
+    ])
+
+    valid = valid_reciprocal_domain(x, derivative)
+
+    np.testing.assert_array_equal(
+        valid,
+        np.array([
+            False,
+            True,
+            True,
+            True,
+            True,
+            True,
+        ]),
+    )
+
+
+def test_valid_reciprocal_domain_stops_at_each_turning_point():
+    x = np.linspace(0.0, 1.0, 6)
+
+    derivative = np.array([
+        [0.0, 0.0],
+        [0.8, 0.9],
+        [0.5, 0.4],
+        [0.2, 0.0],
+        [-0.1, -0.2],
+        [-0.3, -0.4],
+    ])
+
+    valid = valid_reciprocal_domain(
+        x,
+        derivative,
+        safety=1.0e-4,
+    )
+
+    expected = np.array([
+        [False, False],
+        [True,  True ],
+        [True,  True ],
+        [True,  False],
+        [False, False],
+        [False, False],
+    ])
+
+    np.testing.assert_array_equal(valid, expected)
