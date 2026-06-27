@@ -771,6 +771,36 @@ def spheroidal_method(*params) :
     # Estimated error on Poisson's equation
     dr = find_metric_terms(map_n, cth)
     dr = find_external_mapping(dr)
+    
+    # Store the normalised solver state before any output
+    # operation can modify the arrays in place.
+    result = DotDict(
+        zeta=zeta.copy(),
+        internal_zeta=zeta[:N].copy(),
+        external_zeta=zeta[N:].copy(),
+        radial_grid=r.copy(),
+        cos_theta=cth.copy(),
+        mapping=map_n.copy(),
+        full_mapping=dr._.copy(),
+        density=rho.copy(),
+        pressure=P.copy(),
+        effective_potential=phi_eff.copy(),
+        effective_potential_derivative=dphi_eff.copy(),
+        gravitational_potential_harmonics=phi_g_l.copy(),
+        gravitational_potential_derivative_harmonics=(
+            dphi_g_l.copy()
+        ),
+        internal_mask=dom.int.copy(),
+        external_mask=dom.ext.copy(),
+        mass=mass,
+        radius=radius,
+        rotation_target=rotation_target,
+        rotation_rate=omega_n,
+        polar_radius_history=np.asarray(r_pol),
+        iterations=n,
+    )
+    
+    
     if output_params.show_harmonics :
         phi_g_harmonics(zeta, phi_g_l, radial=False)
     
@@ -810,8 +840,8 @@ def spheroidal_method(*params) :
             additional_var,
             zeta, P, rho, phi_eff, rota, 5/3*np.ones_like(zeta)
         )
-    # return zeta, r, map_n, rho, phi_g_l, dphi_g_l, eval_w, phi_eff, dphi_eff, P
     
+    return result
         
     
     
