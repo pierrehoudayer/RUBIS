@@ -8,7 +8,7 @@ from scipy.linalg.lapack import dgbsv
 from scipy.special       import roots_legendre, eval_legendre
 
 from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D, Legendre_coupling
-from numerical           import integrate, integrate2D, interpolate_func, lagrange_matrix_P
+from rubis.numerical     import integrate, integrate2D, interpolate_func, lagrange_matrix_P
 from polytrope           import composite_polytrope
 from helpers             import (
     DotDict, 

@@ -12,6 +12,21 @@ from itertools                   import combinations
 from scipy.interpolate           import splrep, splantider, splev, splint
 from scipy.special               import expn, roots_legendre
 
+
+__all__ = [
+    "lnxn",
+    "expinv",
+    "expI",
+    "del_u_over_v",
+    "integrate",
+    "integrate2D",
+    "interpolate_func",
+    "find_roots",
+    "find_root_i",
+    "lagrange_matrix_P",
+]
+
+
 def lnxn(x, n=1, a=1.) : 
     r"""
     Function returning the value of: y(x) = x^a \ln^n(x) and continuates it

@@ -1,6 +1,10 @@
 import numpy as np
 
-from numerical import integrate, interpolate_func, lagrange_matrix_P
+from rubis.numerical import (
+    integrate,
+    interpolate_func,
+    lagrange_matrix_P,
+)
 
 
 def test_lagrange_matrix_reproduces_polynomials():

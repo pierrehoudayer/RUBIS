@@ -8,7 +8,8 @@ Created on Wed Dec 21 12:19:57 2022
 
 import numpy as np
 
-from numerical import *
+from rubis.numerical import expI, expinv, interpolate_func
+
 
 def solid(r, cth, omega, return_profile=False) :
     """
@@ -94,7 +95,7 @@ def lorentzian(r, cth, omega, alpha, return_profile=False) :
 
 
 def plateau(r, cth, omega, alpha, scale, return_profile=False, k=1) :
-    """
+    r"""
     Computes the centrifugal potential and its derivative in the 
     case of a "plateau" rotation profile, i.e. a
     rotation profile with a "plateau" close to s = 0. It can be used
@@ -199,7 +200,7 @@ def la_bidouille(fname, smoothing=0) :
         return_profile : boolean, optional
             Option allowing to return the rotation profile instead of
             the centrifugal potential. The default is False.
-        return_pdrofile : boolean, optional
+        return_dprofile : boolean, optional
             Option allowing to return the rotation profile derivative 
             in addition to the rotation profile. No actual use in RUBIS
             but might be necessary for some 2D oscillation codes...
@@ -215,7 +216,7 @@ def la_bidouille(fname, smoothing=0) :
             Rotation rate at (r, cth).
         dws : float or array_like (same shape as r)
             Rotation rate derivative with respect to s = r * sth
-            /!\ DIFFERENT FROM 'phi_c_func' WHERE THE DERIVATIVE
+            NOTE: THIS IS DIFFERENT FROM 'phi_c_func' WHERE THE DERIVATIVE
             IS TAKEN WITH RESPECT TO 'r' (might be a good idea to
             have the same convention though...).
 
