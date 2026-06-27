@@ -7,7 +7,7 @@ from matplotlib.collections import LineCollection
 from pylab                  import cm
 
 from helpers                import find_domains
-from legendre               import pl_eval_2D, pl_project_2D
+from rubis.legendre         import pl_eval_2D, pl_project_2D
 
 def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) : 
     """
@@ -55,9 +55,9 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
         plt.plot(zeta, np.abs(phi_g_l[:, l]), color=c, lw=1.0, alpha=0.3)
     plt.vlines(
         find_domains(zeta).bounds, 
-        ymin=ylims[0],  ymax=ylims[1], colors='grey', linestyles='--', linewidth=1.0
+        ymin=ylims[0],  ymax=ylims[1], colors="grey", linestyles="--", linewidth=1.0
     )
-    plt.yscale('log')
+    plt.yscale("log")
     plt.ylim(*ylims)
     plt.yticks(
         [1e-20, 1e-15, 1e-10, 1e-5, 1], 
@@ -66,7 +66,7 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
     plt.show()
     
 def get_cmap_from_proplot(cmap_name, **kwargs) :
-    '''
+    """
     Get a colormap defined in the proplot extension. If proplot 
     isn't installed, then return a matplotlib colormap corresponding
     to cmap_name.
@@ -80,9 +80,9 @@ def get_cmap_from_proplot(cmap_name, **kwargs) :
     -------
     cmap: Colormap instance
         Corresponding colormap.
-    '''
+    """
     from importlib.util import find_spec
-    spec = find_spec('proplot')
+    spec = find_spec("proplot")
     
     if spec is None :  # proplot is not installed
         try : 
@@ -98,7 +98,7 @@ def get_cmap_from_proplot(cmap_name, **kwargs) :
         return cmap
     
 def hex_to_rgb(hex_value) :
-    '''
+    """
     Converts hex to rgb colours
     
     Parameters
@@ -110,7 +110,7 @@ def hex_to_rgb(hex_value) :
     -------
     rgb_values: tuple
         Lenght 3 list of RGB values
-    '''
+    """
     hex_value = hex_value.strip("#") # removes hash symbol if present
     lv = len(hex_value)
     rgb_values = tuple(
@@ -120,7 +120,7 @@ def hex_to_rgb(hex_value) :
 
 
 def rgb_to_dec(rgb_values) :
-    '''
+    """
     Converts rgb to decimal colours (i.e. divides each value by 256)
     
     Parameters
@@ -132,12 +132,12 @@ def rgb_to_dec(rgb_values) :
     -------
     dec_values: tuple of floats
         Lenght 3 tuple with decimal values
-    '''
+    """
     dec_values = [v/256 for v in rgb_values]
     return dec_values
 
 def get_continuous_cmap(hex_list, float_list=None):
-    '''
+    """
     Creates and returns a color map that can be used in heat map figures.
     If float_list is not provided, colour map graduates 
     linearly between each color in hex_list. If float_list is provided, 
@@ -155,7 +155,7 @@ def get_continuous_cmap(hex_list, float_list=None):
     -------
     cmap: Colormap instance
         Colormap
-    '''
+    """
     rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
     if float_list:
         pass
@@ -163,13 +163,13 @@ def get_continuous_cmap(hex_list, float_list=None):
         float_list = list(np.linspace(0,1,len(rgb_list)))
         
     cdict = dict()
-    for num, col in enumerate(['red', 'green', 'blue']):
+    for num, col in enumerate(["red", "green", "blue"]):
         col_list = [
             [float_list[i], rgb_list[i][num], rgb_list[i][num]] 
             for i in range(len(float_list))
         ]
         cdict[col] = col_list
-    cmap = mcl.LinearSegmentedColormap('my_cmap', segmentdata=cdict, N=256)
+    cmap = mcl.LinearSegmentedColormap("my_cmap", segmentdata=cdict, N=256)
     return cmap
 
 def plot_flux_lines(r, t, **kwargs) : 
@@ -197,9 +197,9 @@ def plot_flux_lines(r, t, **kwargs) :
     
     # Initialise the figure
     size = 20
-    rc('text', usetex=True)
-    rc('xtick', labelsize=size)
-    rc('ytick', labelsize=size)
+    rc("text", usetex=True)
+    rc("xtick", labelsize=size)
+    rc("ytick", labelsize=size)
     margin, cbar_width = 0.05, 0.1
     x_scale = 2 * margin + np.abs(r1 * s1).max() + 2 * cbar_width
     y_scale = 2 * margin + np.abs(r1 * t1).max()
@@ -301,7 +301,7 @@ def plot_3D_surface(surf_l, f_l, show_T_eff, res, cmap) :
 
     # 3D Plot
     fig = plt.figure(figsize=(10.0, 10.0))
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
     ax.set_box_aspect([1.0, 1.0, 1.0])
     ax_surf = ax.plot_surface(
         X, Y, Z, facecolors=cmap(F/f.max()), shade=False, 
@@ -314,7 +314,7 @@ def plot_3D_surface(surf_l, f_l, show_T_eff, res, cmap) :
     ax.view_init(-150, 0)
     
     # Colorbar
-    rc('text', usetex=True)
+    rc("text", usetex=True)
     cbar_width, size, ticks = 0.1, 20, [0, 10**int(np.log10(f.max()))]
     cbr = fig.colorbar(
         mpl.cm.ScalarMappable(norm=mcl.Normalize(vmax=f.max(), vmin=0.0), cmap=cmap), 
@@ -331,8 +331,8 @@ def plot_f_map(
     map_n, f, phi_eff, max_degree,
     angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
     show_surfaces=False, n_lines=30, cmap_lines=cm.BuPu, lw=0.5,
-    disc=None, disc_color='white', map_ext=None, n_lines_ext=20,
-    add_to_fig=None, background_color='white',
+    disc=None, disc_color="white", map_ext=None, n_lines_ext=20,
+    add_to_fig=None, background_color="white",
 ) :
     """
     Shows the value of f in the 2D model.
@@ -372,7 +372,7 @@ def plot_f_map(
     disc : array_like, shape (Nd, ), optional
         Indices of discontinuities to plot. The default is None.
     disc_color : string, optional
-        Color used to display the discontinuities. The default is 'white'.
+        Color used to display the discontinuities. The default is "white".
     map_ext : array_like, shape (Ne, M), optional
         Used to show the external mapping, if given.
     n_lines_ext : integer, optional
@@ -381,7 +381,7 @@ def plot_f_map(
         If given, the figure on which the plot should be added. 
         The default is None.
     background_color : string, optional
-        Optional color for the plot background. The default is 'white'.
+        Optional color for the plot background. The default is "white".
 
     Returns
     -------
@@ -405,10 +405,10 @@ def plot_f_map(
     Nf = f2D.shape[0]
         
     # Text formating 
-    rc('text', usetex=True)
-    rc('xtick', labelsize=size)
-    rc('ytick', labelsize=size)
-    rc('axes', facecolor=background_color)
+    rc("text", usetex=True)
+    rc("xtick", labelsize=size)
+    rc("ytick", labelsize=size)
+    rc("axes", facecolor=background_color)
     
     # Init figure
     norm = None
@@ -434,7 +434,7 @@ def plot_f_map(
     if disc is not None :
         for i in disc :
             plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, color=disc_color, lw=lw)
-    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
+    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
     cbr = fig.colorbar(csr, pad=0.7*cbar_width, fraction=cbar_width, shrink=0.85, aspect=25)
     tick_locator = ticker.MaxNLocator(nbins=5)
     cbr.locator = tick_locator
@@ -454,7 +454,7 @@ def plot_f_map(
         ls.set_array(phi_eff[::-N//n_lines])
         ax.add_collection(ls)
         cbl = fig.colorbar(
-            ls, location='left', pad=cbar_width, fraction=cbar_width, shrink=0.85, aspect=25
+            ls, location="left", pad=cbar_width, fraction=cbar_width, shrink=0.85, aspect=25
         )
         cbl.locator = tick_locator
         cbl.update_ticks()
@@ -471,8 +471,8 @@ def plot_f_map(
             c.set_edgecolor("face")
         if disc is not None :
             for i in disc :
-                plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, 'w-', lw=lw)
-        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, 'k-', lw=lw)
+                plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, "w-", lw=lw)
+        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
         
     # External mapping
     if map_ext is not None : 
@@ -480,13 +480,13 @@ def plot_f_map(
         map_ext_l   = pl_project_2D(map_ext, max_degree)
         map_ext_res = pl_eval_2D(map_ext_l, np.linspace(-1, 1, angular_res))
         for ri in map_ext_res[::-Ne//n_lines_ext] : 
-            plt.plot( ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
-            plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls='-', color='grey')
+            plt.plot( ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
+            plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
     
     # Show figure
-    plt.axis('equal')
-    plt.xlabel('$s/R_\mathrm{eq}$', fontsize=size+3)
-    plt.ylabel('$z/R_\mathrm{eq}$', fontsize=size+3)
+    plt.axis("equal")
+    plt.xlabel(r"$s/R_\mathrm{eq}$", fontsize=size+3)
+    plt.ylabel(r"$z/R_\mathrm{eq}$", fontsize=size+3)
     plt.xlim((-1.0, 1.0))
     fig.tight_layout()
     plt.show()
