@@ -184,3 +184,122 @@ def test_nonrotating_radial_model_remains_spherical():
         rtol=0.0,
         atol=0.0,
     )
+    
+    
+def test_uniform_rotation_produces_oblate_model():
+    resolution = 65
+    angular_resolution = 9
+    max_degree = 9
+    mapping_precision = 1.0e-10
+
+    model = DotDict(
+        indices=1.0,
+        target_pressures=-np.inf,
+        density_jumps=None,
+        radius=1.0,
+        mass=1.0,
+        resolution=resolution,
+    )
+
+    output = DotDict(
+        show_harmonics=False,
+        virial_test=False,
+        show_model=False,
+        gravitational_moments=False,
+        save_model=False,
+    )
+
+    result = radial_method(
+        model,
+        solid,
+        0.3,
+        0.0,
+        1.0,
+        max_degree,
+        angular_resolution,
+        1,
+        mapping_precision,
+        3,
+        2,
+        output,
+        21,
+        True,
+    )
+
+    equator = np.argmin(
+        np.abs(result.cos_theta)
+    )
+    surface = result.mapping[-1]
+
+    # With an odd Gauss-Legendre resolution, cos(theta)=0
+    # is one of the angular nodes.
+    np.testing.assert_allclose(
+        result.cos_theta[equator],
+        0.0,
+        rtol=0.0,
+        atol=1.0e-15,
+    )
+
+    # The mapping must remain symmetric with respect to
+    # the equatorial plane.
+    np.testing.assert_allclose(
+        result.mapping,
+        result.mapping[:, ::-1],
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+
+    # The equatorial radius is normalised to unity.
+    np.testing.assert_allclose(
+        surface[equator],
+        1.0,
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+
+    # Uniform rotation produces an oblate surface.
+    assert result.polar_radius_history[-1] < 1.0
+    assert surface[equator] > surface[-1]
+
+    # Material surfaces must remain nested.
+    radial_increments = np.diff(
+        result.mapping,
+        axis=0,
+    )
+
+    assert np.all(radial_increments > 0.0)
+
+    # The stopping criterion must be satisfied.
+    assert (
+        abs(
+            result.polar_radius_history[-1]
+            - result.polar_radius_history[-2]
+        )
+        <= mapping_precision
+    )
+
+    phi_l = (
+        result.gravitational_potential_harmonics
+    )
+
+    monopole_scale = np.max(
+        np.abs(phi_l[:, 0])
+    )
+    quadrupole_scale = np.max(
+        np.abs(phi_l[:, 2])
+    )
+    odd_scale = np.max(
+        np.abs(phi_l[:, 1::2])
+    )
+
+    # Rotation generates a measurable quadrupole.
+    assert (
+        quadrupole_scale
+        > 1.0e-8 * monopole_scale
+    )
+
+    # Equatorial symmetry suppresses odd harmonics.
+    assert (
+        odd_scale
+        <= 1.0e-14 * monopole_scale
+    )
