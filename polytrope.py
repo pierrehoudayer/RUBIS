@@ -48,9 +48,17 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     if N in {1.0} :             # The analytical solution is known
         
         # Solution
-        @np.errstate(all='ignore')
-        def df(x) : return (np.cos(x) - np.sinc(x / np.pi)) / x
-        f  = lambda x : np.sinc(x / np.pi)
+        def f(x):
+            return np.sinc(x / np.pi)
+
+
+        def df(x):
+            return np.divide(
+                np.cos(x) - f(x), 
+                x,
+                out=np.zeros_like(x),
+                where=x != 0.0,
+            )
         x0, g0 = np.pi, 2 / np.pi
         
     else :
