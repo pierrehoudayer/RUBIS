@@ -106,3 +106,107 @@ def test_readme_near_critical_n3_model_converges():
         rtol=1.0e-8,
         atol=1.0e-10,
     )
+    
+    
+@pytest.mark.slow
+@pytest.mark.readme
+def test_readme_super_keplerian_n05_model_converges():
+    mapping_precision = 1.0e-10
+    rotation_target = 1.105
+
+    model = DotDict(
+        indices=0.5,
+        target_pressures=-np.inf,
+        density_jumps=None,
+        radius=1.0,
+        mass=1.0,
+        resolution=3001,
+    )
+
+    result = radial_method(
+        model,
+        solid,
+        rotation_target,
+        0.0,
+        1.0,
+        401,
+        401,
+        3,
+        mapping_precision,
+        5,
+        2,
+        output_options(),
+        21,
+        True,
+        max_iterations=150,
+    )
+
+    assert result.iterations < 150
+
+    assert np.isfinite(result.mapping).all()
+    assert np.isfinite(result.density).all()
+    assert np.isfinite(result.pressure).all()
+    assert np.isfinite(
+        result.gravitational_potential_harmonics
+    ).all()
+
+    # Equatorial symmetry.
+    np.testing.assert_allclose(
+        result.mapping,
+        result.mapping[:, ::-1],
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+
+    equator = np.argmin(
+        np.abs(result.cos_theta)
+    )
+
+    np.testing.assert_allclose(
+        result.cos_theta[equator],
+        0.0,
+        rtol=0.0,
+        atol=1.0e-15,
+    )
+
+    # The equatorial radius remains the normalisation radius.
+    np.testing.assert_allclose(
+        result.mapping[-1, equator],
+        1.0,
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+
+    polar_radius = (
+        result.polar_radius_history[-1]
+    )
+
+    # This model must be considerably more deformed than
+    # the near-critical n=3 model.
+    assert 0.43 < polar_radius < 0.46
+
+    # The model remains geometrically admissible.
+    radial_increments = np.diff(
+        result.mapping,
+        axis=0,
+    )
+
+    assert radial_increments.min() >= -1.0e-10
+
+    # The historical stopping criterion is satisfied.
+    assert (
+        abs(
+            result.polar_radius_history[-1]
+            - result.polar_radius_history[-2]
+        )
+        <= mapping_precision
+    )
+
+    # The adaptive rate must have reached the requested
+    # super-Keplerian value.
+    np.testing.assert_allclose(
+        result.rotation_rate,
+        rotation_target,
+        rtol=1.0e-8,
+        atol=1.0e-10,
+    )
