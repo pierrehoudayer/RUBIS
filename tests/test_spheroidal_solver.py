@@ -105,3 +105,299 @@ def test_spheroidal_solver_returns_normalised_state():
     ).all()
 
     assert result.iterations >= 1
+    
+    
+def test_nonrotating_composite_model_remains_spherical():
+    resolution = 65
+    external_resolution = 21
+    angular_resolution = 9
+    max_degree = 9
+
+    model = DotDict(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.4,),
+        radius=1.0,
+        mass=1.0,
+        resolution=resolution,
+    )
+
+    output = DotDict(
+        show_harmonics=False,
+        virial_test=False,
+        show_model=False,
+        gravitational_moments=False,
+        save_model=False,
+    )
+
+    result = spheroidal_method(
+        model,
+        solid,
+        0.0,
+        0.0,
+        1.0,
+        max_degree,
+        angular_resolution,
+        1,
+        1.0e-10,
+        3,
+        2,
+        output,
+        external_resolution,
+        True,
+    )
+
+    # Every material surface must be spherical.
+    np.testing.assert_allclose(
+        np.ptp(result.mapping, axis=1),
+        0.0,
+        rtol=0.0,
+        atol=1.0e-11,
+    )
+
+    radial_mapping = np.mean(
+        result.mapping,
+        axis=1,
+    )
+
+    np.testing.assert_allclose(
+        radial_mapping,
+        result.internal_zeta,
+        rtol=1.0e-8,
+        atol=1.0e-10,
+    )
+
+    # The two copies of the material interface must share
+    # the same geometrical radius.
+    duplicated = np.flatnonzero(
+        np.diff(result.internal_zeta) == 0.0
+    )
+
+    assert duplicated.size == 1
+
+    lower = duplicated[0]
+    upper = lower + 1
+
+    np.testing.assert_allclose(
+        result.mapping[lower],
+        result.mapping[upper],
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+
+    # The density discontinuity must be preserved.
+    np.testing.assert_allclose(
+        result.density[upper],
+        0.4 * result.density[lower],
+        rtol=1.0e-10,
+        atol=0.0,
+    )
+
+    # Pressure remains continuous across the interface.
+    np.testing.assert_allclose(
+        result.pressure[upper],
+        result.pressure[lower],
+        rtol=1.0e-10,
+        atol=0.0,
+    )
+
+    # The external mapping must also remain spherical.
+    np.testing.assert_allclose(
+        np.ptp(result.full_mapping, axis=1),
+        0.0,
+        rtol=0.0,
+        atol=1.0e-11,
+    )
+
+    # Only the gravitational monopole may remain.
+    phi_l = result.gravitational_potential_harmonics
+
+    monopole_scale = np.max(
+        np.abs(phi_l[:, 0])
+    )
+    nonspherical_scale = np.max(
+        np.abs(phi_l[:, 1:])
+    )
+
+    assert (
+        nonspherical_scale
+        <= 1.0e-11 * monopole_scale
+    )
+
+    np.testing.assert_allclose(
+        result.polar_radius_history[-1],
+        1.0,
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+    
+    
+def test_uniform_rotation_deforms_composite_model():
+    resolution = 65
+    external_resolution = 21
+    angular_resolution = 9
+    max_degree = 9
+    mapping_precision = 1.0e-10
+    density_jump = 0.4
+
+    model = DotDict(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(density_jump,),
+        radius=1.0,
+        mass=1.0,
+        resolution=resolution,
+    )
+
+    output = DotDict(
+        show_harmonics=False,
+        virial_test=False,
+        show_model=False,
+        gravitational_moments=False,
+        save_model=False,
+    )
+
+    result = spheroidal_method(
+        model,
+        solid,
+        0.3,
+        0.0,
+        1.0,
+        max_degree,
+        angular_resolution,
+        1,
+        mapping_precision,
+        3,
+        2,
+        output,
+        external_resolution,
+        True,
+    )
+
+    equator = np.argmin(
+        np.abs(result.cos_theta)
+    )
+    surface = result.mapping[-1]
+
+    np.testing.assert_allclose(
+        result.cos_theta[equator],
+        0.0,
+        rtol=0.0,
+        atol=1.0e-15,
+    )
+
+    # Equatorial symmetry is preserved.
+    np.testing.assert_allclose(
+        result.mapping,
+        result.mapping[:, ::-1],
+        rtol=0.0,
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(
+        result.full_mapping,
+        result.full_mapping[:, ::-1],
+        rtol=0.0,
+        atol=1.0e-13,
+    )
+
+    # The equatorial radius is normalised to unity,
+    # while the model is oblate.
+    np.testing.assert_allclose(
+        surface[equator],
+        1.0,
+        rtol=0.0,
+        atol=1.0e-10,
+    )
+
+    assert result.polar_radius_history[-1] < 1.0
+
+    # Material surfaces remain nested. Equality is expected
+    # between the two copies of an interface.
+    radial_increments = np.diff(
+        result.mapping,
+        axis=0,
+    )
+
+    assert radial_increments.min() >= -1.0e-12
+
+    # Locate the duplicated material interface.
+    duplicated = np.flatnonzero(
+        np.diff(result.internal_zeta) == 0.0
+    )
+
+    assert duplicated.size == 1
+
+    lower = duplicated[0]
+    upper = lower + 1
+
+    # Both material states occupy the same geometrical surface.
+    np.testing.assert_allclose(
+        result.mapping[lower],
+        result.mapping[upper],
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+
+    # The density jump and pressure continuity are preserved.
+    np.testing.assert_allclose(
+        result.density[upper],
+        density_jump * result.density[lower],
+        rtol=1.0e-10,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        result.pressure[upper],
+        result.pressure[lower],
+        rtol=1.0e-10,
+        atol=0.0,
+    )
+
+    # The interior part of the complete mapping agrees with
+    # the material mapping returned separately.
+    np.testing.assert_allclose(
+        result.full_mapping[result.internal_mask],
+        result.mapping,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    # The outer boundary of the vacuum domain is spherical
+    # and located at r = 2 by construction.
+    np.testing.assert_allclose(
+        result.full_mapping[-1],
+        2.0,
+        rtol=0.0,
+        atol=1.0e-13,
+    )
+
+    phi_l = (
+        result.gravitational_potential_harmonics
+    )
+
+    monopole_scale = np.max(
+        np.abs(phi_l[:, 0])
+    )
+    quadrupole_scale = np.max(
+        np.abs(phi_l[:, 2])
+    )
+    odd_scale = np.max(
+        np.abs(phi_l[:, 1::2])
+    )
+
+    assert (
+        quadrupole_scale
+        > 1.0e-8 * monopole_scale
+    )
+    assert (
+        odd_scale
+        <= 1.0e-14 * monopole_scale
+    )
+
+    # The actual stopping criterion is satisfied.
+    assert (
+        abs(
+            result.polar_radius_history[-1]
+            - result.polar_radius_history[-2]
+        )
+        <= mapping_precision
+    )
