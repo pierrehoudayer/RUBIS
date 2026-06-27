@@ -13,7 +13,7 @@ from scipy.interpolate           import splrep, splantider, splev, splint
 from scipy.special               import expn, roots_legendre
 
 def lnxn(x, n=1, a=1.) : 
-    """
+    r"""
     Function returning the value of: y(x) = x^a \ln^n(x) and continuates it
     in 0 by y(0) = 0.
 
@@ -37,7 +37,7 @@ def lnxn(x, n=1, a=1.) :
         return y
 
 def expinv(x, k=1, a=1) : 
-    """
+    r"""
     Function returning the value of:
         \mathrm{Expinv}(x, k) = \exp\left(-x^{-1/k}\right)
     
@@ -70,7 +70,7 @@ def expinv(x, k=1, a=1) :
         return y
 
 def expI(x, k=1, a=1) : 
-    """
+    r"""
     Useful function for computing the primitive of expinv(x, k). It 
     is defined as: 
         \mathrm{Exp}_\mathrm{I}(x, k) = kE_{k+1}\left(x^{-1/k}\right)
@@ -358,7 +358,7 @@ def find_root_i(i, t_i, c_i, order) :
     deriv_roots = Polynomial(c_i).roots()
     lb = t_i[order-1 - max(order-1 - i, 0)] 
     ub = t_i[order-0 - max(order-1 - i, 0)]
-    root_i = float(deriv_roots[(lb < deriv_roots) & (deriv_roots < ub)])
+    root_i = np.squeeze(deriv_roots[(lb < deriv_roots) & (deriv_roots < ub)])
     return root_i
 
 def lagrange_matrix_P(x, order=2) :
