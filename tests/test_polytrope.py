@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.integrate import simpson
 
 from polytrope import polytrope
 
@@ -123,3 +124,60 @@ def test_n0_polytrope_matches_uniform_sphere():
         rtol=0.0,
         atol=1.0e-14,
     )
+    
+    
+def test_n3_polytrope_global_properties():
+    radius = 2.0
+    mass = 3.0
+
+    model = polytrope(
+        3.0,
+        R=radius,
+        M=mass,
+        res=501,
+    )
+
+    assert np.isfinite(model.r).all()
+    assert np.isfinite(model.rho).all()
+    assert np.isfinite(model.p).all()
+    assert np.isfinite(model.g).all()
+
+    np.testing.assert_allclose(
+        model.r[[0, -1]],
+        np.array([0.0, radius]),
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+
+    np.testing.assert_allclose(
+        model.g[0],
+        0.0,
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        model.g[-1],
+        G * mass / radius**2,
+        rtol=1.0e-10,
+        atol=1.0e-15,
+    )
+
+    integrated_mass = 4.0 * np.pi * simpson(
+        model.rho * model.r**2,
+        x=model.r,
+    )
+
+    np.testing.assert_allclose(
+        integrated_mass,
+        mass,
+        rtol=1.0e-10,
+        atol=0.0,
+    )
+
+    assert np.all(np.diff(model.r) > 0.0)
+    assert np.all(np.diff(model.rho) <= 0.0)
+    assert np.all(np.diff(model.p) <= 0.0)
+
+    assert np.all(model.rho >= 0.0)
+    assert np.all(model.p >= 0.0)
+    assert np.all(model.g >= 0.0)
