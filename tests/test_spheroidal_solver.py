@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from helpers import DotDict
@@ -401,3 +403,116 @@ def test_uniform_rotation_deforms_composite_model():
         )
         <= mapping_precision
     )
+    
+    
+    reference_path = (
+        Path(__file__).parent
+        / "reference"
+        / "spheroidal_composite_solid_omega_0p3_legacy.npz"
+    )
+
+    with np.load(reference_path) as reference:
+        np.testing.assert_array_equal(
+            result.zeta,
+            reference["zeta"],
+        )
+        np.testing.assert_array_equal(
+            result.internal_zeta,
+            reference["internal_zeta"],
+        )
+        np.testing.assert_array_equal(
+            result.external_zeta,
+            reference["external_zeta"],
+        )
+        np.testing.assert_array_equal(
+            result.cos_theta,
+            reference["cos_theta"],
+        )
+        np.testing.assert_array_equal(
+            result.internal_mask,
+            reference["internal_mask"],
+        )
+        np.testing.assert_array_equal(
+            result.external_mask,
+            reference["external_mask"],
+        )
+
+        np.testing.assert_allclose(
+            result.mapping,
+            reference["mapping"],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+        np.testing.assert_allclose(
+            result.full_mapping,
+            reference["full_mapping"],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+        np.testing.assert_allclose(
+            result.density,
+            reference["density"],
+            rtol=1.0e-9,
+            atol=1.0e-12,
+        )
+        np.testing.assert_allclose(
+            result.pressure,
+            reference["pressure"],
+            rtol=1.0e-9,
+            atol=1.0e-12,
+        )
+        np.testing.assert_allclose(
+            result.effective_potential,
+            reference["effective_potential"],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+        np.testing.assert_allclose(
+            result.effective_potential_derivative,
+            reference[
+                "effective_potential_derivative"
+            ],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+        np.testing.assert_allclose(
+            result.gravitational_potential_harmonics,
+            reference[
+                "gravitational_potential_harmonics"
+            ],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+        np.testing.assert_allclose(
+            result.gravitational_potential_derivative_harmonics,
+            reference[
+                "gravitational_potential_derivative_harmonics"
+            ],
+            rtol=1.0e-9,
+            atol=1.0e-11,
+        )
+
+        np.testing.assert_allclose(
+            result.polar_radius_history[-1],
+            reference["polar_radius"],
+            rtol=1.0e-10,
+            atol=1.0e-12,
+        )
+        np.testing.assert_allclose(
+            result.mass,
+            reference["mass"],
+            rtol=1.0e-10,
+            atol=1.0e-12,
+        )
+        np.testing.assert_allclose(
+            result.radius,
+            reference["radius"],
+            rtol=1.0e-10,
+            atol=1.0e-12,
+        )
+        np.testing.assert_allclose(
+            result.rotation_rate,
+            reference["rotation_rate"],
+            rtol=1.0e-10,
+            atol=1.0e-12,
+        )
