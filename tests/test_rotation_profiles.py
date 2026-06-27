@@ -1,6 +1,6 @@
 import numpy as np
 
-from rotation_profiles import solid
+from rotation_profiles import lorentzian, solid
 
 
 def test_solid_rotation_profile_is_constant():
@@ -70,6 +70,103 @@ def test_solid_rotation_derivative_matches_finite_difference():
         omega,
     )
     _, derivative = solid(r, cos_theta, omega)
+
+    numerical_derivative = (
+        potential_plus - potential_minus
+    ) / (2.0 * step)
+
+    np.testing.assert_allclose(
+        derivative,
+        numerical_derivative,
+        rtol=1.0e-9,
+        atol=1.0e-11,
+    )
+    
+    
+def test_lorentzian_rotation_profile():
+    r = np.linspace(0.0, 1.0, 11)
+    cos_theta = 0.37
+    omega = 0.63
+    alpha = 0.4
+
+    profile = lorentzian(
+        r,
+        cos_theta,
+        omega,
+        alpha,
+        return_profile=True,
+    )
+
+    cylindrical_radius_squared = (
+        r**2 * (1.0 - cos_theta**2)
+    )
+    expected_profile = (
+        omega
+        * (1.0 + alpha)
+        / (1.0 + alpha * cylindrical_radius_squared)
+    )
+
+    np.testing.assert_allclose(
+        profile,
+        expected_profile,
+        rtol=1.0e-14,
+        atol=1.0e-15,
+    )
+
+
+def test_lorentzian_reduces_to_solid_rotation():
+    r = np.linspace(0.0, 1.0, 11)
+    cos_theta = 0.37
+    omega = 0.63
+
+    lorentzian_potential, lorentzian_derivative = (
+        lorentzian(r, cos_theta, omega, alpha=0.0)
+    )
+    solid_potential, solid_derivative = solid(
+        r,
+        cos_theta,
+        omega,
+    )
+
+    np.testing.assert_allclose(
+        lorentzian_potential,
+        solid_potential,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        lorentzian_derivative,
+        solid_derivative,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+
+def test_lorentzian_derivative_matches_finite_difference():
+    r = np.array([0.1, 0.4, 0.9])
+    cos_theta = 0.37
+    omega = 0.63
+    alpha = 0.4
+    step = 1.0e-6
+
+    potential_plus, _ = lorentzian(
+        r + step,
+        cos_theta,
+        omega,
+        alpha,
+    )
+    potential_minus, _ = lorentzian(
+        r - step,
+        cos_theta,
+        omega,
+        alpha,
+    )
+    _, derivative = lorentzian(
+        r,
+        cos_theta,
+        omega,
+        alpha,
+    )
 
     numerical_derivative = (
         potential_plus - potential_minus
