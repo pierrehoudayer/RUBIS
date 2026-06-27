@@ -6,8 +6,18 @@ from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.special       import roots_legendre, eval_legendre
 from scipy.integrate     import solve_ivp
 
-from legendre            import find_r_eq, find_r_pol, pl_eval_2D, pl_project_2D
-from rubis.numerical     import integrate, integrate2D, interpolate_func, lagrange_matrix_P
+from rubis.legendre      import (
+    find_r_eq, 
+    find_r_pol, 
+    pl_eval_2D, 
+    pl_project_2D,
+)
+from rubis.numerical     import (
+    integrate, 
+    integrate2D, 
+    interpolate_func, 
+    lagrange_matrix_P,
+)
 from polytrope           import composite_polytrope
 from helpers import (
     DotDict,

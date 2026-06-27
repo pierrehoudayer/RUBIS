@@ -1,6 +1,6 @@
 def test_core_modules_import():
     import helpers
-    import legendre
+    import rubis.legendre
     import rubis.numerical
     import polytrope
     import rotation_profiles

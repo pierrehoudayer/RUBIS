@@ -25,7 +25,6 @@ dev = [
 py-modules = [
     "RUBIS",
     "helpers",
-    "legendre",
     "model_deform_radial",
     "model_deform_spheroidal",
     "plot",

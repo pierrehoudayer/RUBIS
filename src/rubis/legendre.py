@@ -129,7 +129,7 @@ def pl_eval_2D(f_l, t, der=0) :
     return f
 
 def Legendre_coupling(f, L, der=(0, 0)) :
-    """
+    r"""
     Finds the harmonic couplings of a given f function, that is:
         \mathcal{P}^{\ell\ell'}_f(\zeta) = 
     \int_{-1}^1 f(\zeta, t) P_\ell^{(d_\ell)}(t)P_{\ell'}^{(d_{\ell'})}(t)\,dt

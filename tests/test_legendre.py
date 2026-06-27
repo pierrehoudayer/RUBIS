@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import eval_legendre, roots_legendre
 
-from legendre import pl_eval_2D, pl_project_2D
+from rubis.legendre import pl_eval_2D, pl_project_2D
 
 
 def test_legendre_projection_recovers_even_coefficients():
