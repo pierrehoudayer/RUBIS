@@ -1,6 +1,6 @@
 import numpy as np
 
-from numerical import integrate, lagrange_matrix_P
+from numerical import integrate, interpolate_func, lagrange_matrix_P
 
 
 def test_lagrange_matrix_reproduces_polynomials():
@@ -105,4 +105,37 @@ def test_integrate_reproduces_cubic_polynomial():
         expected_partial_integral,
         rtol=1.0e-13,
         atol=1.0e-14,
+    )
+    
+    
+def test_interpolate_func_reproduces_cubic_and_derivative():
+    x = np.linspace(0.0, 1.0, 17) ** 2
+
+    def function(x):
+        return 1.0 - 2.0 * x + 3.0 * x**2 - 0.5 * x**3
+
+    def derivative(x):
+        return -2.0 + 6.0 * x - 1.5 * x**2
+
+    interpolant = interpolate_func(
+        x,
+        function(x),
+        der=(0, 1),
+        k=3,
+    )
+
+    x_eval = np.linspace(0.0, 1.0, 41)
+    values, derivatives = interpolant(x_eval)
+
+    np.testing.assert_allclose(
+        values,
+        function(x_eval),
+        rtol=1.0e-12,
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(
+        derivatives,
+        derivative(x_eval),
+        rtol=1.0e-11,
+        atol=1.0e-12,
     )
