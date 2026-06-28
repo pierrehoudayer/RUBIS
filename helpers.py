@@ -81,29 +81,6 @@ def give_me_a_name(model_choice, rotation_target) :
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
 
-def init_2D(r, M) :
-    """
-    Init function for the angular domain.
-
-    Parameters
-    ----------
-    r : array_like, shape (N, ) 
-        Radial coordinate from the 1D model.
-    M : integer
-        Angular resolution.
-
-    Returns
-    -------
-    cth : array_like, shape (M, )
-        Angular coordinate (equivalent to cos(theta)).
-    map_n : array_like, shape (N, M)
-        Isopotential mapping 
-        (given by r(phi_eff, theta) = r for now).
-    """
-    map_n = np.tile(r, (M, 1)).T
-    cth, _ = roots_legendre(M)
-    return map_n, cth
-
 def init_phi_c(rotation_profile, central_diff_rate, rotation_scale) : 
     """
     Defines the functions used to compute the centrifugal potential
@@ -141,37 +118,6 @@ def init_phi_c(rotation_profile, central_diff_rate, rotation_scale) :
     args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
     w = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_w)
     return phi_c, w
-
-def valid_reciprocal_domain(x, df, safety=1e-4) :
-    """
-    Find the valid f domain for a reciprocal function interpolation (i.e. 
-    of the function x(f)) knowing df/dx. The function f is allowed to have
-    another variable y, in which case the valid domain have the same shape
-    as f and is estimated for each value of y.
-    
-    Parameters
-    ----------
-    x : array_like, shape (N, )
-        Variable along which the f-derivative is taken
-    df : array_like, shape (N, ) or shape (N, M)
-        Derivative of f with respect to f (the partial derivative w.r.t x should
-        correspond to the first axis).
-
-    Returns
-    -------
-    valid : array_like of boolean, shape (N, ) or shape (N, M)
-        Valid domain for the reciprocal function interpolation.
-    """
-    df = np.atleast_2d(df.T).T
-    valid = np.ones_like(df, dtype='bool')
-    idx = np.arange(len(x))
-    for k, dpk in enumerate(df.T) :
-        idx_max = len(idx)
-        condition = (dpk < safety) & (x > safety)
-        if np.any(condition) : idx_max = np.min(np.argwhere(condition))
-        valid[:, k] = (idx < idx_max) & (x > safety)
-    valid = np.squeeze(valid)
-    return valid
     
 def write_model(fname, params, map_n, additional_var, *args) : 
     """
