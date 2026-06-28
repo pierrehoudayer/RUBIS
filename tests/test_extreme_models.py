@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
-from helpers import DotDict
+from rubis._utils import DotDict
+from rubis.rotation_profiles import lorentzian, solid
 from model_deform_radial import radial_method
 from model_deform_spheroidal import spheroidal_method
-from rubis.rotation_profiles import lorentzian, solid
 
 
 def output_options():

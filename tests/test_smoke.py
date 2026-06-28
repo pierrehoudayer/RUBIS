@@ -1,7 +1,9 @@
 def test_core_modules_import():
-    import helpers
-    import rubis.legendre
-    import rubis.numerical
+    import rubis._utils as utils
+    import rubis.domains as domains
+    import rubis.legendre as legendre
+    import rubis.mapping as mapping
+    import rubis.numerical as numerical
     import rubis.polytrope as polytrope
     import rubis.rotation_profiles as rotation_profiles
     

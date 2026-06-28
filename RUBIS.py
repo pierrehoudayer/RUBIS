@@ -1,7 +1,8 @@
 import numpy as np
 from pathlib import Path
 
-from helpers                 import DotDict, give_me_a_name
+from rubis._utils            import DotDict
+from rubis.io.legacy         import make_output_filename
 from rubis.domains           import find_domains
 from rubis.rotation_profiles import solid, lorentzian, plateau
 from model_deform_radial     import radial_method
@@ -227,7 +228,7 @@ def set_params() :
         # Model writting
         dim_model = False,
         save_model = False,
-        save_name = give_me_a_name(model_choice, rotation_target)
+        save_name = make_output_filename(model_choice, rotation_target)
     )
     
     #### SPHEROIDAL PARAMETERS ####

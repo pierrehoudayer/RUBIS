@@ -1,6 +1,38 @@
 import numpy as np
 
-from rubis.io.legacy import write_model
+from rubis._utils import DotDict
+from rubis.io.legacy import make_output_filename, write_model
+
+
+def test_make_output_filename_from_model_file():
+    filename = make_output_filename(
+        "solar_model.txt",
+        0.9,
+    )
+
+    assert filename == "solar_model_deform_0.9.txt"
+
+
+def test_make_output_filename_from_composite_polytrope():
+    model = DotDict(indices=[1.0, 1.5])
+
+    filename = make_output_filename(
+        model,
+        0.8,
+    )
+
+    assert filename == "poly_|1.0|1.5|_deform_0.8.txt"
+
+
+def test_make_output_filename_from_single_polytropic_index():
+    model = DotDict(indices=3.0)
+
+    filename = make_output_filename(
+        model,
+        0.7,
+    )
+
+    assert filename == "poly_|3.0|_deform_0.7.txt"
 
 
 def test_write_model_preserves_legacy_format(tmp_path, monkeypatch):

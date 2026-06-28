@@ -4,8 +4,27 @@ from pathlib import Path
 
 import numpy as np
 
+from .._utils import DotDict
 
-__all__ = ["write_model"]
+
+__all__ = [
+    "make_output_filename",
+    "write_model",
+]
+
+
+def make_output_filename(model_choice, rotation_target):
+    """Build the output filename for a deformed model."""
+    if isinstance(model_choice, DotDict):
+        indices = "".join(
+            f"{np.round(index, 1)}|"
+            for index in np.atleast_1d(model_choice.indices)
+        )
+        model_name = f"poly_|{indices}"
+    else:
+        model_name = model_choice.split(".txt")[0]
+
+    return f"{model_name}_deform_{rotation_target}.txt"
 
 
 def write_model(filename, params, mapping, additional_variables, *variables):

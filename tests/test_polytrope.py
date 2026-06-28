@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import simpson
 
-from helpers import DotDict
+from rubis._utils import DotDict
 from rubis.polytrope import composite_polytrope, polytrope
 
 
