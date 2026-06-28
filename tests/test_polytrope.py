@@ -1,7 +1,9 @@
+import pytest
+
 import numpy as np
 from scipy.integrate import simpson
 
-from rubis._utils import DotDict
+from rubis.models import CompositePolytropeConfig
 from rubis.polytrope import composite_polytrope, polytrope
 
 
@@ -198,7 +200,7 @@ def test_single_region_composite_matches_simple_polytrope():
     )
 
     composite_model = composite_polytrope(
-        DotDict(
+        CompositePolytropeConfig(
             indices=index,
             target_pressures=-np.inf,
             density_jumps=None,
@@ -241,7 +243,7 @@ def test_composite_polytrope_interface_conditions():
     density_jump = 0.4
 
     model = composite_polytrope(
-        DotDict(
+        CompositePolytropeConfig(
             indices=(1.0, 1.0),
             target_pressures=(-1.0, -np.inf),
             density_jumps=(density_jump,),
@@ -304,3 +306,24 @@ def test_composite_polytrope_interface_conditions():
     )
 
     assert np.all(np.diff(model.r) >= 0.0)
+    
+    
+def test_composite_polytrope_rejects_invalid_pressure_count():
+    config = CompositePolytropeConfig(
+        indices=(2.0, 1.0),
+        target_pressures=(-np.inf,),
+    )
+
+    with pytest.raises(ValueError, match="target_pressures"):
+        composite_polytrope(config)
+
+
+def test_composite_polytrope_rejects_invalid_density_jump_count():
+    config = CompositePolytropeConfig(
+        indices=(2.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.5, 0.8),
+    )
+
+    with pytest.raises(ValueError, match="density_jumps"):
+        composite_polytrope(config)

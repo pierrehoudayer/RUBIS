@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .._utils import DotDict
+from ..models import PolytropicModelConfig
 
 
 __all__ = [
@@ -15,14 +15,10 @@ __all__ = [
 
 def make_output_filename(model_choice, rotation_target):
     """Build the output filename for a deformed model."""
-    if isinstance(model_choice, DotDict):
-        indices = "".join(
-            f"{np.round(index, 1)}|"
-            for index in np.atleast_1d(model_choice.indices)
-        )
-        model_name = f"poly_|{indices}"
+    if isinstance(model_choice, PolytropicModelConfig):
+        model_name = model_choice.filename_stem
     else:
-        model_name = model_choice.split(".txt")[0]
+        model_name = str(model_choice).removesuffix(".txt")
 
     return f"{model_name}_deform_{rotation_target}.txt"
 

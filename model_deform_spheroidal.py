@@ -20,7 +20,11 @@ from rubis.numerical     import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from rubis.polytrope     import composite_polytrope
+from rubis.models        import PolytropicModelConfig
+from rubis.polytrope     import (
+    build_polytrope,
+    composite_polytrope,
+)
 from rubis.domains       import find_domains
 from rubis.mapping       import (
     initialize_mapping, 
@@ -43,9 +47,9 @@ def init_1D(model_choice) :
     
     Parameters
     ----------
-    model_choice : string or DotDict instance
-        Filename or dictionary containing the information regarding the
-        1D model to deform.
+    model_choice : str or PolytropicModelConfig
+        Filename of a spherical model or configuration of a generated
+        polytropic model.
 
     Returns
     -------
@@ -70,11 +74,11 @@ def init_1D(model_choice) :
 
     """
     G = 6.67384e-8  # <- Gravitational constant
-    if isinstance(model_choice, dict) :        
+    if isinstance(model_choice, PolytropicModelConfig):    
         # The model properties are user-defined
-        N = model_choice.resolution or 1001
-        M = model_choice.mass       or 1.0
-        R = model_choice.radius     or 1.0
+        N = model_choice.resolution
+        M = model_choice.mass      
+        R = model_choice.radius    
         
         # Polytrope computation
         model = composite_polytrope(model_choice)

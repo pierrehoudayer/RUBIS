@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from rubis._utils import DotDict
+from rubis.models import CompositePolytropeConfig
 from model_deform_spheroidal import spheroidal_method
 from rubis.rotation_profiles import solid
 
@@ -13,7 +14,7 @@ def test_spheroidal_solver_returns_normalised_state():
     angular_resolution = 9
     max_degree = 9
 
-    model = DotDict(
+    model = CompositePolytropeConfig(
         indices=(1.0, 1.0),
         target_pressures=(-1.0, -np.inf),
         density_jumps=(0.4,),
@@ -115,7 +116,7 @@ def test_nonrotating_composite_model_remains_spherical():
     angular_resolution = 9
     max_degree = 9
 
-    model = DotDict(
+    model = CompositePolytropeConfig(
         indices=(1.0, 1.0),
         target_pressures=(-1.0, -np.inf),
         density_jumps=(0.4,),
@@ -242,7 +243,7 @@ def test_uniform_rotation_deforms_composite_model():
     mapping_precision = 1.0e-10
     density_jump = 0.4
 
-    model = DotDict(
+    model = CompositePolytropeConfig(
         indices=(1.0, 1.0),
         target_pressures=(-1.0, -np.inf),
         density_jumps=(density_jump,),

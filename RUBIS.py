@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 
 from rubis._utils            import DotDict
+from rubis.models            import CompositePolytropeConfig
 from rubis.io.legacy         import make_output_filename
 from rubis.domains           import find_domains
 from rubis.rotation_profiles import solid, lorentzian, plateau
@@ -184,11 +185,14 @@ def set_params() :
     method_choice = 'auto'
     
     #### MODEL CHOICE ####
-    model_choice = DotDict(indices = 3.0, target_pressures = -np.inf)
-    # model_choice = DotDict(
-    #     indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
-    #     target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
-    #     density_jumps = (0.3, 0.2, 2.0, 0.5, 0.2)
+    model_choice = CompositePolytropeConfig(
+        indices=3.0,
+        target_pressures=-np.inf,
+    )
+    # model_choice = CompositePolytropeConfig(
+    #     indices=(2.0, 1.0, 3.0, 1.5, 2.0, 4.0),
+    #     target_pressures=(-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf),
+    #     density_jumps=(0.3, 0.2, 2.0, 0.5, 0.2),
     # )
     # model_choice = 'Jupiter.txt'
 
@@ -255,8 +259,8 @@ if __name__ == '__main__' :
     
     # Choosing the method to call
     if method_choice == "auto":
-        if isinstance(model_choice, DotDict):
-            n_domains = np.atleast_1d(model_choice.indices).size
+        if isinstance(model_choice, CompositePolytropeConfig):
+            n_domains = model_choice.n_regions
         else:
             r = np.genfromtxt(
                 Path("Models") / model_choice,

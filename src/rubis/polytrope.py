@@ -12,12 +12,37 @@ from matplotlib      import rc
 from scipy.integrate import solve_ivp
 
 from ._utils         import DotDict
+from .models import (
+    CompositePolytropeConfig,
+    PolytropeConfig,
+    PolytropicModelConfig,
+)
 
 
 __all__ = [
+    "build_polytrope",
     "polytrope",
     "composite_polytrope",
 ]
+
+
+def build_polytrope(config: PolytropicModelConfig):
+    """Build a spherical polytrope from its configuration."""
+    if isinstance(config, PolytropeConfig):
+        config = CompositePolytropeConfig(
+            indices=(config.index,),
+            target_pressures=(-np.inf,),
+            radius=config.radius,
+            mass=config.mass,
+            resolution=config.resolution,
+        )
+
+    if isinstance(config, CompositePolytropeConfig):
+        return composite_polytrope(config)
+
+    raise TypeError(
+        "config must be a PolytropeConfig or CompositePolytropeConfig."
+    )
 
 
 def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
@@ -126,7 +151,7 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     
     return model
 
-def composite_polytrope(model_parameters) :
+def composite_polytrope(config: CompositePolytropeConfig):
     """
     Generate a composite polytrope of given radius and mass.
     The latter is composed of N polytropes, the i-th one having an index n_i = indices[i].
@@ -144,14 +169,14 @@ def composite_polytrope(model_parameters) :
     
     Parameters
     ----------
-    model_parameters : DotDict instance containing: {
+    config : DotDict instance containing: {
         indices : array_like, shape(N, )
             Each region polytropic index
         target_pressures : array_like, shape(N, )
             Normalised interface pressure values (surface included).
         density_jumps : array_like, shape(N-1, )
             Density ratios above and below each interface (surface excluded).
-            The default value is np.ones((number_of_regions-1,))
+            The default value is np.ones((n_regions-1,))
         radius : float, optional
             Composite polytrope radius. Set to 1.0 if None
         mass : float, optional
@@ -174,14 +199,32 @@ def composite_polytrope(model_parameters) :
                 Gravity
         }
     """
-    # Dictionary reading
-    indices           = np.atleast_1d(model_parameters.indices)
-    number_of_regions = len(indices)
-    target_pressures  = np.hstack((0.0, model_parameters.target_pressures))
-    density_jumps     = model_parameters.density_jumps or np.ones((number_of_regions-1,))
-    R                 = model_parameters.radius        or 1.0
-    M                 = model_parameters.mass          or 1.0
-    res               = model_parameters.resolution    or 1001
+    # Config reading
+    indices = np.atleast_1d(config.indices)
+    target_pressures = np.atleast_1d(config.target_pressures)
+
+    n_regions = config.n_regions
+
+    if target_pressures.size != n_regions:
+        raise ValueError(
+            "target_pressures must contain one value per polytropic region."
+        )
+
+    if config.density_jumps is None:
+        density_jumps = np.ones(n_regions - 1)
+    else:
+        density_jumps = np.atleast_1d(config.density_jumps)
+
+    if density_jumps.size != n_regions - 1:
+        raise ValueError(
+            "density_jumps must contain one value per internal interface."
+        )
+
+    target_pressures = np.hstack((0.0, target_pressures))
+
+    R = config.radius
+    M = config.mass
+    res = config.resolution
     
     # Solver arguments
     dxi_est = 20.0
@@ -205,7 +248,7 @@ def composite_polytrope(model_parameters) :
     # Find the solution for each region
     solutions = []
     constants = []
-    for i in range(number_of_regions) :
+    for i in range(n_regions) :
         # Region initialisation
         if i > 0 : 
             ui_1, vi_1 = solutions[i-1].y[:, -1]
@@ -250,11 +293,11 @@ def composite_polytrope(model_parameters) :
     x_int = np.array([sol.t[0] for sol in solutions] + [x_out])
     
     # Define the final grid
-    x_est = x_out * np.sin(np.linspace(0, np.pi/2, res - 2*number_of_regions + 2))
+    x_est = x_out * np.sin(np.linspace(0, np.pi/2, res - 2*n_regions + 2))
     x_per_domain = [
         np.hstack((
             x_int[i], x_est[(x_est > x_int[i])&(x_est < x_int[i+1])], x_int[i+1]
-        )) for i in range(number_of_regions)
+        )) for i in range(n_regions)
     ]
     
     # Solution rescaling
@@ -264,10 +307,10 @@ def composite_polytrope(model_parameters) :
     model.rho = []
     model.p   = []   
     model.g   = []   
-    for i in range(number_of_regions-1, -1, -1) :
+    for i in range(n_regions-1, -1, -1) :
         # Scaling computation
         Ni = indices[i]
-        if i < number_of_regions-1 : 
+        if i < n_regions-1 : 
             Ei = np.diff(target_pressures)[i]
             pi = density_jumps[i]
             rho_scales.append(10 ** (-Ei*Ni/(Ni+1)) / pi * rho_scales[-1])
@@ -293,12 +336,12 @@ def composite_polytrope(model_parameters) :
 
 if __name__ == '__main__':
     # Model creation
-    model_parameters = DotDict(
+    config = DotDict(
         indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
         target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
         density_jumps = (0.3, 0.2, 1.2, 0.8, 0.2)
     )
-    model = composite_polytrope(model_parameters)
+    model = composite_polytrope(config)
     
     # Find the interfaces
     _, idx = np.unique(model.r, return_index=True)

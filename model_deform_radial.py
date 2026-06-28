@@ -18,7 +18,8 @@ from rubis.numerical     import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from rubis.polytrope     import composite_polytrope
+from rubis.models        import PolytropicModelConfig
+from rubis.polytrope     import build_polytrope
 from rubis.mapping       import (
     initialize_mapping, 
     valid_reciprocal_domain,
@@ -42,9 +43,9 @@ def init_1D(model_choice) :
     
     Parameters
     ----------
-    model_choice : string or DotDict instance
-        Filename or dictionary containing the information regarding the
-        1D model to deform.
+    model_choice : str or PolytropicModelConfig
+        Filename of a spherical model or configuration of a generated
+        polytropic model.
     
     Returns
     -------
@@ -69,14 +70,14 @@ def init_1D(model_choice) :
 
     """
     G = 6.67384e-8  # <- Gravitational constant
-    if isinstance(model_choice, dict) :        
+    if isinstance(model_choice, PolytropicModelConfig): 
         # The model properties are user-defined
-        N      = model_choice.resolution or 1001
-        mass   = model_choice.mass       or 1.0
-        radius = model_choice.radius     or 1.0
+        N      = model_choice.resolution
+        mass   = model_choice.mass
+        radius = model_choice.radius
         
         # Polytrope computation
-        model = composite_polytrope(model_choice)
+        model = build_polytrope(model_choice)        
         
         # Normalisation
         r   = model.r     / (              radius   )
@@ -546,9 +547,20 @@ def radial_method(*params, max_iterations=200):
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params \
     , _, _ = params
+    
+    # Sanity check    
+    if (
+        isinstance(model_choice, PolytropicModelConfig)
+        and model_choice.n_regions > 1
+    ):
+        raise ValueError(
+            "The radial solver only supports single-domain models; "
+            "use the spheroidal solver for composite polytropes."
+        )
         
     # Definition of the 1D-model
     G, P0, N, mass, radius, r, zeta, rho, additional_variables = init_1D(model_choice)  
+    
     
     # Angular domain initialisation
     mapping, cth = initialize_mapping(r, M)

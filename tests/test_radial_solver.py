@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 
 from rubis._utils import DotDict
+from rubis.models import PolytropeConfig, CompositePolytropeConfig
 from model_deform_radial import radial_method
 from rubis.rotation_profiles import solid
 
@@ -12,10 +13,8 @@ def test_radial_solver_returns_normalised_state():
     angular_resolution = 9
     max_degree = 9
 
-    model = DotDict(
-        indices=1.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=1.0,
         radius=1.0,
         mass=1.0,
         resolution=resolution,
@@ -71,15 +70,40 @@ def test_radial_solver_returns_normalised_state():
     assert result.iterations >= 1
     
     
+def test_radial_solver_rejects_multidomain_model():
+    model = CompositePolytropeConfig(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.4,),
+        resolution=65,
+    )
+
+    with pytest.raises(ValueError, match="single-domain"):
+        radial_method(
+            model,
+            solid,
+            0.0,
+            0.0,
+            1.0,
+            9,
+            9,
+            1,
+            1.0e-10,
+            3,
+            2,
+            None,
+            21,
+            True,
+        )
+    
+    
 def test_nonrotating_radial_model_remains_spherical():
     resolution = 65
     angular_resolution = 9
     max_degree = 9
 
-    model = DotDict(
-        indices=1.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=1.0,
         radius=1.0,
         mass=1.0,
         resolution=resolution,
@@ -194,10 +218,8 @@ def test_uniform_rotation_produces_oblate_model():
     max_degree = 9
     mapping_precision = 1.0e-10
 
-    model = DotDict(
-        indices=1.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=1.0,
         radius=1.0,
         mass=1.0,
         resolution=resolution,
@@ -308,13 +330,16 @@ def test_uniform_rotation_produces_oblate_model():
     
     
 def test_radial_solver_enforces_iteration_limit():
-    model = DotDict(
-        indices=1.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    resolution = 65
+    angular_resolution = 9
+    max_degree = 9
+    mapping_precision = 1.0e-10
+    
+    model = PolytropeConfig(
+        index=1.0,
         radius=1.0,
         mass=1.0,
-        resolution=65,
+        resolution=resolution,
     )
 
     output = DotDict(
@@ -335,10 +360,10 @@ def test_radial_solver_enforces_iteration_limit():
             0.3,
             0.0,
             1.0,
-            9,
-            9,
+            max_degree,
+            angular_resolution,
             1,
-            1.0e-10,
+            mapping_precision,
             3,
             2,
             output,
