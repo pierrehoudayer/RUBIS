@@ -26,9 +26,9 @@ from rubis.mapping       import (
     initialize_mapping, 
     valid_reciprocal_domain,
 )
+from rubis.rotation_profiles import configure_rotation_profile
 from helpers             import (
     DotDict, 
-    init_phi_c,
     write_model,
 )
 from plot                import (
@@ -666,7 +666,7 @@ def Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=False) :
     
     # Kinetic energy
     volumic_kinetic_energy = lambda rk, ck, D : (  
-       0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_w(rk[D], ck, omega_n)**2
+       0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
     kinetic_energy = integrate2D(
         mapping, volumic_kinetic_energy, domains=domains.domain_ranges[:-1], k=KSPL
@@ -706,7 +706,7 @@ def spheroidal_method(*params, max_iterations=200) :
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, NE, N, r, zeta, domains, eval_phi_c, eval_w, Lsp, Dsp
+    global L, M, KSPL, KLAG, NE, N, r, zeta, domains, eval_phi_c, eval_omega, Lsp, Dsp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params, \
     NE, rescale_ab = params
@@ -721,7 +721,11 @@ def spheroidal_method(*params, max_iterations=200) :
     mapping, cth = initialize_mapping(r, M)
     
     # Centrifugal potential definition
-    eval_phi_c, eval_w = init_phi_c(rotation_profile, central_diff_rate, rotation_scale)
+    eval_phi_c, eval_omega = configure_rotation_profile(
+        rotation_profile, 
+        central_diff_rate, 
+        rotation_scale
+    )
     
     # Find the lagrange matrices per domain
     Lsp, Dsp = init_sparse_matrices_per_domain()
@@ -857,7 +861,7 @@ def spheroidal_method(*params, max_iterations=200) :
     
     # Model writing
     if output_params.save_model :
-        rota = eval_w(mapping[:, (M-1)//2], 0.0, rotation_target)
+        rota = eval_omega(mapping[:, (M-1)//2], 0.0, rotation_target)
         if output_params.dim_model : 
             mapping    *=               radius
             rho      *=     mass    / radius**3

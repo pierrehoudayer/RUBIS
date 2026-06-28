@@ -1,6 +1,11 @@
 import numpy as np
 
-from rubis.rotation_profiles import lorentzian, plateau, solid
+from rubis.rotation_profiles import (
+    lorentzian, 
+    plateau, 
+    solid,
+    configure_rotation_profile,
+)
 
 
 def test_solid_rotation_profile_is_constant():
@@ -310,3 +315,62 @@ def test_plateau_potential_derivative_matches_finite_difference():
         rtol=1.0e-8,
         atol=1.0e-10,
     )
+    
+    
+def test_configure_rotation_profile_dispatches_parameters():
+    r = np.linspace(0.0, 1.0, 11)
+    cos_theta = 0.37
+    omega = 0.63
+    alpha = 0.4
+    scale = 0.25
+
+    cases = [
+        (solid, ()),
+        (lorentzian, (alpha,)),
+        (plateau, (alpha, scale)),
+    ]
+
+    for rotation_profile, profile_args in cases:
+        potential_function, profile_function = configure_rotation_profile(
+            rotation_profile,
+            central_diff_rate=alpha,
+            rotation_scale=scale,
+        )
+
+        potential, derivative = potential_function(
+            r,
+            cos_theta,
+            omega,
+        )
+        profile = profile_function(
+            r,
+            cos_theta,
+            omega,
+        )
+
+        expected_potential, expected_derivative = rotation_profile(
+            r,
+            cos_theta,
+            omega,
+            *profile_args,
+        )
+        expected_profile = rotation_profile(
+            r,
+            cos_theta,
+            omega,
+            *profile_args,
+            return_profile=True,
+        )
+
+        np.testing.assert_array_equal(
+            potential,
+            expected_potential,
+        )
+        np.testing.assert_array_equal(
+            derivative,
+            expected_derivative,
+        )
+        np.testing.assert_array_equal(
+            profile,
+            expected_profile,
+        )

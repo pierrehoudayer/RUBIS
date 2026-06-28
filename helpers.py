@@ -80,44 +80,6 @@ def give_me_a_name(model_choice, rotation_target) :
     )
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
-
-def init_phi_c(rotation_profile, central_diff_rate, rotation_scale) : 
-    """
-    Defines the functions used to compute the centrifugal potential
-    and the rotation profile with the adequate arguments.
-    
-    Parameters
-    ----------
-    rotation_profile : function(r, cth, omega, *args)
-        Function used to compute the centrifugal potential, given 
-        adequate additional arguments.
-    central_diff_rate : float
-        Parameter that may be used to compute the centrifugal potential
-    rotation_scale : float
-        Parameter that may be used to compute the centrifugal potential
-
-    Returns
-    -------
-    phi_c : function(r, cth, omega)
-        Centrifugal potential
-    w : function(r, cth, omega)
-        Rotation profile
-
-    """
-    nb_args = (
-          rotation_profile.__code__.co_argcount 
-        - len(rotation_profile.__defaults__ or '')
-    )
-    mask = np.array([0, 1]) < nb_args - 3
-    
-    # Creation of the centrifugal potential function
-    args_phi = np.array([central_diff_rate, rotation_scale])[mask]
-    phi_c = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_phi)
-    
-    # Creation of the rotation profile function
-    args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
-    w = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_w)
-    return phi_c, w
     
 def write_model(fname, params, map_n, additional_var, *args) : 
     """

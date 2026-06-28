@@ -23,9 +23,9 @@ from rubis.mapping       import (
     initialize_mapping, 
     valid_reciprocal_domain,
 )
+from rubis.rotation_profiles import configure_rotation_profile
 from helpers import (
     DotDict,
-    init_phi_c,
     write_model,
 )
 from plot                import (
@@ -474,7 +474,7 @@ def Virial_theorem(mapping, rho, omega_n, phi_eff, P, verbose=False) :
     
     # Kinetic energy
     volumic_kinetic_energy = lambda rk, ck, D : (  
-       0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_w(rk[D], ck, omega_n)**2
+       0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
     kinetic_energy = integrate2D(mapping, volumic_kinetic_energy, k=KSPL)
     
@@ -544,7 +544,7 @@ def radial_method(*params, max_iterations=200):
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, N, r, zeta, eval_phi_c, eval_w, Lsp, Dsp, Asp
+    global L, M, KSPL, KLAG, N, r, zeta, eval_phi_c, eval_omega, Lsp, Dsp, Asp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params \
     , _, _ = params
@@ -556,7 +556,11 @@ def radial_method(*params, max_iterations=200):
     mapping, cth = initialize_mapping(r, M)
     
     # Centrifugal potential and profile definition
-    eval_phi_c, eval_w = init_phi_c(rotation_profile, central_diff_rate, rotation_scale)
+    eval_phi_c, eval_omega = configure_rotation_profile(
+        rotation_profile, 
+        central_diff_rate, 
+        rotation_scale
+    )
     
     # Define sparse matrices 
     Lsp, Dsp, Asp = init_sparse_matrices()
@@ -674,7 +678,7 @@ def radial_method(*params, max_iterations=200):
         # Variable to plot
         f = rho
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        rota2D = np.array([eval_w(rk, ck, rotation_target) for rk, ck in zip(mapping.T, cth)]).T
+        rota2D = np.array([eval_omega(rk, ck, rotation_target) for rk, ck in zip(mapping.T, cth)]).T
         # if rota2D.max() - rota2D.min() > 1e-2 : 
         #     f = np.log10(rota2D)
         #     label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
@@ -714,7 +718,7 @@ def radial_method(*params, max_iterations=200):
     
     # Model writing
     if output_params.save_model :
-        rota = eval_w(mapping[:, (M-1)//2], 0.0, rotation_target)
+        rota = eval_omega(mapping[:, (M-1)//2], 0.0, rotation_target)
         if output_params.dim_model : 
             mapping    *=               radius
             rho      *=     mass    / radius**3
