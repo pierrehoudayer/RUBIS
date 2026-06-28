@@ -1,10 +1,7 @@
 import numpy as np
 
-from helpers import (
-    find_domains,
-    init_phi_c,
-    valid_reciprocal_domain,
-)
+from helpers import init_phi_c, valid_reciprocal_domain
+from rubis.domains import find_domains
 from rubis.rotation_profiles import lorentzian, plateau, solid
 
 

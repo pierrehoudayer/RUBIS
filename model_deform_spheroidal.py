@@ -21,9 +21,9 @@ from rubis.numerical     import (
     lagrange_matrix_P,
 )
 from rubis.polytrope     import composite_polytrope
+from rubis.domains       import find_domains
 from helpers             import (
     DotDict, 
-    find_domains, 
     init_2D,
     init_phi_c,
     valid_reciprocal_domain, 
