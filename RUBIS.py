@@ -1,10 +1,13 @@
 import numpy as np
+from pathlib import Path
 
-from helpers                 import DotDict, give_me_a_name, assign_method
-from plot                    import get_cmap_from_proplot
+from helpers                 import DotDict, give_me_a_name
+from rubis.domains           import find_domains
 from rubis.rotation_profiles import solid, lorentzian, plateau
 from model_deform_radial     import radial_method
 from model_deform_spheroidal import spheroidal_method
+from plot                    import get_cmap_from_proplot
+
 
 def set_params() : 
     """
@@ -250,16 +253,45 @@ if __name__ == '__main__' :
     output_params, external_domain_res, rescale_ab = set_params()
     
     # Choosing the method to call
-    method_func = assign_method(
-        method_choice, model_choice, radial_method, spheroidal_method
-    )
-    
-    # Performing the deformation
-    method_func(
-        model_choice, 
-        rotation_profile, rotation_target, central_diff_rate, rotation_scale, 
-        max_degree, angular_resolution, full_rate,
-        mapping_precision, spline_order, lagrange_order,
-        output_params, 
-        external_domain_res, rescale_ab
+    if method_choice == "auto":
+        if isinstance(model_choice, DotDict):
+            n_domains = np.atleast_1d(model_choice.indices).size
+        else:
+            r = np.genfromtxt(
+                Path("Models") / model_choice,
+                skip_header=2,
+                usecols=0,
+            )
+            n_domains = find_domains(r).n_domains
+
+        method_choice = "spheroidal" if n_domains > 1 else "radial"
+
+    solvers = {
+        "radial": radial_method,
+        "spheroidal": spheroidal_method,
+    }
+
+    try:
+        solver = solvers[method_choice]
+    except KeyError:
+        raise ValueError(
+            f"Unknown method {method_choice!r}; expected "
+            "'auto', 'radial' or 'spheroidal'."
+        ) from None
+
+    solver(
+        model_choice,
+        rotation_profile,
+        rotation_target,
+        central_diff_rate,
+        rotation_scale,
+        max_degree,
+        angular_resolution,
+        full_rate,
+        mapping_precision,
+        spline_order,
+        lagrange_order,
+        output_params,
+        external_domain_res,
+        rescale_ab,
     )

@@ -1,57 +1,7 @@
 import numpy as np
-from scipy.special  import roots_legendre
 
 from rubis._utils   import DotDict
-from rubis.domains  import find_domains
 
-    
-def assign_method(method_choice, model_choice, radial_method, spheroidal_method) : 
-    """
-    Function assigning the method function to call to a given
-    method_choice.
-
-    Parameters
-    ----------
-    method_choice : string in {'auto', 'radial', 'spheroidal'}
-        Method choice (cf. RUBIS.py)
-    model_choice : string or DotDict instance
-        Model choice (cf. RUBIS.py)
-    radial_method : func 
-        Function to call if model_choice is set to 'radial'
-    spheroidal_method : func 
-        Function to call if model_choice is set to 'spheroidal'
-
-    Returns
-    -------
-    method_func : func in {radial_method, spheroidal_method}
-        method function to call for the model deformation.
-    """
-    
-    # Dealing with method_choice = 'auto'
-    assert method_choice in {'auto', 'radial', 'spheroidal'}
-    if method_choice == 'auto' :
-        if isinstance(model_choice, DotDict) :       
-            # Checking the number of domains in the composite polytrope 
-            if len(np.atleast_1d(model_choice.indices)) > 1 : 
-                method_choice = 'spheroidal'
-            else : 
-                method_choice = 'radial'
-        else : 
-            # Reading the file 
-            radial_coordinate, *_ = np.genfromtxt(
-                './Models/'+model_choice, skip_header=2, unpack=True
-            )
-            if find_domains(radial_coordinate).n_domains > 1 :            
-                method_choice = 'spheroidal'
-            else : 
-                method_choice = 'radial'
-                
-    # Assigning the adaquate method to method_choice
-    if method_choice == 'radial' : 
-        method_func = radial_method
-    else : 
-        method_func = spheroidal_method
-    return method_func
 
 def give_me_a_name(model_choice, rotation_target) : 
     """

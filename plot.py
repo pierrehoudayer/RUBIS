@@ -6,8 +6,9 @@ from matplotlib             import rc, ticker
 from matplotlib.collections import LineCollection
 from pylab                  import cm
 
-from helpers                import find_domains
+from rubis.domains          import find_domains
 from rubis.legendre         import pl_eval_2D, pl_project_2D
+
 
 def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) : 
     """
