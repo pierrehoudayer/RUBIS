@@ -27,10 +27,8 @@ from rubis.mapping       import (
     valid_reciprocal_domain,
 )
 from rubis.rotation_profiles import configure_rotation_profile
-from helpers             import (
-    DotDict, 
-    write_model,
-)
+from helpers             import DotDict
+from rubis.io.legacy     import write_model
 from plot                import (
     plot_f_map, 
     phi_g_harmonics,
@@ -712,7 +710,7 @@ def spheroidal_method(*params, max_iterations=200) :
     NE, rescale_ab = params
     
     # Definition of the 1D-model
-    G, P0, N, mass, radius, r, zeta, rho, additional_var = init_1D(model_choice) 
+    G, P0, N, mass, radius, r, zeta, rho, additional_variables = init_1D(model_choice) 
     
     # Domains identification
     domains = find_domains(zeta)
@@ -871,9 +869,13 @@ def spheroidal_method(*params, max_iterations=200) :
         write_model(
             output_params.save_name,
             (N, M, mass, radius, rotation_target, G),
-            mapping, 
-            additional_var,
-            zeta, P, rho, phi_eff, rota, 5/3*np.ones_like(zeta)
+            mapping,
+            additional_variables,
+            zeta,
+            P,
+            rho,
+            phi_eff,
+            rota,
         )
     
     return result

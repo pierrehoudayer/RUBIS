@@ -24,10 +24,8 @@ from rubis.mapping       import (
     valid_reciprocal_domain,
 )
 from rubis.rotation_profiles import configure_rotation_profile
-from helpers import (
-    DotDict,
-    write_model,
-)
+from helpers             import DotDict
+from rubis.io.legacy     import write_model
 from plot                import (
     plot_flux_lines,
     plot_3D_surface,
@@ -66,7 +64,7 @@ def init_1D(model_choice) :
         Spheroidal coordinate
     rho : array_like, shape (N, )
         Radial density of the model after normalisation.
-    additional_var : array_like, shape (N, N_var)
+    additional_variables : array_like, shape (N, N_var)
         Additional variables found in 'MOD1D'.
 
     """
@@ -84,14 +82,14 @@ def init_1D(model_choice) :
         r   = model.r     / (              radius   )
         rho = model.rho   / (    mass    / radius**3)
         P0  = model.p[-1] / (G * mass**2 / radius**4)
-        additional_var = []
+        additional_variables = []
         
     else : 
         # Reading file 
         surface_pressure, radial_res = np.genfromtxt(
             './Models/'+model_choice, max_rows=2, unpack=True
         )
-        r1D, rho1D, *additional_var = np.genfromtxt(
+        r1D, rho1D, *additional_variables = np.genfromtxt(
             './Models/'+model_choice, skip_header=2, unpack=True
         )
         _, idx = np.unique(r1D, return_index=True) 
@@ -110,7 +108,7 @@ def init_1D(model_choice) :
             
     zeta = np.copy(r)
     
-    return G, P0, N, mass, radius, r, zeta, rho, additional_var
+    return G, P0, N, mass, radius, r, zeta, rho, additional_variables
 
 
 def init_sparse_matrices() : 
@@ -550,7 +548,7 @@ def radial_method(*params, max_iterations=200):
     , _, _ = params
         
     # Definition of the 1D-model
-    G, P0, N, mass, radius, r, zeta, rho, additional_var = init_1D(model_choice)  
+    G, P0, N, mass, radius, r, zeta, rho, additional_variables = init_1D(model_choice)  
     
     # Angular domain initialisation
     mapping, cth = initialize_mapping(r, M)
@@ -728,9 +726,13 @@ def radial_method(*params, max_iterations=200):
         write_model(
             output_params.save_name,
             (N, M, mass, radius, rotation_target, G),
-            mapping, 
-            additional_var,
-            zeta, P, rho, phi_eff, rota
+            mapping,
+            additional_variables,
+            zeta,
+            P,
+            rho,
+            phi_eff,
+            rota,
         )
         
     return result

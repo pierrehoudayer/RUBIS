@@ -80,32 +80,3 @@ def give_me_a_name(model_choice, rotation_target) :
     )
     save_name = radical + '_deform_' + str(rotation_target) + '.txt'
     return save_name
-    
-def write_model(fname, params, map_n, additional_var, *args) : 
-    """
-    Saves the deformed model in the file named fname. The resulting 
-    table has dimension (N, M+N_args+N_var) where the last N_var columns
-    contains the additional variables given by the user (the lattest
-    are left unchanged during the whole deformation). The dimensions N & M,
-    as well as the global paramaters mass, radius, ROT, G
-    are written on the first line.
-
-    Parameters
-    ----------
-    fname : string
-        File name
-    params : tuple
-        Model parameters to write on the first line.
-    map_n : array_like, shape (N, M)
-        level surfaces mapping.
-    additional_var : tuple of arrays
-        Tuple of (unchanged) additional variables.
-    args : tuple with N_args elements
-        Variables to be saved in addition to map_n.
-
-    """
-    header = "".join(str(c)+" " for c in params)[:-1]
-    np.savetxt(
-        'Models/'+fname, np.hstack((map_n, np.vstack(args + (*additional_var,)).T)), 
-        header=header,  comments=''
-    )
