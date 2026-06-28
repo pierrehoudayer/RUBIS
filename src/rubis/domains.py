@@ -1,14 +1,53 @@
 """Utilities for multidomain coordinates and interfaces."""
 
+from dataclasses import dataclass
+
 import numpy as np
-
-from ._utils import DotDict
-
-
-__all__ = ["find_domains"]
+from numpy.typing import NDArray
 
 
-def find_domains(var):
+__all__ = [
+    "DomainLayout",
+    "find_domains",
+]
+
+
+FloatArray = NDArray[np.floating]
+IntArray = NDArray[np.integer]
+BoolArray = NDArray[np.bool_]
+
+
+@dataclass
+class DomainLayout:
+    """Layout of a coordinate split into adjacent domains.
+
+    A duplicated coordinate value represents an interface. Its first
+    occurrence belongs to the lower domain and its second occurrence
+    belongs to the upper domain.
+    """
+
+    bounds: FloatArray
+    interfaces: list[IntArray]
+
+    # None for a continuous, single-domain coordinate.
+    end: IntArray | None
+    beg: IntArray | None
+
+    unq: IntArray
+    Nd: int
+    edges: IntArray
+    ranges: list[range]
+    sizes: list[int]
+
+    id: NDArray[np.floating]
+    id_val: NDArray[np.floating]
+
+    ext: BoolArray
+    int: BoolArray
+    unq_int: IntArray
+
+
+def find_domains(var) -> DomainLayout:
     """Identify domains separated by duplicated coordinate values.
 
     Parameters
@@ -19,14 +58,12 @@ def find_domains(var):
 
     Returns
     -------
-    dom : DotDict
+    DomainLayout
         Domain layout and navigation information.
     """
-    dom = DotDict()
+    var = np.asarray(var)
     n_var = len(var)
-    discontinuous = True
 
-    # Physical domain boundaries
     unique, unique_indices, unique_inverse, unique_counts = np.unique(
         np.round(var, 15),
         return_index=True,
@@ -35,12 +72,9 @@ def find_domains(var):
     )
 
     repeated = unique_counts > 1
-    dom.bounds = unique[repeated]
+    bounds = unique[repeated]
+    discontinuous = bounds.size > 0
 
-    if len(dom.bounds) == 0:
-        discontinuous = False
-
-    # Interface indices
     repeated_indices, = np.nonzero(repeated)
     interface_mask = np.isin(
         unique_inverse,
@@ -52,54 +86,70 @@ def find_domains(var):
         unique_inverse[interface_mask]
     )
 
-    dom.interfaces = np.split(
+    interfaces = np.split(
         interface_indices[order],
         np.cumsum(unique_counts[repeated])[:-1],
     )
 
     if discontinuous:
-        dom.end, dom.beg = np.array(
-            dom.interfaces
-        ).T
+        end, beg = np.asarray(interfaces).T
+    else:
+        end = None
+        beg = None
 
-    # Domain ranges and sizes
-    dom.unq = unique_indices
-    dom.Nd = len(dom.bounds) + 1
+    unq = unique_indices
+    number_of_domains = len(bounds) + 1
 
     if discontinuous:
-        dom.edges = np.array(
-            (0, *dom.beg, n_var)
+        edges = np.array(
+            (0, *beg, n_var)
         )
     else:
-        dom.edges = np.array(
+        edges = np.array(
             (0, n_var)
         )
 
-    dom.ranges = [
+    ranges = [
         range(start, stop)
         for start, stop in zip(
-            dom.edges[:-1],
-            dom.edges[1:],
+            edges[:-1],
+            edges[1:],
         )
     ]
-    dom.sizes = [
+    sizes = [
         len(domain_range)
-        for domain_range in dom.ranges
+        for domain_range in ranges
     ]
 
-    # Domain identification
-    dom.id = np.hstack([
+    domain_id = np.hstack([
         domain * np.ones(size)
-        for domain, size in enumerate(dom.sizes)
+        for domain, size in enumerate(sizes)
     ])
-    dom.id_val = np.unique(dom.id)
+    domain_id_values = np.unique(domain_id)
 
-    dom.ext = dom.id == dom.Nd - 1
-    dom.int = ~dom.ext
+    external_mask = (
+        domain_id == number_of_domains - 1
+    )
+    internal_mask = ~external_mask
 
-    dom.unq_int = np.unique(
-        np.asarray(var)[dom.int],
+    unique_internal_indices = np.unique(
+        var[internal_mask],
         return_index=True,
     )[1]
 
-    return dom
+    return DomainLayout(
+        bounds=bounds,
+        interfaces=interfaces,
+        end=end,
+        beg=beg,
+        unq=unq,
+        Nd=number_of_domains,
+        edges=edges,
+        ranges=ranges,
+        sizes=sizes,
+        id=domain_id,
+        id_val=domain_id_values,
+        ext=external_mask,
+        int=internal_mask,
+        unq_int=unique_internal_indices,
+    )

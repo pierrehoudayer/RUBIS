@@ -1,7 +1,7 @@
 import numpy as np
 
 from helpers import init_phi_c, valid_reciprocal_domain
-from rubis.domains import find_domains
+from rubis.domains import DomainLayout, find_domains
 from rubis.rotation_profiles import lorentzian, plateau, solid
 
 
@@ -11,6 +11,9 @@ def test_find_domains_for_continuous_coordinate():
     domains = find_domains(zeta)
 
     assert domains.Nd == 1
+    assert isinstance(domains, DomainLayout)
+    assert domains.beg is None
+    assert domains.end is None
 
     np.testing.assert_array_equal(
         domains.bounds,
@@ -32,6 +35,7 @@ def test_find_domains_for_continuous_coordinate():
         domains.unq,
         np.arange(5),
     )
+    
 
 
 def test_find_domains_with_duplicated_interfaces():
@@ -50,6 +54,7 @@ def test_find_domains_with_duplicated_interfaces():
     domains = find_domains(zeta)
 
     assert domains.Nd == 3
+    assert isinstance(domains, DomainLayout)
 
     np.testing.assert_allclose(
         domains.bounds,
