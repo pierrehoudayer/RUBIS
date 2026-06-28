@@ -24,7 +24,7 @@ from rubis.mapping       import (
     valid_reciprocal_domain,
 )
 from rubis.rotation_profiles import configure_rotation_profile
-from helpers             import DotDict
+from rubis._utils        import DotDict
 from rubis.io.legacy     import write_model
 from plot                import (
     plot_flux_lines,

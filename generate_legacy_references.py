@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from helpers import DotDict
+from rubis._utils import DotDict
 from model_deform_radial import radial_method
 from model_deform_spheroidal import spheroidal_method
 from rubis.rotation_profiles import solid
