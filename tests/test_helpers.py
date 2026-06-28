@@ -10,29 +10,37 @@ def test_find_domains_for_continuous_coordinate():
 
     domains = find_domains(zeta)
 
-    assert domains.Nd == 1
+    assert domains.n_domains == 1
     assert isinstance(domains, DomainLayout)
-    assert domains.beg is None
-    assert domains.end is None
-
+    assert not domains.has_interfaces
+    assert domains.interface_indices == ()
+    
     np.testing.assert_array_equal(
-        domains.bounds,
+        domains.interface_end_indices,
+        np.empty(0, dtype=int),
+    )
+    np.testing.assert_array_equal(
+        domains.interface_start_indices,
+        np.empty(0, dtype=int),
+    )
+    np.testing.assert_array_equal(
+        domains.interface_values,
         np.array([]),
     )
     np.testing.assert_array_equal(
-        domains.edges,
+        domains.domain_edges,
         np.array([0, 5]),
     )
     np.testing.assert_array_equal(
-        domains.sizes,
+        domains.domain_sizes,
         np.array([5]),
     )
     np.testing.assert_array_equal(
-        domains.id,
+        domains.domain_index,
         np.zeros(5),
     )
     np.testing.assert_array_equal(
-        domains.unq,
+        domains.unique_indices,
         np.arange(5),
     )
     
@@ -53,11 +61,11 @@ def test_find_domains_with_duplicated_interfaces():
 
     domains = find_domains(zeta)
 
-    assert domains.Nd == 3
+    assert domains.n_domains == 3
     assert isinstance(domains, DomainLayout)
 
     np.testing.assert_allclose(
-        domains.bounds,
+        domains.interface_values,
         np.array([0.50, 1.00]),
         rtol=0.0,
         atol=0.0,
@@ -65,26 +73,26 @@ def test_find_domains_with_duplicated_interfaces():
 
     # First copy: end of the lower domain.
     np.testing.assert_array_equal(
-        domains.end,
+        domains.interface_end_indices,
         np.array([2, 5]),
     )
 
     # Second copy: beginning of the upper domain.
     np.testing.assert_array_equal(
-        domains.beg,
+        domains.interface_start_indices,
         np.array([3, 6]),
     )
 
     np.testing.assert_array_equal(
-        domains.edges,
+        domains.domain_edges,
         np.array([0, 3, 6, 9]),
     )
     np.testing.assert_array_equal(
-        domains.sizes,
+        domains.domain_sizes,
         np.array([3, 3, 3]),
     )
     np.testing.assert_array_equal(
-        domains.id,
+        domains.domain_index,
         np.array([
             0, 0, 0,
             1, 1, 1,
@@ -95,12 +103,12 @@ def test_find_domains_with_duplicated_interfaces():
     # One representative index is retained for each physical
     # coordinate, using its first occurrence.
     np.testing.assert_array_equal(
-        domains.unq,
+        domains.unique_indices,
         np.array([0, 1, 2, 4, 5, 7, 8]),
     )
 
     np.testing.assert_array_equal(
-        domains.int,
+        domains.internal_mask,
         np.array([
             True, True, True,
             True, True, True,
@@ -108,8 +116,8 @@ def test_find_domains_with_duplicated_interfaces():
         ]),
     )
     np.testing.assert_array_equal(
-        domains.ext,
-        ~domains.int,
+        domains.external_mask,
+        ~domains.internal_mask,
     )
     
     

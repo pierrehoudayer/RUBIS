@@ -12,144 +12,161 @@ __all__ = [
 ]
 
 
-FloatArray = NDArray[np.floating]
-IntArray = NDArray[np.integer]
+from dataclasses import dataclass
+
+import numpy as np
+from numpy.typing import NDArray
+
+
+FloatArray = NDArray[np.float64]
+IntArray = NDArray[np.int_]
 BoolArray = NDArray[np.bool_]
 
 
 @dataclass
 class DomainLayout:
-    """Layout of a coordinate split into adjacent domains.
+    """Index layout of a coordinate split into adjacent domains.
 
-    A duplicated coordinate value represents an interface. Its first
-    occurrence belongs to the lower domain and its second occurrence
-    belongs to the upper domain.
+    A duplicated coordinate value represents an interface. The first
+    copy ends the lower domain and the second copy starts the upper
+    domain.
     """
 
-    bounds: FloatArray
-    interfaces: list[IntArray]
+    interface_values: FloatArray
+    interface_indices: tuple[IntArray, ...]
+    interface_end_indices: IntArray
+    interface_start_indices: IntArray
 
-    # None for a continuous, single-domain coordinate.
-    end: IntArray | None
-    beg: IntArray | None
+    unique_indices: IntArray
+    n_domains: int
 
-    unq: IntArray
-    Nd: int
-    edges: IntArray
-    ranges: list[range]
-    sizes: list[int]
+    domain_edges: IntArray
+    domain_ranges: tuple[range, ...]
+    domain_sizes: IntArray
+    domain_index: IntArray
+    domain_ids: IntArray
 
-    id: NDArray[np.floating]
-    id_val: NDArray[np.floating]
+    internal_mask: BoolArray
+    external_mask: BoolArray
+    unique_internal_indices: IntArray
 
-    ext: BoolArray
-    int: BoolArray
-    unq_int: IntArray
+    @property
+    def has_interfaces(self) -> bool:
+        return self.interface_values.size > 0
 
 
-def find_domains(var) -> DomainLayout:
-    """Identify domains separated by duplicated coordinate values.
+def find_domains(coordinate) -> DomainLayout:
+    """Identify domains separated by duplicated coordinate values."""
+    coordinate = np.asarray(coordinate)
+    n_points = coordinate.size
 
-    Parameters
-    ----------
-    var : array_like, shape (N,)
-        Coordinate used to define the domains. A duplicated value
-        represents an interface shared by two adjacent domains.
-
-    Returns
-    -------
-    DomainLayout
-        Domain layout and navigation information.
-    """
-    var = np.asarray(var)
-    n_var = len(var)
-
-    unique, unique_indices, unique_inverse, unique_counts = np.unique(
-        np.round(var, 15),
+    (
+        unique_values,
+        unique_indices,
+        unique_inverse,
+        unique_counts,
+    ) = np.unique(
+        np.round(coordinate, 15),
         return_index=True,
         return_inverse=True,
         return_counts=True,
     )
 
     repeated = unique_counts > 1
-    bounds = unique[repeated]
-    discontinuous = bounds.size > 0
+    interface_values = unique_values[repeated]
 
-    repeated_indices, = np.nonzero(repeated)
+    repeated_value_indices = np.flatnonzero(repeated)
     interface_mask = np.isin(
         unique_inverse,
-        repeated_indices,
+        repeated_value_indices,
     )
-    interface_indices, = np.nonzero(interface_mask)
+    flat_interface_indices = np.flatnonzero(
+        interface_mask
+    )
 
     order = np.argsort(
         unique_inverse[interface_mask]
     )
 
-    interfaces = np.split(
-        interface_indices[order],
-        np.cumsum(unique_counts[repeated])[:-1],
+    if interface_values.size:
+        interface_indices = tuple(
+            np.split(
+                flat_interface_indices[order],
+                np.cumsum(unique_counts[repeated])[:-1],
+            )
+        )
+
+        interface_array = np.asarray(
+            interface_indices,
+            dtype=int,
+        )
+
+        interface_end_indices = interface_array[:, 0]
+        interface_start_indices = interface_array[:, 1]
+    else:
+        interface_indices = ()
+        interface_end_indices = np.empty(
+            0,
+            dtype=int,
+        )
+        interface_start_indices = np.empty(
+            0,
+            dtype=int,
+        )
+
+    n_domains = interface_values.size + 1
+
+    domain_edges = np.array(
+        (
+            0,
+            *interface_start_indices,
+            n_points,
+        ),
+        dtype=int,
     )
 
-    if discontinuous:
-        end, beg = np.asarray(interfaces).T
-    else:
-        end = None
-        beg = None
-
-    unq = unique_indices
-    number_of_domains = len(bounds) + 1
-
-    if discontinuous:
-        edges = np.array(
-            (0, *beg, n_var)
-        )
-    else:
-        edges = np.array(
-            (0, n_var)
-        )
-
-    ranges = [
+    domain_ranges = tuple(
         range(start, stop)
         for start, stop in zip(
-            edges[:-1],
-            edges[1:],
+            domain_edges[:-1],
+            domain_edges[1:],
         )
-    ]
-    sizes = [
-        len(domain_range)
-        for domain_range in ranges
-    ]
+    )
 
-    domain_id = np.hstack([
-        domain * np.ones(size)
-        for domain, size in enumerate(sizes)
-    ])
-    domain_id_values = np.unique(domain_id)
+    domain_sizes = np.diff(domain_edges)
+
+    domain_ids = np.arange(
+        n_domains,
+        dtype=int,
+    )
+    domain_index = np.repeat(
+        domain_ids,
+        domain_sizes,
+    )
 
     external_mask = (
-        domain_id == number_of_domains - 1
+        domain_index == domain_ids[-1]
     )
     internal_mask = ~external_mask
 
     unique_internal_indices = np.unique(
-        var[internal_mask],
+        coordinate[internal_mask],
         return_index=True,
     )[1]
 
     return DomainLayout(
-        bounds=bounds,
-        interfaces=interfaces,
-        end=end,
-        beg=beg,
-        unq=unq,
-        Nd=number_of_domains,
-        edges=edges,
-        ranges=ranges,
-        sizes=sizes,
-        id=domain_id,
-        id_val=domain_id_values,
-        ext=external_mask,
-        int=internal_mask,
-        unq_int=unique_internal_indices,
+        interface_values=interface_values,
+        interface_indices=interface_indices,
+        interface_end_indices=interface_end_indices,
+        interface_start_indices=interface_start_indices,
+        unique_indices=unique_indices,
+        n_domains=n_domains,
+        domain_edges=domain_edges,
+        domain_ranges=domain_ranges,
+        domain_sizes=domain_sizes,
+        domain_index=domain_index,
+        domain_ids=domain_ids,
+        internal_mask=internal_mask,
+        external_mask=external_mask,
+        unique_internal_indices=unique_internal_indices,
     )

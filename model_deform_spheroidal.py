@@ -97,9 +97,9 @@ def init_1D(model_choice) :
         
         # Normalisationfor D in 
         R = r1D[-1]
-        dom = find_domains(r1D)
+        domains = find_domains(r1D)
         M = 4*np.pi * sum(
-            integrate(x=r1D[D], y=r1D[D]**2 * rho1D[D]) for D in dom.ranges
+            integrate(x=r1D[D], y=r1D[D]**2 * rho1D[D]) for D in domains.domain_ranges
         )
         r   = r1D / (R)
         rho = rho1D / (M/R**3)
@@ -128,7 +128,7 @@ def init_sparse_matrices_per_domain() :
 
     """
     Lsp, Dsp = [], []
-    for D in dom.ranges : 
+    for D in domains.domain_ranges : 
         
         # Find the lagrange matrices per domain
         lag_mat = lagrange_matrix_P(zeta[D], order=KLAG)
@@ -168,7 +168,7 @@ def find_gravitational_moments(map_n, cth, rho, max_degree=14) :
     for l in range(0, max_degree+1, 2):
         m_l = integrate2D(
             map_n, rho[:, None] * map_n ** l * eval_legendre(l, cth), 
-            domains=dom.ranges[:-1], k=KSPL
+            domains=domains.domain_ranges[:-1], k=KSPL
         )
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
 
@@ -193,10 +193,10 @@ def find_pressure(rho, dphi_eff, P0) :
         Pressure profile.
 
     """
-    dP = - rho * dphi_eff[dom.int]        
+    dP = - rho * dphi_eff[domains.internal_mask]        
     P  = interpolate_func(
-        1-zeta[dom.unq_int][::-1], -dP[dom.unq_int][::-1], der=-1, k=KSPL, prim_cond=(0, P0)
-    )(1-zeta[dom.int][::-1])[::-1]
+        1-zeta[domains.unique_internal_indices][::-1], -dP[domains.unique_internal_indices][::-1], der=-1, k=KSPL, prim_cond=(0, P0)
+    )(1-zeta[domains.internal_mask][::-1])[::-1]
     return P
 
 
@@ -231,7 +231,7 @@ def find_metric_terms(map_n, t) :
     dr.z = np.array(
         [np.hstack(
             [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
-             for D in dom.ranges[:-1]]
+             for D in domains.domain_ranges[:-1]]
         ) for rk in map_n.T]            # <- mapping derivative potentially
     ).T                                 #    discontinous on the interfaces
     map_l_z = pl_project_2D(dr.z, L)
@@ -258,7 +258,7 @@ def find_external_mapping(dr) :
         The commplete mapping from 0 <= z <= 2.
     """
     # External zeta variable 
-    z = zeta[dom.ext].reshape((-1, 1))
+    z = zeta[domains.external_mask].reshape((-1, 1))
     
     # Internal mapping constraints
     surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
@@ -358,17 +358,17 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
     b     = np.zeros((Mb, ))
     coefs = np.empty((kl+ku-L+1, Mb))
     
-    for d, D in enumerate(dom.ranges) : 
+    for d, D in enumerate(domains.domain_ranges) : 
         
         # Domain properties
-        beg_i, end_i = (2*dom.edges[d]+1)*Nl, (2*dom.edges[d+1]-1)*Nl
-        beg_j, end_j = (2*dom.edges[d]+0)*Nl, (2*dom.edges[d+1]-0)*Nl
+        beg_i, end_i = (2*domains.domain_edges[d]+1)*Nl, (2*domains.domain_edges[d+1]-1)*Nl
+        beg_j, end_j = (2*domains.domain_edges[d]+0)*Nl, (2*domains.domain_edges[d+1]-0)*Nl
         Lsp_d_broad = Lsp[d].data[::-1, :, None, None]
         Dsp_d_broad = Dsp[d].data[::-1, :, None, None]
-        size = dom.sizes[d]
+        size = domains.domain_sizes[d]
         
         # Vector filling
-        if d < dom.Nd - 1 : 
+        if d < domains.n_domains - 1 : 
             b[beg_i:end_i:2] = (Lsp[d] @ rhs_l[D]).flatten()
             
         # Main matrix parts filling
@@ -394,7 +394,7 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
             coefs[ku-3*Nl+1+1:ku-Nl+1:2, beg_j+1:beg_j+2*Nl:2] = -np.eye(Nl)
         
         # Outer boundary conditions
-        if d == dom.Nd - 1 : 
+        if d == domains.n_domains - 1 : 
             coefs[ku-Nl+1:ku+1, -2*Nl+0::2] = np.eye(Nl)
             coefs[ku-Nl+1:ku+1, -2*Nl+1::2] = np.diag((l+1)/2)
         else :  
@@ -575,27 +575,27 @@ def find_new_mapping(map_n, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) 
     phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
     dphi1D = dphi2D_g[valid_z, eq] + dphi1D_c
     
-    dom_r = find_domains(valid_r)
+    unq_r = find_domains(valid_r).unique_indices
     r_est = CubicHermiteSpline(
-        x=phi1D[dom_r.unq], y=valid_r[dom_r.unq], dydx=dphi1D[dom_r.unq] ** -1
+        x=phi1D[unq_r], y=valid_r[unq_r], dydx=dphi1D[unq_r] ** -1
     )(targets[-1])
     omega_n_new = omega_n * r_est**(-1.5)
                 
     ### Find the new mapping using the reciprocal interpolation
     # Define the adaptive mesh
     new_res = int(1.0/(np.finfo(float).eps)**0.2)
-    d2phi_eff = np.hstack((0.0, np.abs(np.diff(dphi_eff[dom.unq]))))
-    z_new = interpolate_func(d2phi_eff.cumsum(), zeta[dom.unq], k=1)(
+    d2phi_eff = np.hstack((0.0, np.abs(np.diff(dphi_eff[domains.unique_indices]))))
+    z_new = interpolate_func(d2phi_eff.cumsum(), zeta[domains.unique_indices], k=1)(
         np.linspace(0.0, d2phi_eff.sum(), new_res)
     )
     z_new = 2 * (z_new - z_new[0]) / (z_new[-1] - z_new[0])
     
     # Cubic Hermite splines
     r_splines = [CubicHermiteSpline(
-        x=zeta[dom.unq], y=dr._[dom.unq, k], dydx=dr.z[dom.unq, k]
+        x=zeta[domains.unique_indices], y=dr._[domains.unique_indices, k], dydx=dr.z[domains.unique_indices, k]
     ) for k in up]
     p_splines = [CubicHermiteSpline(
-        x=zeta[dom.unq], y=phi2D_g[dom.unq, k], dydx=dphi2D_g_dz[dom.unq, k]
+        x=zeta[domains.unique_indices], y=phi2D_g[domains.unique_indices, k], dydx=dphi2D_g_dz[domains.unique_indices, k]
     ) for k in up]
     
     # Interpolated variables
@@ -620,7 +620,7 @@ def find_new_mapping(map_n, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) 
         CubicHermiteSpline(x=pk[vk], y=rk[vk], dydx=dpk[vk]**-1)(targets[1:]) 
         for rk, pk, dpk, vk in zip(r_ipl.T, phi_ipl.T, dphi_ipl.T, valid.T)
     ]).T
-    map_est[dom.beg[:-1]] = map_est[dom.end[:-1]]
+    map_est[domains.interface_start_indices[:-1]] = map_est[domains.interface_end_indices[:-1]]
         
     ### New mapping
     map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
@@ -659,7 +659,7 @@ def Virial_theorem(map_n, rho, omega_n, phi_g_l, P, verbose=False) :
     # Potential energy
     volumic_potential_energy = lambda rk, ck, D : -rho[D] * pl_eval_2D(phi_g_l[D], ck)
     potential_energy = integrate2D(
-        map_n, volumic_potential_energy, domains=dom.ranges[:-1], k=KSPL
+        map_n, volumic_potential_energy, domains=domains.domain_ranges[:-1], k=KSPL
     )
     
     # Kinetic energy
@@ -667,11 +667,11 @@ def Virial_theorem(map_n, rho, omega_n, phi_g_l, P, verbose=False) :
        0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_w(rk[D], ck, omega_n)**2
     )
     kinetic_energy = integrate2D(
-        map_n, volumic_kinetic_energy, domains=dom.ranges[:-1], k=KSPL
+        map_n, volumic_kinetic_energy, domains=domains.domain_ranges[:-1], k=KSPL
     )
     
     # Internal energy
-    internal_energy = integrate2D(map_n, P, domains=dom.ranges[:-1], k=KSPL)
+    internal_energy = integrate2D(map_n, P, domains=domains.domain_ranges[:-1], k=KSPL)
     
     # Surface term
     _, weights = roots_legendre(M)
@@ -704,7 +704,7 @@ def spheroidal_method(*params, max_iterations=200) :
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, NE, N, r, zeta, dom, eval_phi_c, eval_w, Lsp, Dsp
+    global L, M, KSPL, KLAG, NE, N, r, zeta, domains, eval_phi_c, eval_w, Lsp, Dsp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params, \
     NE, rescale_ab = params
@@ -713,7 +713,7 @@ def spheroidal_method(*params, max_iterations=200) :
     G, P0, N, mass, radius, r, zeta, rho, additional_var = init_1D(model_choice) 
     
     # Domains identification
-    dom = find_domains(zeta)
+    domains = find_domains(zeta)
     
     # Angular domain preparation
     map_n, cth = init_2D(r, M)
@@ -772,7 +772,7 @@ def spheroidal_method(*params, max_iterations=200) :
 
         # Renormalisation
         r_corr    = find_r_eq(map_n, L)
-        m_corr    = integrate2D(map_n, rho, domains=dom.ranges[:-1])   
+        m_corr    = integrate2D(map_n, rho, domains=domains.domain_ranges[:-1])   
         radius   *= r_corr
         mass     *= m_corr
         map_n    /=             r_corr
@@ -819,8 +819,8 @@ def spheroidal_method(*params, max_iterations=200) :
         gravitational_potential_derivative_harmonics=(
             dphi_g_l.copy()
         ),
-        internal_mask=dom.int.copy(),
-        external_mask=dom.ext.copy(),
+        internal_mask=domains.internal_mask.copy(),
+        external_mask=domains.external_mask.copy(),
         mass=mass,
         radius=radius,
         rotation_target=rotation_target,
@@ -845,7 +845,7 @@ def spheroidal_method(*params, max_iterations=200) :
             cmap=output_params.plot_cmap_f,
             show_surfaces=output_params.plot_surfaces,
             cmap_lines=output_params.plot_cmap_surfaces,
-            disc=dom.end[:-1],
+            disc=domains.interface_end_indices[:-1],
             label=r"$\log_{10} \left[\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}\right]$"
         )
     

@@ -54,7 +54,7 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
         c = cmap(l/L)
         plt.plot(zeta, np.abs(phi_g_l[:, l]), color=c, lw=1.0, alpha=0.3)
     plt.vlines(
-        find_domains(zeta).bounds, 
+        find_domains(zeta).interface_values, 
         ymin=ylims[0],  ymax=ylims[1], colors="grey", linestyles="--", linewidth=1.0
     )
     plt.yscale("log")

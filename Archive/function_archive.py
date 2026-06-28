@@ -412,7 +412,7 @@
     # Del = lambda x, f, der: interpolate_func(x, f, der=der, k=5)(x)
     
     # Sph = lambda func, *args, **kwargs: np.hstack(
-    #     [func(*[a[D] for a in args], **kwargs) for D in dom.ranges[:-1]]
+    #     [func(*[a[D] for a in args], **kwargs) for D in dom.domain_ranges[:-1]]
     # )
     
     # # metric terms
@@ -420,7 +420,7 @@
     # dr._ = map_n
     # map_l = pl_project_2D(dr._, L)
     # _, dr.t = pl_eval_2D(map_l, t, der=1)
-    # if dom.Nd == 1 : 
+    # if dom.n_domains == 1 : 
     #     dr.z = np.array([Del(zeta, rk, der=1) for rk in map_n.T]).T 
     #     dP_dz = Del(zeta, P, der=1)
     # else :
@@ -433,7 +433,7 @@
     # phi_g = pl_eval_2D(phi_g_l, t)
     # _, dphi_g_dt = pl_eval_2D(phi_g_l, t, der=1)
     # dphi_g_dr = pl_eval_2D(dphi_g_l, t)
-    # if dom.Nd == 1 : 
+    # if dom.n_domains == 1 : 
     #     dphi_g_dr = np.array(
     #         [CubicHermiteSpline(r, pk, dpk)(rk, nu=1) for rk, pk, dpk in zip(map_n.T, phi_g.T, dphi_g_dr.T)]
     #     ).T
@@ -461,7 +461,7 @@
     #     cmap='viridis',
     #     show_surfaces=False,
     #     label=r"$\delta \mathrm{EQ}_r$",
-    #     disc=dom.end[:-1]
+    #     disc=dom.interface_end_indices[:-1]
     # )
     # plot_f_map(
     #     map_n, np.log10(np.abs(EQ_t)+1e-15), phi_eff, L, 
@@ -469,5 +469,5 @@
     #     cmap='cividis',
     #     show_surfaces=False,
     #     label=r"$\delta \mathrm{EQ}_t$",
-    #     disc=dom.end[:-1]
+    #     disc=dom.interface_end_indices[:-1]
     # )
