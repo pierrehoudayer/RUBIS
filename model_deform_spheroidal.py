@@ -76,7 +76,7 @@ def init_1D(model_choice) :
     G = 6.67384e-8  # <- Gravitational constant
     if isinstance(model_choice, PolytropicModelConfig):    
         # The model properties are user-defined
-        N = model_choice.resolution
+        N = model_choice.n_points
         M = model_choice.mass      
         R = model_choice.radius    
         

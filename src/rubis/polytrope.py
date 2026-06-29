@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 from matplotlib      import rc
 from scipy.integrate import solve_ivp
 
-from ._utils         import DotDict
 from .models import (
     CompositePolytropeConfig,
     PolytropeConfig,
     PolytropicModelConfig,
+    SphericalModel,
 )
 
 
@@ -26,15 +26,18 @@ __all__ = [
 ]
 
 
-def build_polytrope(config: PolytropicModelConfig):
+def build_polytrope(
+    config: PolytropicModelConfig,
+) -> SphericalModel:
     """Build a spherical polytrope from its configuration."""
+    
     if isinstance(config, PolytropeConfig):
         config = CompositePolytropeConfig(
             indices=(config.index,),
             target_pressures=(-np.inf,),
             radius=config.radius,
             mass=config.mass,
-            resolution=config.resolution,
+            n_points=config.n_points,
         )
 
     if isinstance(config, CompositePolytropeConfig):
@@ -45,37 +48,8 @@ def build_polytrope(config: PolytropicModelConfig):
     )
 
 
-def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
-    """
-    Generate a polytrope of given radius, mass and surface pressure.
-    
-    Parameters
-    ----------
-    N : int
-        Polytrope index
-    P0 : float
-        Surface pressure
-    R : float, optional
-        Polytrope radius. The default value is 1.0
-    M : float, optional
-        Polytrope mass. The default value is 1.0
-    res : int, optional
-        Number of points. The default value is 1001
-        
-    Returns
-    -------
-    model : Dotdict instance
-        Dictionary containing the model variables : {
-            r : array_like, shape (res, )
-                Radial coordinate
-            P : array_like, shape (res, )
-                Pressure
-            rho : array_like, shape (res, )
-                Density
-            g : array_like, shape (res, )
-                Gravity
-        }
-    """
+def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) -> SphericalModel:
+    """Generate a polytrope of given radius, mass and surface pressure."""
     
     if N in {1.0} :             # The analytical solution is known
         
@@ -142,16 +116,16 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) :
     x  = x0 * np.sin(np.linspace(0, np.pi/2, res))
     h, dh  = f(x), df(x)
     
-    # Defining model
-    model = DotDict()
-    model.r   = L_scale * x
-    model.g   = G_scale * (N+1) * (-dh)
-    model.rho = rhoc    * h**N
-    model.p   = pc      * h**(N+1) 
-    
-    return model
+    return SphericalModel(
+        r   = L_scale * x,
+        p   = pc * h**(N + 1),
+        rho = rhoc * h**N,
+        g   = G_scale * (N + 1) * (-dh),
+    )
 
-def composite_polytrope(config: CompositePolytropeConfig):
+def composite_polytrope(
+    config: CompositePolytropeConfig,
+) -> SphericalModel:
     """
     Generate a composite polytrope of given radius and mass.
     The latter is composed of N polytropes, the i-th one having an index n_i = indices[i].
@@ -164,40 +138,8 @@ def composite_polytrope(config: CompositePolytropeConfig):
         rho_i(r+) = rho_{i-1}(r-) * density_jumps[i]
     and which can be greater than 1 (density returnal).
     
-    Note: A standard polytrope (of index n) can be retrieved using:
+    NOTE: A standard polytrope (of index n) can be retrieved using:
         model = composite_polytrope(indices = n, target_pressures = -np.inf)
-    
-    Parameters
-    ----------
-    config : DotDict instance containing: {
-        indices : array_like, shape(N, )
-            Each region polytropic index
-        target_pressures : array_like, shape(N, )
-            Normalised interface pressure values (surface included).
-        density_jumps : array_like, shape(N-1, )
-            Density ratios above and below each interface (surface excluded).
-            The default value is np.ones((n_regions-1,))
-        radius : float, optional
-            Composite polytrope radius. Set to 1.0 if None
-        mass : float, optional
-            Composite polytrope mass. Set to 1.0 if None
-        resolution : int, optional
-            Number of points. Set to 1001 if None
-    }
-        
-    Returns
-    -------
-    model : Dotdict instance
-        Dictionary containing the model variables : {
-            r : array_like, shape (res, )
-                Radial coordinate
-            P : array_like, shape (res, )
-                Pressure
-            rho : array_like, shape (res, )
-                Density
-            g : array_like, shape (res, )
-                Gravity
-        }
     """
     # Config reading
     indices = np.atleast_1d(config.indices)
@@ -224,7 +166,7 @@ def composite_polytrope(config: CompositePolytropeConfig):
 
     R = config.radius
     M = config.mass
-    res = config.resolution
+    res = config.n_points
     
     # Solver arguments
     dxi_est = 20.0
@@ -303,10 +245,9 @@ def composite_polytrope(config: CompositePolytropeConfig):
     # Solution rescaling
     G = 6.67384e-8                      # Gravitational constant
     r_scale = R / x_out
-    model = DotDict()
-    model.rho = []
-    model.p   = []   
-    model.g   = []   
+    rho = []
+    p = []
+    g = []  
     for i in range(n_regions-1, -1, -1) :
         # Scaling computation
         Ni = indices[i]
@@ -326,42 +267,27 @@ def composite_polytrope(config: CompositePolytropeConfig):
         yi = solutions[i].sol(x_per_domain[i])
         
         # Scaled variables
-        model.rho = np.hstack((rho_scales[-1] * yi[0]**(Ni+0), model.rho))
-        model.p   = np.hstack((  p_scales[-1] * yi[0]**(Ni+1), model.p))
-        model.g   = np.hstack((- g_scales[-1] * yi[1] *(Ni+1), model.g))
-    model.r   = r_scale * np.hstack(x_per_domain) 
-    
-    return model
+        rho = np.hstack((
+            rho_scales[-1] * yi[0]**Ni,
+            rho,
+        ))
+        p = np.hstack((
+            p_scales[-1] * yi[0]**(Ni + 1),
+            p,
+        ))
+        g = np.hstack((
+            -g_scales[-1] * yi[1] * (Ni + 1),
+            g,
+        ))
+        
+    r = r_scale * np.hstack(x_per_domain)
 
-
-if __name__ == '__main__':
-    # Model creation
-    config = DotDict(
-        indices = (2.0, 1.0, 3.0, 1.5, 2.0, 4.0), 
-        target_pressures = (-1.0, -2.0, -3.0, -5.0, -7.0, -np.inf), 
-        density_jumps = (0.3, 0.2, 1.2, 0.8, 0.2)
+    return SphericalModel(
+        r=r,
+        p=p,
+        rho=rho,
+        g=g,
     )
-    model = composite_polytrope(config)
-    
-    # Find the interfaces
-    _, idx = np.unique(model.r, return_index=True)
-    idxref = np.arange(len(model.r))
-    interfaces = model.r[list(set(idxref) - set(idx))]
-    
-    # Plot
-    size = 16
-    ymax = np.max([np.max(model.rho), np.max(model.p), np.max(model.g)]) * 10
-    rc('text', usetex=True)
-    rc('xtick', labelsize=size)
-    rc('ytick', labelsize=size)
-    plt.plot(model.r, model.p,   label=r"$P$")
-    plt.plot(model.r, model.rho, label=r"$\rho$")
-    plt.plot(model.r, model.g,   label=r"$g$")
-    plt.ylim((1e-15, ymax))
-    plt.vlines(interfaces, ymin=1e-15, ymax=ymax, colors='grey', alpha=0.3, linewidth=1.0)
-    plt.legend(fontsize=size)
-    plt.yscale('log')
-    plt.show()
     
     
     

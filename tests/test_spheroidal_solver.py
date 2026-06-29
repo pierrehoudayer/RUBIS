@@ -20,7 +20,7 @@ def test_spheroidal_solver_returns_normalised_state():
         density_jumps=(0.4,),
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
@@ -122,7 +122,7 @@ def test_nonrotating_composite_model_remains_spherical():
         density_jumps=(0.4,),
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
@@ -249,7 +249,7 @@ def test_uniform_rotation_deforms_composite_model():
         density_jumps=(density_jump,),
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(

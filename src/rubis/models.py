@@ -1,15 +1,16 @@
 """Data structures describing stellar models."""
 
 import numpy as np
+from numpy.typing import NDArray, ArrayLike
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from numpy.typing import ArrayLike
 
 
 __all__ = [
     "PolytropicModelConfig",
     "PolytropeConfig",
     "CompositePolytropeConfig",
+    "SphericalModel",
 ]
 
 
@@ -19,7 +20,7 @@ class PolytropicModelConfig(ABC):
 
     radius: float = 1.0
     mass: float = 1.0
-    resolution: int = 1001
+    n_points: int = 1001
 
     @property
     @abstractmethod
@@ -61,3 +62,20 @@ class CompositePolytropeConfig(PolytropicModelConfig):
             return (float(self.indices),)
 
         return tuple(float(index) for index in self.indices)
+    
+    
+FloatArray = NDArray[np.float64]
+
+
+@dataclass
+class SphericalModel:
+    """One-dimensional spherical stellar model."""
+
+    r: FloatArray
+    p: FloatArray
+    rho: FloatArray
+    g: FloatArray
+
+    @property
+    def n_points(self) -> int:
+        return self.r.size

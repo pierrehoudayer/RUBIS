@@ -3,23 +3,50 @@ import pytest
 import numpy as np
 from scipy.integrate import simpson
 
-from rubis.models import CompositePolytropeConfig
-from rubis.polytrope import composite_polytrope, polytrope
+from rubis.models import (
+    CompositePolytropeConfig,
+    PolytropeConfig,
+    SphericalModel,
+)
+from rubis.polytrope import (
+    polytrope,
+    composite_polytrope,
+)
 
 
 G = 6.67384e-8
 
+def test_polytrope_returns_spherical_model():
+    model = polytrope(1.0, res=101)
+
+    assert isinstance(model, SphericalModel)
+    assert model.n_points == 101
+    
+    
+def test_composite_polytrope_returns_spherical_model():
+    config = CompositePolytropeConfig(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.4,),
+        n_points=101,
+    )
+
+    model = composite_polytrope(config)
+
+    assert isinstance(model, SphericalModel)
+    assert model.n_points == 101
+    
 
 def test_n1_polytrope_matches_analytic_solution():
     radius = 2.0
     mass = 3.0
-    resolution = 101
+    n_points = 101
 
     model = polytrope(
         1.0,
         R=radius,
         M=mass,
-        res=resolution,
+        res=n_points,
     )
 
     x = np.pi * model.r / radius
@@ -189,14 +216,14 @@ def test_n3_polytrope_global_properties():
 def test_single_region_composite_matches_simple_polytrope():
     radius = 2.0
     mass = 3.0
-    resolution = 501
+    n_points = 501
     index = 3.0
 
     simple_model = polytrope(
         index,
         R=radius,
         M=mass,
-        res=resolution,
+        res=n_points,
     )
 
     composite_model = composite_polytrope(
@@ -206,7 +233,7 @@ def test_single_region_composite_matches_simple_polytrope():
             density_jumps=None,
             radius=radius,
             mass=mass,
-            resolution=resolution,
+            n_points=n_points,
         )
     )
 
@@ -239,7 +266,7 @@ def test_single_region_composite_matches_simple_polytrope():
 def test_composite_polytrope_interface_conditions():
     radius = 2.0
     mass = 3.0
-    resolution = 301
+    n_points = 301
     density_jump = 0.4
 
     model = composite_polytrope(
@@ -249,14 +276,14 @@ def test_composite_polytrope_interface_conditions():
             density_jumps=(density_jump,),
             radius=radius,
             mass=mass,
-            resolution=resolution,
+            n_points=n_points,
         )
     )
 
-    assert model.r.size == resolution
-    assert model.rho.size == resolution
-    assert model.p.size == resolution
-    assert model.g.size == resolution
+    assert model.r.size == n_points
+    assert model.rho.size == n_points
+    assert model.p.size == n_points
+    assert model.g.size == n_points
 
     # A two-region model contains one duplicated radius.
     interface_indices = np.flatnonzero(

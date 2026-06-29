@@ -17,7 +17,7 @@ def test_radial_solver_returns_normalised_state():
         index=1.0,
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
@@ -75,7 +75,7 @@ def test_radial_solver_rejects_multidomain_model():
         indices=(1.0, 1.0),
         target_pressures=(-1.0, -np.inf),
         density_jumps=(0.4,),
-        resolution=65,
+        n_points=65,
     )
 
     with pytest.raises(ValueError, match="single-domain"):
@@ -106,7 +106,7 @@ def test_nonrotating_radial_model_remains_spherical():
         index=1.0,
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
@@ -222,7 +222,7 @@ def test_uniform_rotation_produces_oblate_model():
         index=1.0,
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
@@ -339,7 +339,7 @@ def test_radial_solver_enforces_iteration_limit():
         index=1.0,
         radius=1.0,
         mass=1.0,
-        resolution=resolution,
+        n_points=resolution,
     )
 
     output = DotDict(
