@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from rubis._utils import DotDict
+from rubis.options import OutputOptions
 from rubis.models import PolytropeConfig, CompositePolytropeConfig
 from model_deform_radial import radial_method
 from rubis.rotation_profiles import solid
@@ -20,14 +20,6 @@ def test_radial_solver_returns_normalised_state():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     result = radial_method(
         model,
         solid,
@@ -40,7 +32,7 @@ def test_radial_solver_returns_normalised_state():
         1.0e-10,
         3,      # Spline order
         2,      # Lagrange order
-        output,
+        OutputOptions(),
         21,     # Unused external-domain resolution
         True,   # Unused matrix rescaling option
     )
@@ -109,14 +101,6 @@ def test_nonrotating_radial_model_remains_spherical():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     result = radial_method(
         model,
         solid,
@@ -129,7 +113,7 @@ def test_nonrotating_radial_model_remains_spherical():
         1.0e-10,
         3,
         2,
-        output,
+        OutputOptions(),
         21,
         True,
     )
@@ -225,14 +209,6 @@ def test_uniform_rotation_produces_oblate_model():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     result = radial_method(
         model,
         solid,
@@ -245,7 +221,7 @@ def test_uniform_rotation_produces_oblate_model():
         mapping_precision,
         3,
         2,
-        output,
+        OutputOptions(),
         21,
         True,
     )
@@ -342,14 +318,6 @@ def test_radial_solver_enforces_iteration_limit():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     with pytest.raises(
         RuntimeError,
         match="did not converge after 1 iterations",
@@ -366,7 +334,7 @@ def test_radial_solver_enforces_iteration_limit():
             mapping_precision,
             3,
             2,
-            output,
+            OutputOptions(),
             21,
             True,
             max_iterations=1,

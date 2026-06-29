@@ -710,7 +710,7 @@ def spheroidal_method(*params, max_iterations=200) :
     start = time.perf_counter()
     global L, M, KSPL, KLAG, NE, N, r, zeta, domains, eval_phi_c, eval_omega, Lsp, Dsp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
-    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_params, \
+    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_options, \
     NE, rescale_ab = params
     
     # Definition of the 1D-model
@@ -838,40 +838,40 @@ def spheroidal_method(*params, max_iterations=200) :
     )
     
     
-    if output_params.show_harmonics :
+    if output_options.plot.show_harmonics :
         phi_g_harmonics(zeta, phi_g_l, radial=False)
     
     # Virial test
-    if output_params.virial_test :
+    if output_options.diagnostics.virial_test :
         virial = Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=True)   
     
     # Plot model
-    if output_params.show_model :
+    if output_options.plot.show_model :
         plot_f_map(
             mapping, np.log10(rho+rho.max()**-1), phi_eff, L, 
-            angular_res=output_params.plot_resolution,
-            cmap=output_params.plot_cmap_f,
-            show_surfaces=output_params.plot_surfaces,
-            cmap_lines=output_params.plot_cmap_surfaces,
+            angular_res=output_options.plot.resolution,
+            cmap=output_options.plot.field_cmap,
+            show_surfaces=output_options.plot.surfaces,
+            cmap_lines=output_options.plot.surface_cmap,
             disc=domains.interface_end_indices[:-1],
             label=r"$\log_{10} \left[\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}\right]$"
         )
     
     # Gravitational moments
-    if output_params.gravitational_moments :
+    if output_options.diagnostics.gravitational_moments :
         find_gravitational_moments(mapping, rho)
     
     # Model writing
-    if output_params.save_model :
+    if output_options.model.save :
         rota = eval_omega(mapping[:, (M-1)//2], 0.0, rotation_target)
-        if output_params.dim_model : 
+        if output_options.model.dimensional : 
             mapping    *=               radius
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius
             P        *= G * mass**2 / radius**4
         write_model(
-            output_params.save_name,
+            output_options.model.filename,
             (N, M, mass, radius, rotation_target, G),
             mapping,
             additional_variables,

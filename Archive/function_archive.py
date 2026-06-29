@@ -457,7 +457,7 @@
     
     # plot_f_map(
     #     map_n, np.log10(np.abs(EQ_r)), phi_eff, L, 
-    #     angular_res=output_params.plot_resolution,
+    #     angular_res=output_options.plot.resolution,
     #     cmap='viridis',
     #     show_surfaces=False,
     #     label=r"$\delta \mathrm{EQ}_r$",
@@ -465,7 +465,7 @@
     # )
     # plot_f_map(
     #     map_n, np.log10(np.abs(EQ_t)+1e-15), phi_eff, L, 
-    #     angular_res=output_params.plot_resolution,
+    #     angular_res=output_options.plot.resolution,
     #     cmap='cividis',
     #     show_surfaces=False,
     #     label=r"$\delta \mathrm{EQ}_t$",

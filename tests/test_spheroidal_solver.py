@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from rubis._utils import DotDict
+from rubis.options import OutputOptions
 from rubis.models import CompositePolytropeConfig
 from model_deform_spheroidal import spheroidal_method
 from rubis.rotation_profiles import solid
@@ -23,14 +23,6 @@ def test_spheroidal_solver_returns_normalised_state():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     result = spheroidal_method(
         model,
         solid,
@@ -43,7 +35,7 @@ def test_spheroidal_solver_returns_normalised_state():
         1.0e-10,
         3,
         2,
-        output,
+        OutputOptions(),
         external_resolution,
         True,
     )
@@ -124,15 +116,7 @@ def test_nonrotating_composite_model_remains_spherical():
         mass=1.0,
         n_points=resolution,
     )
-
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
+    
     result = spheroidal_method(
         model,
         solid,
@@ -145,7 +129,7 @@ def test_nonrotating_composite_model_remains_spherical():
         1.0e-10,
         3,
         2,
-        output,
+        OutputOptions(),
         external_resolution,
         True,
     )
@@ -252,14 +236,6 @@ def test_uniform_rotation_deforms_composite_model():
         n_points=resolution,
     )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
     result = spheroidal_method(
         model,
         solid,
@@ -272,7 +248,7 @@ def test_uniform_rotation_deforms_composite_model():
         mapping_precision,
         3,
         2,
-        output,
+        OutputOptions(),
         external_resolution,
         True,
     )
