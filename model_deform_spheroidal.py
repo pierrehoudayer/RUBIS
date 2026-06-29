@@ -27,8 +27,10 @@ from rubis.polytrope     import (
 )
 from rubis.domains       import find_domains
 from rubis.mapping       import (
+    MappingDerivatives,
     initialize_mapping, 
     valid_reciprocal_domain,
+    extend_mapping,
 )
 from rubis.rotation_profiles import configure_rotation_profile
 from rubis.results       import SpheroidalResult
@@ -64,9 +66,9 @@ def init_1D(model_choice) :
         Total mass of the model.
     R : float
         Radius of the model.
-    r : array_like, shape (N, ), [GLOBAL VARIABLE]
+    r1D : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
-    zeta : array_like, shape (N+NE, ), [GLOBAL VARIABLE]
+    zeta : array_like, shape (N+NE, ), [GLrOBAL VARIABLE]
         Spheroidal coordinate
     rho : array_like, shape (N, )
         Radial density of the model after normalisation.
@@ -85,29 +87,29 @@ def init_1D(model_choice) :
         model = composite_polytrope(model_choice)
         
         # Normalisation
-        r   = model.r     /  R
+        r1d = model.r     /  R
         rho = model.rho   / (M/R**3)
-        other_var = np.empty_like(r)
         P0  = model.p[-1] / (G*M**2/R**4)
+        other_var = np.empty_like(r1d)
         
     else : 
         # Reading file 
         surface_pressure, radial_res = np.genfromtxt(
             './Models/'+model_choice, max_rows=2, unpack=True
         )
-        r1D, rho1D, *other_var = np.genfromtxt(
+        r1d, rho1d, *other_var = np.genfromtxt(
             './Models/'+model_choice, skip_header=2, unpack=True
         )
         N = int(radial_res)
         
         # Normalisationfor D in 
-        R = r1D[-1]
-        domains = find_domains(r1D)
+        R = r1d[-1]
+        domains = find_domains(r1d)
         M = 4*np.pi * sum(
-            integrate(x=r1D[D], y=r1D[D]**2 * rho1D[D]) for D in domains.domain_ranges
+            integrate(x=r1d[D], y=r1d[D]**2 * rho1d[D]) for D in domains.domain_ranges
         )
-        r   = r1D / (R)
-        rho = rho1D / (M/R**3)
+        r1d = r1d / (R)
+        rho = rho1d / (M/R**3)
         P0  = surface_pressure / (M**2/R**4)
         
         # We assume that P0 is already normalised by G if R ~ 1 ...
@@ -115,10 +117,10 @@ def init_1D(model_choice) :
             P0 /= G
     
     # Spheroidal coordinate
-    re = np.linspace(1, 2, NE)
-    zeta = np.hstack((r, 1+sp.betainc(2, 2, re-1)))
+    r1d_ext = np.linspace(1, 2, NE)
+    zeta = np.hstack((r1d, 1 + sp.betainc(2, 2, r1d_ext-1)))
     
-    return G, P0, N, M, R, r, zeta, rho, other_var
+    return G, P0, N, M, R, r1d, zeta, rho, other_var
 
 
 def init_sparse_matrices_per_domain() : 
@@ -145,7 +147,7 @@ def init_sparse_matrices_per_domain() :
     return Lsp, Dsp
 
 
-def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
+def find_gravitational_moments(r2d, t, rho, max_degree=14) :
     """
     Find the gravitational moments up to max_degree.
 
@@ -153,7 +155,7 @@ def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
     ----------
     mapping : array_like, shape (N, M)
         Isopotential mapping.
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Value of cos(theta).
     rho : array_like, shape (N, )
         Density profile (the same in each direction).
@@ -172,7 +174,7 @@ def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
     )
     for l in range(0, max_degree+1, 2):
         m_l = integrate2D(
-            mapping, rho[:, None] * mapping ** l * eval_legendre(l, cth), 
+            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), 
             domains=domains.domain_ranges[:-1], k=KSPL
         )
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
@@ -200,26 +202,31 @@ def find_pressure(rho, dphi_eff, P0) :
     """
     dP = - rho * dphi_eff[domains.internal_mask]        
     P  = interpolate_func(
-        1-zeta[domains.unique_internal_indices][::-1], -dP[domains.unique_internal_indices][::-1], der=-1, k=KSPL, prim_cond=(0, P0)
+        1 - zeta[domains.unique_internal_indices][::-1], 
+        -dP[domains.unique_internal_indices][::-1], 
+        der=-1, 
+        k=KSPL, 
+        prim_cond=(0, P0),
     )(1-zeta[domains.internal_mask][::-1])[::-1]
+    
     return P
 
 
-def find_metric_terms(mapping, t) : 
+def find_metric_terms(r2d, t) : 
     """
     Finds the metric terms, i.e the derivatives of r(z, t) 
     with respect to z or t (with z := zeta and t := cos(theta)).
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Isopotential mapping.
     t : array_like, shape (M, )
         Angular variable.
 
     Returns
     -------
-    dr : DotDict instance
+    der : DotDict instance
         The mapping derivatives : {
             _   = r(z, t),
             t   = r_t(z, t),
@@ -229,66 +236,39 @@ def find_metric_terms(mapping, t) :
             ztt = r_ztt(z, t)
             }          
     """
-    dr = DotDict()
-    dr._ = mapping
-    map_l = pl_project_2D(dr._, L)
-    _, dr.t, dr.tt = pl_eval_2D(map_l, t, der=2)
-    dr.z = np.array(
+    r_l = pl_project_2D(r2d, L)
+    _, r_t, r_tt = pl_eval_2D(r_l, t, der=2)
+
+    r_z = np.array(
         [np.hstack(
             [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
              for D in domains.domain_ranges[:-1]]
-        ) for rk in mapping.T]            # <- mapping derivative potentially
-    ).T                                 #    discontinous on the interfaces
-    map_l_z = pl_project_2D(dr.z, L)
-    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, t, der=2)
-    return dr
+        ) for rk in r2d.T] # <- potentially discontinous on the interfaces
+    ).T
 
-def find_external_mapping(dr) : 
-    """
-    Complete the internal mapping (0 <= z <= 1) to an external 
-    domain (1 <= z <= 2). By convention, this continuation reaches 
-    the spherical metric at z=2, thus making it handy to impose 
-    the boundary conditions on this point. Please note that the
-    mapping thus defined is not derivable at the interface between 
-    the internal and external domains (hence in z = 1).
+    r_z_l = pl_project_2D(r_z, L)
+    _, r_zt, r_ztt = pl_eval_2D(r_z_l, t, der=2)
 
-    Parameters
-    ----------
-    dr : DotDict instance
-        The internal mapping and its derivatives with respect to z and t
-
-    Returns
-    -------
-    dr : DotDict instance
-        The commplete mapping from 0 <= z <= 2.
-    """
-    # External zeta variable 
-    z = zeta[domains.external_mask].reshape((-1, 1))
+    return MappingDerivatives(
+        r_t=r_t,
+        r_tt=r_tt,
+        r_z=r_z,
+        r_zt=r_zt,
+        r_ztt=r_ztt,
+    )
     
-    # Internal mapping constraints
-    surf, dsurf, ddsurf = dr._[-1], dr.t[-1], dr.tt[-1]
     
-    # External mapping and derivatives
-    max_degree = 3
-    dr._  = np.vstack((dr._, z - (1-surf)*(2-z)**max_degree))
-    dr.t  = np.vstack((dr.t,       dsurf *(2-z)**max_degree))
-    dr.tt = np.vstack((dr.tt,     ddsurf *(2-z)**max_degree))
-    dr.z  = np.vstack((dr.z, 1 + (1-surf)*(2-z)**(max_degree-1)*max_degree))
-    
-    # Sanity check
-    assert not np.any(dr.z < 0)
-    
-    return dr
-
-def find_all_couplings(dr, t, alpha=2) :
+def find_all_couplings(r2d, der, t, alpha=2) :
     """
     Find all the couplings needed to solve Poisson's equation in 
     spheroidal coordinates.
 
     Parameters
     ----------
-    dr : DotDict instance
-        The mapping and its derivatives with respect to z and t
+    r2d : array_like, shape (N, M)
+        Isopotential mapping.
+    der : DotDict instance
+        Derivatives with respect to z and t
     t : array_like, shape (M, )
         Angular variable.
     alpha : float, optional
@@ -314,17 +294,20 @@ def find_all_couplings(dr, t, alpha=2) :
     Pll = DotDict()
     l = np.arange(0, L, 2)
     
+    r = r2d
+    r_z, r_t, r_tt = der.r_z, der.r_t, der.r_tt 
+    
     Pll.zz = Legendre_coupling(
-        (dr._**2 + (1-t**2) * dr.t**2) / dr.z, L, der=(0, 0)
+        (r**2 + (1-t**2) * r_t**2) / r_z, L, der=(0, 0)
     )
     Pll.zt = Legendre_coupling(
-        (1-t**2) * dr.tt - 2*t * dr.t, L, der=(0, 0)
+        (1-t**2) * r_tt - 2*t * r_t, L, der=(0, 0)
     ) + alpha * Legendre_coupling(
-        (1-t**2) * dr.t, L, der=(0, 1)
+        (1-t**2) * r_t, L, der=(0, 1)
     )
-    Pll.tt = Legendre_coupling(dr.z, L, der=(0, 0)) * l*(l+1)
+    Pll.tt = Legendre_coupling(r_z, L, der=(0, 0)) * l*(l+1)
     
-    Pll.BC = Legendre_coupling(1/dr.z, L, der=(0, 0))
+    Pll.BC = Legendre_coupling(1/r_z, L, der=(0, 0))
     
     return Pll 
 
@@ -435,7 +418,7 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
     return coefs, b, col_scale
 
 
-def find_phi_eff(mapping, cth, rho, phi_eff=None, rescale_ab=True) :
+def find_phi_eff(r2d, t, rho, phi_eff=None, rescale_ab=True) :
     """
     Determination of the effective potential from a given mapping
     (mapping, which gives the lines of constant density), and a given 
@@ -446,9 +429,9 @@ def find_phi_eff(mapping, cth, rho, phi_eff=None, rescale_ab=True) :
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Current mapping.
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Values of cos(theta).
     rho : array_like, shape (N, )
         Current density on each equipotential.
@@ -475,12 +458,27 @@ def find_phi_eff(mapping, cth, rho, phi_eff=None, rescale_ab=True) :
         Effective potential derivative with respect to zeta.
 
     """        
-    # Metric terms and coupling integral computation
-    dr     = find_metric_terms(mapping, cth)
-    r2rz_l = pl_project_2D(dr._**2 * dr.z, L) / (np.arange(L) + 1/2)
-    rhs_l  = 4*np.pi * rho[:, None] * r2rz_l[:, ::2]
-    dr     = find_external_mapping(dr)
-    Pll    = find_all_couplings(dr, cth, alpha=2)
+    # Internal mapping derivatives
+    der = find_metric_terms(r2d, t)
+
+    # Matter source: internal domain only
+    r2rz_l = pl_project_2D(
+        r2d**2 * der.r_z,
+        L,
+    ) / (np.arange(L) + 1 / 2)
+
+    rhs_l = 4 * np.pi * rho[:, None] * r2rz_l[:, ::2]
+
+    # Vacuum extension: used for the Poisson operator
+    z_ext = zeta[domains.external_mask]
+    r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
+
+    Pll = find_all_couplings(
+        r2d_ext,
+        der_ext,
+        t,
+        alpha=2,
+    )
     
     # Vector and band matrix storage characteristics
     Nl = (L+1)//2
@@ -527,7 +525,7 @@ def find_phi_eff(mapping, cth, rho, phi_eff=None, rescale_ab=True) :
     return phi_g_l, dphi_g_l, phi_eff
 
 
-def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) :
+def find_new_mapping(r2d, t, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) :
     """
     Find the new mapping by comparing the effective potential
     and the total potential (calculated from phi_g_l and omega_n).
@@ -536,7 +534,7 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
     ----------
     mapping : array_like, shape (N, M)
         Current mapping.
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Value of cos(theta).
     omega_n : float
         Current rotation rate.
@@ -562,19 +560,20 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
     targets = np.copy(phi_eff[:N])
     
     # Find metric terms
-    dr = find_metric_terms(mapping, cth)
-    dr = find_external_mapping(dr)
+    der = find_metric_terms(r2d, t)
+    z_ext = zeta[domains.external_mask]
+    r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     
     # 2D gravitational potential
     eq = (M-1)//2
     up = np.arange(eq+1)
-    phi2D_g = pl_eval_2D( phi_g_l, cth[up])
-    dphi2D_g_dz = pl_eval_2D(dphi_g_l, cth[up])
-    dphi2D_g = dphi2D_g_dz / dr.z[:, up]
+    phi2D_g = pl_eval_2D( phi_g_l, t[up])
+    dphi2D_g_dz = pl_eval_2D(dphi_g_l, t[up])
+    dphi2D_g = dphi2D_g_dz / der_ext.r_z[:, up]
         
     ### Find the adaptive rotation rate
     valid_z = zeta > 0.5
-    valid_r = dr._[valid_z, eq]
+    valid_r = r2d_ext[valid_z, eq]
     phi1D_c, dphi1D_c = eval_phi_c(valid_r, 0.0, omega_n) / valid_r ** 3
     dphi1D_c -= 3 * phi1D_c / valid_r
     phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
@@ -597,7 +596,7 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
     
     # Cubic Hermite splines
     r_splines = [CubicHermiteSpline(
-        x=zeta[domains.unique_indices], y=dr._[domains.unique_indices, k], dydx=dr.z[domains.unique_indices, k]
+        x=zeta[domains.unique_indices], y=r2d_ext[domains.unique_indices, k], dydx=der_ext.r_z[domains.unique_indices, k]
     ) for k in up]
     p_splines = [CubicHermiteSpline(
         x=zeta[domains.unique_indices], y=phi2D_g[domains.unique_indices, k], dydx=dphi2D_g_dz[domains.unique_indices, k]
@@ -611,7 +610,7 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
         np.array([p_spl(z_new, nu=nu) for p_spl in p_splines]).T for nu in [0, 1]
     ]
     phi_c_ipl, dphi_c_ipl = np.moveaxis(np.array([
-        eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(r_ipl[:, up].T, cth[up])
+        eval_phi_c(rk , ck, omega_n_new) for rk, ck in zip(r_ipl[:, up].T, t[up])
     ]), 0, 2)
     phi_ipl  =  phi_c_ipl +  phi_g_ipl
     dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
@@ -620,7 +619,7 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
     valid = valid_reciprocal_domain(z_new, dphi_ipl)
         
     # Estimate at target values
-    map_est = np.zeros_like(mapping[:, up])
+    map_est = np.zeros_like(r2d[:, up])
     map_est[1:] = np.array([
         CubicHermiteSpline(x=pk[vk], y=rk[vk], dydx=dpk[vk]**-1)(targets[1:]) 
         for rk, pk, dpk, vk in zip(r_ipl.T, phi_ipl.T, dphi_ipl.T, valid.T)
@@ -633,7 +632,7 @@ def find_new_mapping(mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
     return map_n_new, omega_n_new
 
 
-def Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=False) : 
+def Virial_theorem(r2d, rho, omega_n, phi_g_l, P, verbose=False) : 
     """
     Compute the Virial equation and gives the resukt as a diagnostic
     for how well the hydrostatic equilibrium is satisfied (the closer
@@ -664,7 +663,7 @@ def Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=False) :
     # Potential energy
     volumic_potential_energy = lambda rk, ck, D : -rho[D] * pl_eval_2D(phi_g_l[D], ck)
     potential_energy = integrate2D(
-        mapping, volumic_potential_energy, domains=domains.domain_ranges[:-1], k=KSPL
+        r2d, volumic_potential_energy, domains=domains.domain_ranges[:-1], k=KSPL
     )
     
     # Kinetic energy
@@ -672,15 +671,15 @@ def Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=False) :
        0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
     kinetic_energy = integrate2D(
-        mapping, volumic_kinetic_energy, domains=domains.domain_ranges[:-1], k=KSPL
+        r2d, volumic_kinetic_energy, domains=domains.domain_ranges[:-1], k=KSPL
     )
     
     # Internal energy
-    internal_energy = integrate2D(mapping, P, domains=domains.domain_ranges[:-1], k=KSPL)
+    internal_energy = integrate2D(r2d, P, domains=domains.domain_ranges[:-1], k=KSPL)
     
     # Surface term
     _, weights = roots_legendre(M)
-    surface_term = 2*np.pi * (mapping[-1]**3 @ weights) * P[-1]
+    surface_term = 2*np.pi * (r2d[-1]**3 @ weights) * P[-1]
     
     # Compute the virial equation
     if verbose :
@@ -709,19 +708,19 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, NE, N, r, zeta, domains, eval_phi_c, eval_omega, Lsp, Dsp
+    global L, M, KSPL, KLAG, NE, N, r1d, zeta, domains, eval_phi_c, eval_omega, Lsp, Dsp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_options, \
     NE, rescale_ab = params
     
     # Definition of the 1D-model
-    G, P0, N, mass, radius, r, zeta, rho, additional_variables = init_1D(model_choice) 
+    G, P0, N, mass, radius, r1d, zeta, rho, additional_variables = init_1D(model_choice) 
     
     # Domains identification
     domains = find_domains(zeta)
     
     # Angular domain preparation
-    mapping, cth = initialize_mapping(r, M)
+    r2d, t = initialize_mapping(r1d, M)
     
     # Centrifugal potential definition
     eval_phi_c, eval_omega = configure_rotation_profile(
@@ -734,13 +733,13 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     Lsp, Dsp = init_sparse_matrices_per_domain()
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(mapping, cth, rho, rescale_ab=rescale_ab)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(r2d, t, rho, rescale_ab=rescale_ab)
     
     # Find pressure
     P = find_pressure(rho, dphi_eff, P0)
     
     # Iterative centrifugal deformation
-    polar_radius_history = [0.0, find_r_pol(mapping, L)]
+    polar_radius_history = [0.0, find_r_pol(r2d, L)]
     iterations = 0
     print(
         "\n+---------------------+",
@@ -772,26 +771,26 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
         omega_n = min(rotation_target, ((iterations+1)/full_rate) * rotation_target)
         
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(mapping, cth, rho, phi_eff, rescale_ab)
+        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(r2d, t, rho, phi_eff, rescale_ab)
         
         # Update the mapping
-        mapping, omega_n = find_new_mapping(
-            mapping, cth, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
+        r2d, omega_n = find_new_mapping(
+            r2d, t, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff
         )        
 
         # Renormalisation
-        r_corr    = find_r_eq(mapping, L)
-        m_corr    = integrate2D(mapping, rho, domains=domains.domain_ranges[:-1])   
+        r_corr    = find_r_eq(r2d, L)
+        m_corr    = integrate2D(r2d, rho, domains=domains.domain_ranges[:-1])   
         radius   *= r_corr
         mass     *= m_corr
-        mapping  /=             r_corr
+        r2d  /=             r_corr
         rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr    # <- /!\ This is a derivative w.r.t. to zeta
         P        /= m_corr**2 / r_corr**4
         
         # Update the polar radius
-        polar_radius_history.append(find_r_pol(mapping, L))
+        polar_radius_history.append(find_r_pol(r2d, L))
         
         # Iteration count
         iterations += 1
@@ -807,16 +806,17 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     print(f'Time taken: {round(finish-start, 2)} secs')  
     
     # Estimated error on Poisson's equation
-    dr = find_metric_terms(mapping, cth)
-    dr = find_external_mapping(dr)
+    der = find_metric_terms(r2d, t)
+    z_ext = zeta[domains.external_mask]
+    r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     
     # Store the normalised solver state before any output
     # operation can modify the arrays in place.
     result = SpheroidalResult(
         zeta=zeta.copy(),
-        radial_grid=r.copy(),
-        cos_theta=cth.copy(),
-        mapping=mapping.copy(),
+        radial_grid=r1d.copy(),
+        cos_theta=t.copy(),
+        mapping=r2d.copy(),
 
         density=rho.copy(),
         pressure=P.copy(),
@@ -838,7 +838,7 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
 
         internal_zeta=zeta[domains.internal_mask].copy(),
         external_zeta=zeta[domains.external_mask].copy(),
-        full_mapping=dr._.copy(),
+        full_mapping=r2d_ext.copy(),
 
         internal_mask=domains.internal_mask.copy(),
         external_mask=domains.external_mask.copy(),
@@ -850,12 +850,12 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     
     # Virial test
     if output_options.diagnostics.virial_test :
-        virial = Virial_theorem(mapping, rho, omega_n, phi_g_l, P, verbose=True)   
+        virial = Virial_theorem(r2d, rho, omega_n, phi_g_l, P, verbose=True)   
     
     # Plot model
     if output_options.plot.show_model :
         plot_f_map(
-            mapping, np.log10(rho+rho.max()**-1), phi_eff, L, 
+            r2d, np.log10(rho+rho.max()**-1), phi_eff, L, 
             angular_res=output_options.plot.resolution,
             cmap=output_options.plot.field_cmap,
             show_surfaces=output_options.plot.surfaces,
@@ -866,13 +866,13 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     
     # Gravitational moments
     if output_options.diagnostics.gravitational_moments :
-        find_gravitational_moments(mapping, rho)
+        find_gravitational_moments(r2d, rho)
     
     # Model writing
     if output_options.model.save :
-        rota = eval_omega(mapping[:, (M-1)//2], 0.0, rotation_target)
+        rota = eval_omega(r2d[:, (M-1)//2], 0.0, rotation_target)
         if output_options.model.dimensional : 
-            mapping  *=               radius
+            r2d  *=               radius
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius
@@ -880,7 +880,7 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
         write_model(
             output_options.model.filename,
             (N, M, mass, radius, rotation_target, G),
-            mapping,
+            r2d,
             additional_variables,
             zeta,
             P,

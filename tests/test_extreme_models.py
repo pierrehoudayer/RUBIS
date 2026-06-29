@@ -2,20 +2,11 @@ import numpy as np
 import pytest
 
 from rubis._utils import DotDict
+from rubis.options import OutputOptions
+from rubis.polytrope import PolytropeConfig
 from rubis.rotation_profiles import lorentzian, solid
 from model_deform_radial import radial_method
 from model_deform_spheroidal import spheroidal_method
-
-
-def output_options():
-    return DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
 
 @pytest.mark.slow
 @pytest.mark.readme
@@ -23,13 +14,11 @@ def test_readme_near_critical_n3_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 0.9999
 
-    model = DotDict(
-        indices=3.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=3.0,
         radius=1.0,
         mass=1.0,
-        resolution=1001,
+        n_points=1001,
     )
 
     result = radial_method(
@@ -44,7 +33,7 @@ def test_readme_near_critical_n3_model_converges():
         mapping_precision,
         5,
         3,
-        output_options(),
+        OutputOptions(),
         21,
         True,
         max_iterations=150,
@@ -115,13 +104,11 @@ def test_readme_super_keplerian_n05_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 1.105
 
-    model = DotDict(
-        indices=0.5,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=0.5,
         radius=1.0,
         mass=1.0,
-        resolution=3001,
+        n_points=3001,
     )
 
     result = radial_method(
@@ -136,7 +123,7 @@ def test_readme_super_keplerian_n05_model_converges():
         mapping_precision,
         5,
         2,
-        output_options(),
+        OutputOptions(),
         21,
         True,
         max_iterations=150,
@@ -220,13 +207,11 @@ def test_readme_extreme_lorentzian_model_converges():
     rotation_target = 0.97
     central_diff_rate = 5.0
 
-    model = DotDict(
-        indices=3.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
+    model = PolytropeConfig(
+        index=3.0,
         radius=1.0,
         mass=1.0,
-        resolution=1001,
+        n_points=1001,
     )
 
     result = radial_method(
@@ -241,7 +226,7 @@ def test_readme_extreme_lorentzian_model_converges():
         mapping_precision,
         5,
         3,
-        output_options(),
+        OutputOptions(),
         21,
         True,
         max_iterations=150,
@@ -332,7 +317,7 @@ def test_readme_jupiter_model_converges():
         mapping_precision,
         5,
         2,
-        output_options(),
+        OutputOptions(),
         201,
         True,
         max_iterations=100,

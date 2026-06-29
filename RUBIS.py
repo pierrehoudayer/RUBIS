@@ -1,8 +1,13 @@
 import numpy as np
 from pathlib import Path
 
-from rubis._utils            import DotDict
-from rubis.options           import OutputOptions
+from rubis.options           import (
+    OutputOptions,
+    DiagnosticOptions,
+    PlotOptions,
+    RadiativeFluxOptions,
+    ModelOutputOptions,
+)
 from rubis.models            import CompositePolytropeConfig
 from rubis.io.legacy         import make_output_filename
 from rubis.domains           import find_domains

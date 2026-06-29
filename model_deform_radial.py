@@ -23,6 +23,8 @@ from rubis.polytrope     import build_polytrope
 from rubis.mapping       import (
     initialize_mapping, 
     valid_reciprocal_domain,
+    compute_mapping_derivatives,
+    compute_mapping_geometry,
 )
 from rubis.rotation_profiles import configure_rotation_profile
 from rubis.results       import RadialResult
@@ -60,7 +62,7 @@ def init_1D(model_choice) :
         Total mass of the model.
     radius : float
         Radius of the model.
-    r : array_like, shape (N, ), [GLOBAL VARIABLE]
+    r1d : array_like, shape (N, ), [GLOBAL VARIABLE]
         Radial coordinate after normalisation.
     zeta : array_like, shape (N, ), [GLOBAL VARIABLE]
         Spheroidal coordinate
@@ -81,7 +83,7 @@ def init_1D(model_choice) :
         model = build_polytrope(model_choice)        
         
         # Normalisation
-        r   = model.r     / (              radius   )
+        r1d = model.r     / (              radius   )
         rho = model.rho   / (    mass    / radius**3)
         P0  = model.p[-1] / (G * mass**2 / radius**4)
         additional_variables = []
@@ -91,26 +93,26 @@ def init_1D(model_choice) :
         surface_pressure, radial_res = np.genfromtxt(
             './Models/'+model_choice, max_rows=2, unpack=True
         )
-        r1D, rho1D, *additional_variables = np.genfromtxt(
+        r1d, rho1d, *additional_variables = np.genfromtxt(
             './Models/'+model_choice, skip_header=2, unpack=True
         )
-        _, idx = np.unique(r1D, return_index=True) 
+        _, idx = np.unique(r1d, return_index=True) 
         N = len(idx)
         
         # Normalisation
-        radius = r1D[-1]
-        mass = 4*np.pi * integrate(x=r1D[idx], y=r1D[idx]**2 * rho1D[idx])
-        r   =   r1D[idx]       / (          radius   )
-        rho = rho1D[idx]       / (mass    / radius**3)
+        radius = r1d[-1]
+        mass = 4*np.pi * integrate(x=r1d[idx], y=r1d[idx]**2 * rho1d[idx])
+        r1d =   r1d[idx]       / (          radius   )
+        rho = rho1d[idx]       / (mass    / radius**3)
         P0  = surface_pressure / (mass**2 / radius**4)
         
         # We assume that P0 is already normalised by G if R ~ 1 ...
         if not np.allclose(radius, 1) :
             P0 /= G
             
-    zeta = np.copy(r)
+    zeta = np.copy(r1d)
     
-    return G, P0, N, mass, radius, r, zeta, rho, additional_variables
+    return G, P0, N, mass, radius, r1d, zeta, rho, additional_variables
 
 
 def init_sparse_matrices() : 
@@ -125,17 +127,17 @@ def init_sparse_matrices() :
         terms of Poisson's matrix.
 
     """
-    lag_mat = lagrange_matrix_P(r**2, order=KLAG)
+    lag_mat = lagrange_matrix_P(r1d**2, order=KLAG)
     Lsp = sps.dia_matrix(lag_mat[..., 0])
     Dsp = sps.dia_matrix(lag_mat[..., 1])
     Asp = sps.dia_matrix(
-        4 * lag_mat[..., 1] * r**4 - 2 * lag_mat[..., 0] * r**2
+        4 * lag_mat[..., 1] * r1d**4 - 2 * lag_mat[..., 0] * r1d**2
     )
     return Lsp, Dsp, Asp
 
 def find_pressure(rho, dphi_eff, P0) :
     """
-    Find the pressure evaluated on r thanks to the hydrostatic
+    Find the pressure evaluated on r1d thanks to the hydrostatic
     equilibrium.
 
     Parameters
@@ -143,7 +145,7 @@ def find_pressure(rho, dphi_eff, P0) :
     rho : array_like, shape (N, )
         Density profile.
     dphi_eff : array_like, shape (N, )
-        Effective potential derivative with respect to r.
+        Effective potential derivative with respect to r1d.
     P0 : float
         Surface pressure.
 
@@ -154,18 +156,18 @@ def find_pressure(rho, dphi_eff, P0) :
 
     """
     dP = - rho * dphi_eff
-    P  = interpolate_func(1-r[::-1], -dP[::-1], der=-1, k=KSPL, prim_cond=(0, P0))(1-r[::-1])[::-1]
+    P  = interpolate_func(1-r1d[::-1], -dP[::-1], der=-1, k=KSPL, prim_cond=(0, P0))(1-r1d[::-1])[::-1]
     return P
 
 
-def find_rho_l(mapping, rho) : 
+def find_rho_l(r2d, rho) : 
     """
     Find the density distribution harmonics from a given mapping 
-    (mapping) which gives the lines of constant density (= rho).
+    (r2d) which gives the lines of constant density (= rho).
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Current mapping.
     rho : array_like, shape (N, )
         Current density on each equipotential.
@@ -182,10 +184,10 @@ def find_rho_l(mapping, rho) :
     log_rho = np.log(rho + safety_constant)
     rho2D   = np.zeros((N, M))
     for k in all_k :
-        inside =  r < mapping[-1, k]
+        inside =  r1d < r2d[-1, k]
         rho2D[inside, k] = interpolate_func(
-            x=mapping[:, k], y=log_rho, k=KSPL
-        )(r[inside])
+            x=r2d[:, k], y=log_rho, k=KSPL
+        )(r1d[inside])
         rho2D[inside, k] = np.exp(rho2D[inside, k]) - safety_constant
     rho2D[:,-1-all_k] = rho2D[:, all_k]
     
@@ -241,15 +243,15 @@ def filling_ab(ab, ku, kl, l) :
         ab[offset-1, 1] = 1.0
     
     # Boundary conditions
-    ab[offset+1, 2*N-2] = 2*r[-1]**2
+    ab[offset+1, 2*N-2] = 2*r1d[-1]**2
     ab[offset+0, 2*N-1] = l+1 
     return ab
     
     
-def find_phi_eff(mapping, rho, phi_eff=None, lub_l=None) :
+def find_phi_eff(r2d, rho, phi_eff=None, lub_l=None) :
     """
     Determination of the effective potential from a given mapping
-    (mapping, which gives the lines of constant density), and a given 
+    (r2d, which gives the lines of constant density), and a given 
     rotation rate (omega_n). This potential is determined by solving
     the Poisson's equation on each degree of the harmonic decomposition
     (giving the gravitational potential harmonics which are also
@@ -257,7 +259,7 @@ def find_phi_eff(mapping, rho, phi_eff=None, lub_l=None) :
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Current mapping.
     rho : array_like, shape (N, )
         Density on each equipotential.
@@ -294,14 +296,14 @@ def find_phi_eff(mapping, rho, phi_eff=None, lub_l=None) :
 
     """    
     # Density distribution harmonics
-    rho_l    = find_rho_l(mapping, rho)
+    rho_l    = find_rho_l(r2d, rho)
     phi_g_l  = np.zeros((N, L))
     dphi_g_l = np.zeros((N, L))
     
     # Vector filling (vectorial)
     Nl = (L+1)//2
     bl = np.zeros((2*N, Nl))
-    bl[1:-1:2, :] = 4*np.pi * Lsp @ (r[:,None]**2 * rho_l[:, ::2])
+    bl[1:-1:2, :] = 4*np.pi * Lsp @ (r1d[:,None]**2 * rho_l[:, ::2])
     bl[0     , 0] = 4*np.pi * rho_l[0, 0]     # Boundary condition
     
     # Band matrix storage
@@ -325,7 +327,7 @@ def find_phi_eff(mapping, rho, phi_eff=None, lub_l=None) :
         
     # Poisson's equation solution
     phi_g_l[: , ::2] = x[1::2]
-    dphi_g_l[:, ::2] = x[0::2] * (2*r[:, None])  # <- The equation is solved on r^2
+    dphi_g_l[:, ::2] = x[0::2] * (2*r1d[:, None])  # <- The equation is solved on r^2
     
     if phi_eff is None :
         # First estimate of the effective potential and its derivative
@@ -339,14 +341,14 @@ def find_phi_eff(mapping, rho, phi_eff=None, lub_l=None) :
     return phi_g_l, dphi_g_l, phi_eff
 
 
-def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
+def find_new_mapping(t, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     """
     Find the new mapping by comparing the effective potential
     and the total potential (calculated from phi_g_l and omega_n).
 
     Parameters
     ----------
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Value of cos(theta).
     omega_n : float
         Current rotation rate.
@@ -368,8 +370,8 @@ def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     # 2D gravitational potential (interior)
     eq = (M-1)//2
     up = np.arange(eq+1)
-    phi2D_g_int  = pl_eval_2D( phi_g_l, cth[up])
-    dphi2D_g_int = pl_eval_2D(dphi_g_l, cth[up])
+    phi2D_g_int  = pl_eval_2D( phi_g_l, t[up])
+    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[up])
     
     # 2D gravitational potential (exterior)
     l = np.arange(L)
@@ -377,11 +379,11 @@ def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     r_ext = np.linspace(1.0, outside, 101)[1:]
     phi_g_l_ext  = phi_g_l[-1] * (r_ext[:, None])**-(l+1)
     dphi_g_l_ext = -(l+1) * phi_g_l_ext / r_ext[:, None]
-    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, cth[up])
-    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, cth[up])
+    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[up])
+    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[up])
     
     # 2D gravitational potential
-    r_tot = np.hstack((r, r_ext))
+    r_tot = np.hstack((r1d, r_ext))
     phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
     dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
         
@@ -397,7 +399,7 @@ def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     
     # Centrifugal potential
     phi2D_c, dphi2D_c = np.moveaxis(np.array([
-        eval_phi_c(r_tot , ck, omega_n_new) for ck in cth[up]
+        eval_phi_c(r_tot , ck, omega_n_new) for ck in t[up]
     ]), (0, 1, 2), (2, 0, 1))
     
     # Total potential
@@ -412,10 +414,10 @@ def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     center = np.max(np.argwhere(r_tot < lim)) + 1
     r_cnt = np.linspace(0.0, 1.0, 5*center) ** 2 * lim
     phi2D_g_cnt = np.array([CubicHermiteSpline(
-        x=r, y=phi2D_g_int[:, k], dydx=dphi2D_g_int[:, k]
+        x=r1d, y=phi2D_g_int[:, k], dydx=dphi2D_g_int[:, k]
     )(r_cnt) for k in up]).T
     phi2D_c_cnt = np.array([
-        eval_phi_c(r_cnt , ck, omega_n_new)[0] for ck in cth[up]
+        eval_phi_c(r_cnt , ck, omega_n_new)[0] for ck in t[up]
     ]).T
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
     
@@ -438,15 +440,15 @@ def find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff) :
     return map_n_new, omega_n_new
 
 
-def Virial_theorem(mapping, rho, omega_n, phi_eff, P, verbose=False) : 
+def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) : 
     """
-    Compute the Virial equation and gives the resukt as a diagnostic
+    Compute the Virial equation and gives the result as a diagnostic
     for how well the hydrostatic equilibrium is satisfied (the closer
     to zero, the better).
     
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Mapping
     rho : array_like, shape (N, )
         Density on each equipotential.
@@ -470,20 +472,20 @@ def Virial_theorem(mapping, rho, omega_n, phi_eff, P, verbose=False) :
     volumic_potential_energy = lambda rk, ck, D : -(  
        rho[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
     )
-    potential_energy = integrate2D(mapping, volumic_potential_energy, k=KSPL)
+    potential_energy = integrate2D(r2d, volumic_potential_energy, k=KSPL)
     
     # Kinetic energy
     volumic_kinetic_energy = lambda rk, ck, D : (  
-       0.5 * rho[D] * (1-ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
+       0.5 * rho[D] * (1 - ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
-    kinetic_energy = integrate2D(mapping, volumic_kinetic_energy, k=KSPL)
+    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=KSPL)
     
     # Internal energy
-    internal_energy = integrate2D(mapping, P, k=KSPL)
+    internal_energy = integrate2D(r2d, P, k=KSPL)
     
     # Surface term
     _, weights = roots_legendre(M)
-    surface_term = 2*np.pi * (mapping[-1]**3 @ weights) * P[-1]
+    surface_term = 2*np.pi * (r2d[-1]**3 @ weights) * P[-1]
     
     # Compute the virial equation
     if verbose :
@@ -499,15 +501,15 @@ def Virial_theorem(mapping, rho, omega_n, phi_eff, P, verbose=False) :
     return virial
 
 
-def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
+def find_gravitational_moments(r2d, t, rho, max_degree=14) :
     """
     Find the gravitational moments up to max_degree.
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    r2d : array_like, shape (N, M)
         Isopotential mapping.
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Value of cos(theta).
     rho : array_like, shape (N, )
         Density profile (the same in each direction).
@@ -526,7 +528,7 @@ def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
     )
     for l in range(0, max_degree+1, 2):
         m_l = integrate2D(
-            mapping, rho[:, None] * mapping ** l * eval_legendre(l, cth), k=KSPL
+            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=KSPL
         )
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
         
@@ -544,7 +546,7 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, N, r, zeta, eval_phi_c, eval_omega, Lsp, Dsp, Asp
+    global L, M, KSPL, KLAG, N, r1d, zeta, eval_phi_c, eval_omega, Lsp, Dsp, Asp
     model_choice, rotation_profile, rotation_target, central_diff_rate, \
     rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_options \
     , _, _ = params
@@ -560,11 +562,11 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
         )
         
     # Definition of the 1D-model
-    G, P0, N, mass, radius, r, zeta, rho, additional_variables = init_1D(model_choice)  
+    G, P0, N, mass, radius, r1d, zeta, rho, additional_variables = init_1D(model_choice)  
     
     
     # Angular domain initialisation
-    mapping, cth = initialize_mapping(r, M)
+    r2d, t = initialize_mapping(r1d, M)
     
     # Centrifugal potential and profile definition
     eval_phi_c, eval_omega = configure_rotation_profile(
@@ -577,13 +579,13 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     Lsp, Dsp, Asp = init_sparse_matrices()
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(mapping, rho)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho)
     
     # Find pressure
     P = find_pressure(rho, dphi_eff, P0)
     
     # Iterative centrifugal deformation
-    polar_radius_history = [0.0, find_r_pol(mapping, L)]
+    polar_radius_history = [0.0, find_r_pol(r2d, L)]
     iterations = 0
     print(
         "\n+---------------------+",
@@ -620,24 +622,24 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
         omega_n = min(rotation_target, ((iterations+1)/full_rate) * rotation_target)
         
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(mapping, rho, phi_eff, lub_l)
+        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(r2d, rho, phi_eff, lub_l)
 
         # Find a new estimate for the mapping
-        mapping, omega_n = find_new_mapping(cth, omega_n, phi_g_l, dphi_g_l, phi_eff)
+        r2d, omega_n = find_new_mapping(t, omega_n, phi_g_l, dphi_g_l, phi_eff)
         
         # Renormalisation
-        r_corr    = find_r_eq(mapping, L)
-        m_corr    = integrate2D(mapping, rho, k=KSPL)
+        r_corr    = find_r_eq(r2d, L)
+        m_corr    = integrate2D(r2d, rho, k=KSPL)
         radius   *= r_corr
         mass     *= m_corr
-        mapping    /=             r_corr
+        r2d    /=             r_corr
         rho    /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr**2
         P        /= m_corr**2 / r_corr**4
         
         # Update the polar radius
-        polar_radius_history.append(find_r_pol(mapping, L))
+        polar_radius_history.append(find_r_pol(r2d, L))
         
         # Iteration count
         iterations += 1
@@ -658,9 +660,9 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     # operation can modify the arrays in place.
     result = RadialResult(
         zeta=zeta.copy(),
-        radial_grid=r.copy(),
-        cos_theta=cth.copy(),
-        mapping=mapping.copy(),
+        radial_grid=r1d.copy(),
+        cos_theta=t.copy(),
+        mapping=r2d.copy(),
 
         density=rho.copy(),
         pressure=P.copy(),
@@ -687,7 +689,7 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = Virial_theorem(mapping, rho, omega_n, phi_eff, P, verbose=True)   
+        virial = Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=True)   
     
     # Plot model
     if output_options.plot.show_model :
@@ -695,7 +697,7 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
         # Variable to plot
         f = rho
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        rota2D = np.array([eval_omega(rk, ck, rotation_target) for rk, ck in zip(mapping.T, cth)]).T
+        rota2D = np.array([eval_omega(rk, ck, rotation_target) for rk, ck in zip(r2d.T, t)]).T
         # if rota2D.max() - rota2D.min() > 1e-2 : 
         #     f = np.log10(rota2D)
         #     label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
@@ -704,14 +706,14 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
             z0 = output_options.flux.origin
             M1 = output_options.flux.n_lines
             Q_l, (fig, ax) = find_radiative_flux(
-                mapping, cth, z0, M1,
+                r2d, t, z0, M1,
                 add_flux_lines=output_options.flux.plot_lines, 
                 show_T_eff=output_options.flux.show_effective_temperature,
                 res=output_options.flux.resolution,
                 flux_cmap=output_options.flux.cmap
             )
             plot_f_map(
-                mapping, f, phi_eff, L, 
+                r2d, f, phi_eff, L, 
                 angular_res=output_options.plot.resolution,
                 cmap=output_options.plot.field_cmap,
                 show_surfaces=output_options.plot.surfaces,
@@ -721,7 +723,7 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
             )
         else : 
             plot_f_map(
-                mapping, f, phi_eff, L, 
+                r2d, f, phi_eff, L, 
                 angular_res=output_options.plot.resolution,
                 cmap=output_options.plot.field_cmap,
                 show_surfaces=output_options.plot.surfaces,
@@ -731,13 +733,13 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     
     # Gravitational moments
     if output_options.diagnostics.gravitational_moments :
-        find_gravitational_moments(mapping, cth, rho)
+        find_gravitational_moments(r2d, t, rho)
     
     # Model writing
     if output_options.model.save :
-        rota = eval_omega(mapping[:, (M-1)//2], 0.0, rotation_target)
+        rota = eval_omega(r2d[:, (M-1)//2], 0.0, rotation_target)
         if output_options.model.dimensional : 
-            mapping    *=               radius
+            r2d    *=               radius
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius**2
@@ -745,7 +747,7 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
         write_model(
             output_options.model.filename,
             (N, M, mass, radius, rotation_target, G),
-            mapping,
+            r2d,
             additional_variables,
             zeta,
             P,
@@ -760,142 +762,8 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
 #----------------------------------------------------------------#
 #                   Radiative flux computation                   #
 #----------------------------------------------------------------#
-
-def find_metric_terms(mapping, t, z0=0.0, z1=1.0) :
-    """
-    Finds the metric terms, i.e the derivatives of r(z, t) 
-    with respect to z or t (with z := zeta and t := cos(theta)),
-    for z0 <= z <= z1.
-
-    Parameters
-    ----------
-    mapping : array_like, shape (N, M)
-        Isopotential mapping.
-    t : array_like, shape (M, )
-        Angular variable.
-
-    Returns
-    -------
-    dr : DotDict instance
-        The mapping derivatives : {
-            _   = r(z, t),
-            t   = r_t(z, t),
-            tt  = r_tt(z, t),
-            z   = r_z(z, t),
-            zt  = r_zt(z, t),
-            ztt = r_ztt(z, t),
-            zz  = r_zz(z, t),
-            S   = Delta_S r(z, t)
-        }          
-    """
-    valid = np.squeeze(np.argwhere((zeta >= z0)&(zeta <= z1)))
-    z = zeta[valid]
-    dr = DotDict()
-    dr._ = mapping[valid]
-    map_l = pl_project_2D(dr._, L)
-    _, dr.t, dr.tt = pl_eval_2D(map_l, t, der=2)
-    dr.z = np.array(
-        [interpolate_func(z, rk, der=1, k=KSPL)(z) for rk in dr._.T]
-    ).T 
-    map_l_z = pl_project_2D(dr.z, L)
-    _, dr.zt, dr.ztt = pl_eval_2D(map_l_z, t, der=2)
-    dr.zz = np.array(
-        [interpolate_func(z, rk, der=2, k=KSPL)(z) for rk in dr._.T]
-    ).T 
-    dr.S = (1-t**2) * dr.tt - 2*t * dr.t
-    return dr
-
-
-def add_advanced_metric_terms(dr, t) : 
-    """
-    Finds the more advanced metric terms, useful in very specific cases.
-
-    Parameters
-    ----------
-    dr : DotDict instance
-        The object containing the mapping derivatives.
-    t : array_like, shape (M, )
-        Angular variable.
-
-    Returns
-    -------
-    dr : DotDict instance
-        Same object but enhanced with the following terms : {
-            sf = 1.0 / (r**2 + r_theta**2) :
-                inverse sphere deformation. This term is computed 
-                for convenience as it avoid raising many exceptions
-                for the other metric terms.
-            c2 = cos(b^z, b_z) ** 2 : 
-                squared cosinus between the covariant and 
-                contravariant zeta vectors in the natural basis.
-            cs = cos(b^z, b_z) * sin(b^z, b_z) :
-                cosinus by sinus of the same angle.
-                NOTE: The orientation of this angle has been chosen
-                      to be the same as theta (i.e. inverse trigonometric)
-            gzz : zeta/zeta covariant metric term.
-            gzt : zeta/theta covariant metric term.
-            gtt : theta/theta covariant metric term.
-            gg = gzt / gzz : 
-                covariant ratio.
-                NOTE: The latter has been multiplied by -(1 - t**2) ** 0.5
-            divz = div(b^z) : 
-                divergence of the zeta covariant vector
-            divt = div(b^t) : 
-                divergence of the theta covariant vector
-            divrelz = div(b^z) / gzz : 
-                relative divergence of the zeta covariant vector
-            divrelt = div(b^t) / gtt : 
-                relative divergence of the theta covariant vector
-            jac = df/dt :
-                where f designates the rhs of the divergence free equation.
-        }          
-    """
-    # Trigonometric terms
-    with np.errstate(all='ignore'):
-        dr.sf = np.where(
-            dr._ == 0.0, np.nan, 1.0 / (dr._ ** 2 + (1-t**2) * dr.t ** 2)
-        )
-    dr.c2 = dr._ ** 2 * dr.sf
-    dr.cs = (1-t**2) ** 0.5 * dr._ * dr.t * dr.sf
-        
-    # Covariant metric terms
-    dr.gzz = 1.0 / (dr.z ** 2 * dr.c2)
-    with np.errstate(all='ignore'):
-        dr.gzt = np.where(
-            dr._ == 0.0, np.nan, (1-t**2) ** 0.5 * dr.t / (dr.z * dr._ ** 2)
-        )
-        dr.gtt = np.where(
-            dr._ == 0.0, np.nan, dr._ ** (-2)
-        )
-    dr.gg = - (1-t**2) * dr.z * dr.t * dr.sf
-    
-    # Divergence
-    with np.errstate(all='ignore'):
-        dr.divz = (
-            np.where(
-                dr._ == 0.0, np.nan, 
-                (2 * dr._ + 2 * (1-t**2) * dr.t * dr.zt / dr.z - dr.S) / (dr.z * dr._ ** 2)
-            )   
-            - dr.gzz * dr.zz / dr.z
-        )
-    dr.divt = t * dr.gtt / (1-t**2) ** 0.5
-    
-    # Relative divergence
-    dr.divrelz = (
-        (2 * dr._ + 2 * (1-t**2) * dr.t * dr.zt / dr.z - dr.S) * dr.z * dr.sf - dr.zz / dr.z
-    )
-    dr.divrelt = t / (1-t**2) ** 0.5 * np.ones_like(dr._)
-    
-    # Divergence free jacobian
-    dr.jac = (
-        2 * dr.z * dr.t * (
-            t + (dr._ - t * dr.t + (1-t**2) * dr.tt) * (1-t**2) * dr.t * dr.sf
-        ) - (1-t**2) * (dr.t * dr.zt + dr.z * dr.tt)
-    ) * dr.sf
-    return dr
-
 def find_radiative_flux(
-    mapping, cth, z0, M_lines, 
+    mapping, t, z0, M_lines, 
     add_flux_lines, show_T_eff, res, flux_cmap
 ) :
     """
@@ -907,7 +775,7 @@ def find_radiative_flux(
     ----------
     mapping : array_like, shape (N, M)
         Model mapping.
-    cth : array_like, shape (M, )
+    t : array_like, shape (M, )
         Angular variable.
     z0 : float
         Zeta value for which the radiative flux is assumed to be constant.
@@ -940,14 +808,15 @@ def find_radiative_flux(
     t1, w1 = np.array(roots_legendre(2*M_lines))[:, :M_lines]
     valid = np.squeeze(np.argwhere(zeta >= z0))
     z = zeta[valid]
+    r = r2d[valid]
     x = (1 - z)[::-1]
     
     # Metric terms computation
-    dr = find_metric_terms(mapping, cth, z0=z0)
-    dr = add_advanced_metric_terms(dr, cth)
-    map_l = pl_project_2D(dr._  , L)
-    rhs_l = pl_project_2D(dr.gg , L, even=False)
-    jac_l = pl_project_2D(dr.jac, L)
+    der = compute_mapping_derivatives(r, z, t, L, spline_order=KSPL)
+    geo = compute_mapping_geometry(r, der, t)
+    r_l   = pl_project_2D(r, L)
+    rhs_l = pl_project_2D(geo.gg, L, even=False)
+    jac_l = pl_project_2D(geo.jacobian, L)
     
     # Differential equation dt_dx = f(x, t)    
     def fun(xi, tk) : 
@@ -984,17 +853,21 @@ def find_radiative_flux(
     r, r_t = np.moveaxis(
         np.array([pl_eval_2D(map_l[i], ti, der=1) for i, ti in enumerate(t)]), 0, 1
     )
-    r_z_l      = pl_project_2D(dr.z      , L)
-    divrel_z_l = pl_project_2D(dr.divrelz, L)
+    
+    r_z_l      = pl_project_2D(der.r_z, L)
+    divrel_z_l = pl_project_2D(geo.divrelz, L)
     r_z      = np.array([pl_eval_2D(     r_z_l[i], ti) for i, ti in enumerate(t)])
     divrel_z = np.array([pl_eval_2D(divrel_z_l[i], ti) for i, ti in enumerate(t)])
+    
     Q_z = np.exp([-integrate(z, divrel_zk) for divrel_zk in divrel_z.T])
     Q_0 = 1.0 / sum(Q_z * (r[-1]**2 + (1-t1**2) * r_t[-1]**2) / r_z[-1] * w1)
-    Q   = Q_0 * Q_z * np.abs(pl_eval_2D(pl_project_2D(dr.gzz[-1], L), t[-1])) ** 0.5
+    Q = Q_0 * Q_z * np.abs(
+        pl_eval_2D(pl_project_2D(geo.gzz[-1], L), t[-1])
+    )**0.5
     Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*M_lines)
     
     # 3D plot of the surface flux
-    plot_3D_surface(map_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
+    plot_3D_surface(r_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
     
     # Draw characteristics
     if add_flux_lines : 
