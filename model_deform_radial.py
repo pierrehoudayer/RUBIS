@@ -25,6 +25,7 @@ from rubis.mapping       import (
     valid_reciprocal_domain,
 )
 from rubis.rotation_profiles import configure_rotation_profile
+from rubis.results       import RadialResult
 from rubis._utils        import DotDict
 from rubis.io.legacy     import write_model
 from plot                import (
@@ -530,7 +531,7 @@ def find_gravitational_moments(mapping, cth, rho, max_degree=14) :
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
         
 
-def radial_method(*params, max_iterations=200):
+def radial_method(*params, max_iterations=200) -> RadialResult:
     """
     Main routine for the centrifugal deformation method in radial coordinates.
 
@@ -582,8 +583,8 @@ def radial_method(*params, max_iterations=200):
     P = find_pressure(rho, dphi_eff, P0)
     
     # Iterative centrifugal deformation
-    r_pol = [0.0, find_r_pol(mapping, L)]
-    n = 0
+    polar_radius_history = [0.0, find_r_pol(mapping, L)]
+    iterations = 0
     print(
         "\n+---------------------+",
         "\n| Deformation started |", 
@@ -595,14 +596,14 @@ def radial_method(*params, max_iterations=200):
             "max_iterations must be a positive integer."
         )
     
-    while abs(r_pol[-1] - r_pol[-2]) > mapping_precision:
-        if n >= max_iterations:
+    while abs(polar_radius_history[-1] - polar_radius_history[-2]) > mapping_precision:
+        if iterations >= max_iterations:
             delta_polar = abs(
-                r_pol[-1] - r_pol[-2]
+                polar_radius_history[-1] - polar_radius_history[-2]
             )
 
             recent_radii = np.asarray(
-                r_pol[-4:]
+                polar_radius_history[-4:]
             )
 
             raise RuntimeError(
@@ -616,7 +617,7 @@ def radial_method(*params, max_iterations=200):
             )
         
         # Current rotation rate
-        omega_n = min(rotation_target, ((n+1)/full_rate) * rotation_target)
+        omega_n = min(rotation_target, ((iterations+1)/full_rate) * rotation_target)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(mapping, rho, phi_eff, lub_l)
@@ -636,12 +637,12 @@ def radial_method(*params, max_iterations=200):
         P        /= m_corr**2 / r_corr**4
         
         # Update the polar radius
-        r_pol.append(find_r_pol(mapping, L))
+        polar_radius_history.append(find_r_pol(mapping, L))
         
         # Iteration count
-        n += 1
+        iterations += 1
         DEC = int(-np.log10(mapping_precision))
-        print(f"Iteration n°{n:02d}, R_pol = {r_pol[-1].round(DEC)}")
+        print(f"Iteration n°{iterations:02d}, R_pol = {polar_radius_history[-1].round(DEC)}")
     
     # Deformation summary
     finish = time.perf_counter()
@@ -655,23 +656,29 @@ def radial_method(*params, max_iterations=200):
     
     # Store the normalised solver state before any output
     # operation can modify the arrays in place.
-    result = DotDict(
+    result = RadialResult(
         zeta=zeta.copy(),
         radial_grid=r.copy(),
         cos_theta=cth.copy(),
         mapping=mapping.copy(),
+
         density=rho.copy(),
         pressure=P.copy(),
+
         effective_potential=phi_eff.copy(),
         effective_potential_derivative=dphi_eff.copy(),
+
         gravitational_potential_harmonics=phi_g_l.copy(),
         gravitational_potential_derivative_harmonics=dphi_g_l.copy(),
+
         mass=mass,
         radius=radius,
+
         rotation_target=rotation_target,
         rotation_rate=omega_n,
-        polar_radius_history=np.asarray(r_pol),
-        iterations=n,
+
+        polar_radius_history=np.asarray(polar_radius_history),
+        iterations=iterations,
     )
 
     # Estimated error on Poisson's equation

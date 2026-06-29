@@ -3,9 +3,10 @@ from pathlib import Path
 import numpy as np
 
 from rubis.options import OutputOptions
-from rubis.models import CompositePolytropeConfig
-from model_deform_spheroidal import spheroidal_method
 from rubis.rotation_profiles import solid
+from rubis.models import CompositePolytropeConfig
+from rubis.results import DeformationResult, SpheroidalResult
+from model_deform_spheroidal import spheroidal_method
 
 
 def test_spheroidal_solver_returns_normalised_state():
@@ -40,6 +41,8 @@ def test_spheroidal_solver_returns_normalised_state():
         True,
     )
 
+    assert isinstance(result, SpheroidalResult)
+    assert isinstance(result, DeformationResult)
     assert result.mapping.shape == (
         resolution,
         angular_resolution,
@@ -98,6 +101,8 @@ def test_spheroidal_solver_returns_normalised_state():
     assert np.isfinite(
         result.gravitational_potential_harmonics
     ).all()
+    assert result.polar_radius_history.ndim == 1
+    assert isinstance(result.iterations, int)
 
     assert result.iterations >= 1
     

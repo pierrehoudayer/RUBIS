@@ -3,9 +3,10 @@ import pytest
 import numpy as np
 
 from rubis.options import OutputOptions
-from rubis.models import PolytropeConfig, CompositePolytropeConfig
-from model_deform_radial import radial_method
 from rubis.rotation_profiles import solid
+from rubis.models import PolytropeConfig, CompositePolytropeConfig
+from rubis.results import DeformationResult, RadialResult
+from model_deform_radial import radial_method
 
 
 def test_radial_solver_returns_normalised_state():
@@ -37,6 +38,8 @@ def test_radial_solver_returns_normalised_state():
         True,   # Unused matrix rescaling option
     )
 
+    assert isinstance(result, RadialResult)
+    assert isinstance(result, DeformationResult)
     assert result.mapping.shape == (
         resolution,
         angular_resolution,
