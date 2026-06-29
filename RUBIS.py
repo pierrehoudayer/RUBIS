@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 
 from rubis._utils            import DotDict
+from rubis.options           import OutputOptions
 from rubis.models            import CompositePolytropeConfig
 from rubis.io.legacy         import make_output_filename
 from rubis.domains           import find_domains
@@ -111,7 +112,7 @@ def set_params() :
         have only limited impact on the results. Nevertheless, 5 is 
         recommanded (must be in {1, 3, 5} in anycase).
         
-    output_params : DotDict instance
+    output_options : DotDict instance
         Dictionary containing various parameters responsible for the output : {
             show_harmonics : boolean
                 Whether to show the gravitational potential harmonics at the 
@@ -209,30 +210,30 @@ def set_params() :
     lagrange_order = 3
     spline_order = 5
     
-    #### OUTPUT PARAMETERS ####
-    output_params = DotDict(
-        # Tests
-        show_harmonics = False,
-        virial_test = True,
-        # Model
-        show_model = True,
-        plot_resolution = 501,
-        plot_surfaces = True,
-        plot_cmap_f = get_cmap_from_proplot("Stellar_r"),
-        plot_cmap_surfaces = get_cmap_from_proplot("Greys"),
-        gravitational_moments = False,
-        # Radiative flux
-        radiative_flux = False,
-        plot_flux_lines = True,
-        flux_origin = 0.05,
-        flux_lines_number = 15,
-        show_T_eff = True,
-        flux_res = (200, 100),
-        flux_cmap = get_cmap_from_proplot("Stellar_r"),
-        # Model writting
-        dim_model = False,
-        save_model = False,
-        save_name = make_output_filename(model_choice, rotation_target)
+    #### OUTPUT OPTIONS ####
+    output_options = OutputOptions(
+        diagnostics=DiagnosticOptions(
+            virial_test=False,
+            gravitational_moments=False,
+        ),
+        plot=PlotOptions(
+            show_harmonics=False,
+            show_model=True,
+            resolution=501,
+            surfaces=True,
+        ),
+        flux=RadiativeFluxOptions(
+            enabled=False,
+            plot_lines=True,
+            origin=0.05,
+            n_lines=15,
+            show_effective_temperature=True,
+            resolution=(200, 100),
+        ),
+        model=ModelOutputOptions(
+            save=False,
+            dimensional=False,
+        ),
     )
     
     #### SPHEROIDAL PARAMETERS ####
@@ -245,7 +246,7 @@ def set_params() :
         rotation_profile, rotation_target, central_diff_rate, rotation_scale, 
         max_degree, angular_resolution, full_rate,
         mapping_precision, spline_order, lagrange_order,
-        output_params, 
+        output_options, 
         external_domain_res, rescale_ab
     )
     
@@ -255,7 +256,7 @@ if __name__ == '__main__' :
     method_choice, model_choice, rotation_profile, rotation_target,     \
     central_diff_rate, rotation_scale, max_degree, angular_resolution,  \
     full_rate, mapping_precision, spline_order, lagrange_order,         \
-    output_params, external_domain_res, rescale_ab = set_params()
+    output_options, external_domain_res, rescale_ab = set_params()
     
     # Choosing the method to call
     if method_choice == "auto":
@@ -296,7 +297,7 @@ if __name__ == '__main__' :
         mapping_precision,
         spline_order,
         lagrange_order,
-        output_params,
+        output_options,
         external_domain_res,
         rescale_ab,
     )
