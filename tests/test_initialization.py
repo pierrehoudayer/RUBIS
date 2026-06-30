@@ -107,3 +107,8 @@ def test_initialize_legacy_model_reads_additional_variables(
         model.additional_variables[0],
         temperature,
     )
+    np.testing.assert_allclose(
+        model.mass,
+        4.0 * np.pi / 3.0,
+        rtol=1.0e-10,
+    )
