@@ -1,6 +1,9 @@
 import numpy as np
 
-from rubis.models import CompositePolytropeConfig, PolytropeConfig
+from rubis.config import (
+    CompositePolytropeConfig,
+    PolytropeConfig,
+)
 from rubis.io.legacy import make_output_filename, write_model
 
 

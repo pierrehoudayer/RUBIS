@@ -19,8 +19,7 @@ from ..numerical         import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from ..models            import PolytropicModelConfig
-from ..polytrope         import build_polytrope
+from ..models            import Model1D
 from ..domains           import find_domains
 from ..mapping           import (
     initialize_mapping, 
@@ -36,87 +35,6 @@ from ..plotting          import (
     phi_g_harmonics,
     plot_f_map,
 )
-
-def init_1D(model_choice) : 
-    """
-    Function reading the 1D model file 'model_choice' (or generating a
-    polytrope if model_choice is a dictionary). If additional variables are 
-    found in the file, they are left unchanged and returned in the 
-    output file.
-    
-    Parameters
-    ----------
-    model_choice : str or PolytropicModelConfig
-        Filename of a spherical model or configuration of a generated
-        polytropic model.
-
-    Returns
-    -------
-    G : float
-        Gravitational constant.
-    P0 : float
-        Value of the surface pressure after normalisation.
-    N : integer
-        Radial resolution of the model.
-    M : float
-        Total mass of the model.
-    R : float
-        Radius of the model.
-    r1D : array_like, shape (N, ), [GLOBAL VARIABLE]
-        Radial coordinate after normalisation.
-    zeta : array_like, shape (N+NE, ), [GLrOBAL VARIABLE]
-        Spheroidal coordinate
-    rho : array_like, shape (N, )
-        Radial density of the model after normalisation.
-    other_var : array_like, shape (N, N_var)
-        Additional variables found in 'MOD1D'.
-
-    """
-    G = 6.67384e-8  # <- Gravitational constant
-    if isinstance(model_choice, PolytropicModelConfig):    
-        # The model properties are user-defined
-        N = model_choice.n_points
-        M = model_choice.mass      
-        R = model_choice.radius    
-        
-        # Polytrope computation
-        model = build_polytrope(model_choice)
-        
-        # Normalisation
-        r1d = model.r     /  R
-        rho = model.rho   / (M/R**3)
-        P0  = model.p[-1] / (G*M**2/R**4)
-        other_var = np.empty_like(r1d)
-        
-    else : 
-        # Reading file 
-        surface_pressure, radial_res = np.genfromtxt(
-            './Models/'+model_choice, max_rows=2, unpack=True
-        )
-        r1d, rho1d, *other_var = np.genfromtxt(
-            './Models/'+model_choice, skip_header=2, unpack=True
-        )
-        N = int(radial_res)
-        
-        # Normalisationfor D in 
-        R = r1d[-1]
-        domains = find_domains(r1d)
-        M = 4*np.pi * sum(
-            integrate(x=r1d[D], y=r1d[D]**2 * rho1d[D]) for D in domains.domain_ranges
-        )
-        r1d = r1d / (R)
-        rho = rho1d / (M/R**3)
-        P0  = surface_pressure / (M**2/R**4)
-        
-        # We assume that P0 is already normalised by G if R ~ 1 ...
-        if not np.allclose(R, 1) :
-            P0 /= G
-    
-    # Spheroidal coordinate
-    r1d_ext = np.linspace(1, 2, NE)
-    zeta = np.hstack((r1d, 1 + sp.betainc(2, 2, r1d_ext-1)))
-    
-    return G, P0, N, M, R, r1d, zeta, rho, other_var
 
 
 def init_sparse_matrices_per_domain() : 
@@ -621,13 +539,47 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, NE, N, r1d, zeta, domains, eval_phi_c, eval_omega, Lsp, Dsp
-    model_choice, rotation_profile, rotation_target, central_diff_rate, \
-    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_options, \
-    NE, rescale_ab = params
+    global G, P0, N, L, M, KSPL, KLAG, NE
+    global r1d, zeta, rho, domains
+    global eval_phi_c, eval_omega
+    global Lsp, Dsp
+    (
+        model,
+        rotation_profile,
+        rotation_target,
+        central_diff_rate,
+        rotation_scale,
+        L,
+        M,
+        full_rate,
+        mapping_precision,
+        KSPL,
+        KLAG,
+        output_options,
+        NE,
+        rescale_ab,
+    ) = params
     
-    # Definition of the 1D-model
-    G, P0, N, mass, radius, r1d, zeta, rho, additional_variables = init_1D(model_choice) 
+    # 1D model reading
+    if not isinstance(model, Model1D):
+        raise TypeError(
+            "spheroidal_method expects a Model1D."
+        )
+
+    G = model.G
+    P0 = model.surface_pressure
+    N = model.n_points
+
+    mass = model.mass
+    radius = model.radius
+
+    r1d = model.r
+    rho = model.rho
+
+    additional_variables = model.additional_variables 
+    
+    r_ext = np.linspace(1.0, 2.0, NE)
+    zeta = np.hstack((r1d, 1.0 + sp.betainc(2, 2, r_ext - 1.0)))
     
     # Domains identification
     domains = find_domains(zeta)

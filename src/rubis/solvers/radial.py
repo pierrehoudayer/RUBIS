@@ -18,8 +18,7 @@ from ..numerical         import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from ..models            import PolytropicModelConfig
-from ..polytrope         import build_polytrope
+from ..models            import Model1D
 from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
@@ -35,83 +34,6 @@ from ..plotting          import (
     plot_f_map,
     plot_flux_lines,
 )
-
-def init_1D(model_choice) : 
-    """
-    Function reading the 1D model file 'model_choice' (or generating a
-    polytrope if model_choice is a dictionary). If additional variables are 
-    found in the file, they are left unchanged and returned in the 
-    output file.
-    
-    Parameters
-    ----------
-    model_choice : str or PolytropicModelConfig
-        Filename of a spherical model or configuration of a generated
-        polytropic model.
-    
-    Returns
-    -------
-    G : float
-        Gravitational constant.
-    P0 : float
-        Value of the surface pressure after normalisation.
-    N : integer
-        Radial resolution of the model.
-    mass : float
-        Total mass of the model.
-    radius : float
-        Radius of the model.
-    r1d : array_like, shape (N, ), [GLOBAL VARIABLE]
-        Radial coordinate after normalisation.
-    zeta : array_like, shape (N, ), [GLOBAL VARIABLE]
-        Spheroidal coordinate
-    rho : array_like, shape (N, )
-        Radial density of the model after normalisation.
-    additional_variables : array_like, shape (N, N_var)
-        Additional variables found in 'MOD1D'.
-
-    """
-    G = 6.67384e-8  # <- Gravitational constant
-    if isinstance(model_choice, PolytropicModelConfig): 
-        # The model properties are user-defined
-        N      = model_choice.n_points
-        mass   = model_choice.mass
-        radius = model_choice.radius
-        
-        # Polytrope computation
-        model = build_polytrope(model_choice)        
-        
-        # Normalisation
-        r1d = model.r     / (              radius   )
-        rho = model.rho   / (    mass    / radius**3)
-        P0  = model.p[-1] / (G * mass**2 / radius**4)
-        additional_variables = []
-        
-    else : 
-        # Reading file 
-        surface_pressure, radial_res = np.genfromtxt(
-            './Models/'+model_choice, max_rows=2, unpack=True
-        )
-        r1d, rho1d, *additional_variables = np.genfromtxt(
-            './Models/'+model_choice, skip_header=2, unpack=True
-        )
-        _, idx = np.unique(r1d, return_index=True) 
-        N = len(idx)
-        
-        # Normalisation
-        radius = r1d[-1]
-        mass = 4*np.pi * integrate(x=r1d[idx], y=r1d[idx]**2 * rho1d[idx])
-        r1d =   r1d[idx]       / (          radius   )
-        rho = rho1d[idx]       / (mass    / radius**3)
-        P0  = surface_pressure / (mass**2 / radius**4)
-        
-        # We assume that P0 is already normalised by G if R ~ 1 ...
-        if not np.allclose(radius, 1) :
-            P0 /= G
-            
-    zeta = np.copy(r1d)
-    
-    return G, P0, N, mass, radius, r1d, zeta, rho, additional_variables
 
 
 def init_sparse_matrices() : 
@@ -545,24 +467,50 @@ def radial_method(*params, max_iterations=200) -> RadialResult:
     
     # Global parameters, constants, variables and functions
     start = time.perf_counter()
-    global L, M, KSPL, KLAG, N, r1d, zeta, eval_phi_c, eval_omega, Lsp, Dsp, Asp
-    model_choice, rotation_profile, rotation_target, central_diff_rate, \
-    rotation_scale, L, M, full_rate, mapping_precision, KSPL, KLAG, output_options \
-    , _, _ = params
+    global G, P0, N, L, M, KSPL, KLAG
+    global r1d, zeta, rho
+    global eval_phi_c, eval_omega
+    global Lsp, Dsp, Asp
+    (
+        model,
+        rotation_profile,
+        rotation_target,
+        central_diff_rate,
+        rotation_scale,
+        L,
+        M,
+        full_rate,
+        mapping_precision,
+        KSPL,
+        KLAG,
+        output_options,
+        _,
+        _,
+    ) = params
     
-    # Sanity check    
-    if (
-        isinstance(model_choice, PolytropicModelConfig)
-        and model_choice.n_regions > 1
-    ):
-        raise ValueError(
-            "The radial solver only supports single-domain models; "
-            "use the spheroidal solver for composite polytropes."
+    # 1D Model reading    
+    if not isinstance(model, Model1D):
+        raise TypeError(
+            "radial_method expects a Model1D."
         )
-        
-    # Definition of the 1D-model
-    G, P0, N, mass, radius, r1d, zeta, rho, additional_variables = init_1D(model_choice)  
-    
+
+    if model.n_domains > 1:
+        raise ValueError(
+            "The radial solver only supports single-domain models."
+        )
+
+    G = model.G
+    P0 = model.surface_pressure
+    N = model.n_points
+
+    mass = model.mass
+    radius = model.radius
+
+    r1d = model.r
+    zeta = r1d.copy()
+    rho = model.rho
+
+    additional_variables = model.additional_variables  
     
     # Angular domain initialisation
     r2d, t = initialize_mapping(r1d, M)

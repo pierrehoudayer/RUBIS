@@ -1,48 +1,67 @@
 import numpy as np
 
-from rubis.models import (
-    CompositePolytropeConfig,
-    PolytropeConfig,
-    SphericalModel,
-)
+from rubis.domains import find_domains
+from rubis.models import Model1D
 
 
-def test_polytrope_config_has_one_region():
-    config = PolytropeConfig(index=3.0)
+def test_model_1d_reports_grid_properties():
+    r = np.linspace(0.0, 1.0, 5)
 
-    assert config.polytropic_indices == (3.0,)
-    assert config.n_regions == 1
-    assert config.filename_stem == "poly_|3.0|"
-
-
-def test_composite_polytrope_config_accepts_scalar_index():
-    config = CompositePolytropeConfig(
-        indices=3.0,
-        target_pressures=-np.inf,
-    )
-
-    assert config.polytropic_indices == (3.0,)
-    assert config.n_regions == 1
-
-
-def test_composite_polytrope_config_has_multiple_regions():
-    config = CompositePolytropeConfig(
-        indices=(1.5, 3.0),
-        target_pressures=(-1.0, -np.inf),
-        density_jumps=(0.5,),
-    )
-
-    assert config.polytropic_indices == (1.5, 3.0)
-    assert config.n_regions == 2
-    assert config.filename_stem == "poly_|1.5|3.0|"
-
-
-def test_spherical_model_reports_number_of_points():
-    model = SphericalModel(
-        r=np.linspace(0.0, 1.0, 5),
-        p=np.ones(5),
-        rho=np.ones(5),
-        g=np.ones(5),
+    model = Model1D(
+        G=6.67384e-8,
+        surface_pressure=0.0,
+        mass=2.0,
+        radius=3.0,
+        r=r,
+        rho=np.ones_like(r),
+        domains=find_domains(r),
     )
 
     assert model.n_points == 5
+    assert model.n_domains == 1
+    assert model.additional_variables == ()
+
+
+def test_model_1d_reports_multiple_domains():
+    r = np.array([
+        0.0,
+        0.5,
+        0.5,
+        1.0,
+    ])
+
+    model = Model1D(
+        G=6.67384e-8,
+        surface_pressure=0.0,
+        mass=1.0,
+        radius=1.0,
+        r=r,
+        rho=np.ones_like(r),
+        domains=find_domains(r),
+    )
+
+    assert model.n_points == 4
+    assert model.n_domains == 2
+    assert model.domains.has_interfaces
+
+
+def test_model_1d_preserves_additional_variables():
+    r = np.linspace(0.0, 1.0, 3)
+    temperature = np.array([1.0, 2.0, 3.0])
+
+    model = Model1D(
+        G=6.67384e-8,
+        surface_pressure=0.0,
+        mass=1.0,
+        radius=1.0,
+        r=r,
+        rho=np.ones_like(r),
+        domains=find_domains(r),
+        additional_variables=(temperature,),
+    )
+
+    assert len(model.additional_variables) == 1
+    np.testing.assert_array_equal(
+        model.additional_variables[0],
+        temperature,
+    )

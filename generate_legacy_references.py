@@ -11,12 +11,13 @@ import numpy as np
 
 from rubis.api import deform
 from rubis.config import (
+    CompositePolytropeConfig,
     DeformationConfig,
+    PolytropeConfig,
     RotationConfig,
     SolverOptions,
 )
 from rubis.solvers import radial_method, spheroidal_method
-from rubis.models import CompositePolytropeConfig, PolytropeConfig
 from rubis.options import OutputOptions
 from rubis.results import RadialResult, SpheroidalResult
 from rubis.rotation_profiles import solid

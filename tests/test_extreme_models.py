@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from rubis.options import OutputOptions
-from rubis.polytrope import PolytropeConfig
+from rubis.config import PolytropeConfig
 from rubis.rotation_profiles import lorentzian, solid
 from rubis.solvers import radial_method, spheroidal_method
 

@@ -4,9 +4,12 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import DeformationConfig, SolverMethod
-from .domains import find_domains
-from .models import PolytropicModelConfig
+from .config import (
+    DeformationConfig,
+    SolverMethod,
+)
+from .initialization import initialize_model_1d
+from .models import Model1D
 from .results import DeformationResult
 from .solvers import radial_method, spheroidal_method
 
@@ -16,49 +19,42 @@ __all__ = [
 ]
 
 
-def _select_method(config: DeformationConfig) -> SolverMethod:
-    """Select the deformation method requested by a configuration."""
-    method = config.solver.method
+def _select_method(
+    method: SolverMethod,
+    model: Model1D,
+) -> SolverMethod:
+    if method not in ("auto", "radial", "spheroidal"):
+        raise ValueError(
+            f"Unknown deformation method {method!r}; expected "
+            "'auto', 'radial' or 'spheroidal'."
+        )
 
     if method != "auto":
-        if method not in ("radial", "spheroidal"):
-            raise ValueError(
-                f"Unknown deformation method {method!r}; expected "
-                "'auto', 'radial' or 'spheroidal'."
-            )
-
         return method
 
-    model = config.model
-
-    if isinstance(model, PolytropicModelConfig):
-        n_domains = model.n_regions
-    else:
-        r1d = np.genfromtxt(
-            Path("Models") / model,
-            skip_header=2,
-            usecols=0,
-        )
-        n_domains = find_domains(r1d).n_domains
-
-    if n_domains > 1:
-        return "spheroidal"
-
-    return "radial"
+    return (
+        "spheroidal"
+        if model.n_domains > 1
+        else "radial"
+    )
 
 
 def deform(config: DeformationConfig) -> DeformationResult:
     """Compute the centrifugal deformation specified by config."""
-    method = _select_method(config)
+    model = initialize_model_1d(config.model)
 
-    solvers = {
+    method = _select_method(
+        config.solver.method,
+        model,
+    )
+
+    solver = {
         "radial": radial_method,
         "spheroidal": spheroidal_method,
-    }
-    solver = solvers[method]
+    }[method]
 
     return solver(
-        config.model,
+        model,
         config.rotation.profile,
         config.rotation.target,
         config.rotation.central_diff_rate,

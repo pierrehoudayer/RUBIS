@@ -27,7 +27,7 @@ class PlotOptions:
 
     resolution: int = 501
     surfaces: bool = True
-    field_cmap: str = "Stellar_r"
+    field_cmap: str = "magma_r"
     surface_cmap: str = "Greys"
 
 
@@ -41,7 +41,7 @@ class RadiativeFluxOptions:
     n_lines: int = 15
     show_effective_temperature: bool = True
     resolution: tuple[int, int] = (200, 100)
-    cmap: str = "Stellar_r"
+    cmap: str = "magma_r"
 
 
 @dataclass(kw_only=True)

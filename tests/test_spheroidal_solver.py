@@ -4,9 +4,10 @@ import numpy as np
 
 from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
-from rubis.models import CompositePolytropeConfig
-from rubis.results import DeformationResult, SpheroidalResult
+from rubis.config import CompositePolytropeConfig
+from rubis.initialization import initialize_model_1d
 from rubis.solvers import spheroidal_method
+from rubis.results import DeformationResult, SpheroidalResult
 
 
 def test_spheroidal_solver_returns_normalised_state():
@@ -15,13 +16,15 @@ def test_spheroidal_solver_returns_normalised_state():
     angular_resolution = 9
     max_degree = 9
 
-    model = CompositePolytropeConfig(
-        indices=(1.0, 1.0),
-        target_pressures=(-1.0, -np.inf),
-        density_jumps=(0.4,),
-        radius=1.0,
-        mass=1.0,
-        n_points=resolution,
+    model = initialize_model_1d(
+        CompositePolytropeConfig(
+            indices=(1.0, 1.0),
+            target_pressures=(-1.0, -np.inf),
+            density_jumps=(0.4,),
+            radius=1.0,
+            mass=1.0,
+            n_points=resolution,
+        )
     )
 
     result = spheroidal_method(
@@ -113,13 +116,15 @@ def test_nonrotating_composite_model_remains_spherical():
     angular_resolution = 9
     max_degree = 9
 
-    model = CompositePolytropeConfig(
-        indices=(1.0, 1.0),
-        target_pressures=(-1.0, -np.inf),
-        density_jumps=(0.4,),
-        radius=1.0,
-        mass=1.0,
-        n_points=resolution,
+    model = initialize_model_1d(
+        CompositePolytropeConfig(
+            indices=(1.0, 1.0),
+            target_pressures=(-1.0, -np.inf),
+            density_jumps=(0.4,),
+            radius=1.0,
+            mass=1.0,
+            n_points=resolution,
+        )
     )
     
     result = spheroidal_method(
@@ -232,13 +237,15 @@ def test_uniform_rotation_deforms_composite_model():
     mapping_precision = 1.0e-10
     density_jump = 0.4
 
-    model = CompositePolytropeConfig(
-        indices=(1.0, 1.0),
-        target_pressures=(-1.0, -np.inf),
-        density_jumps=(density_jump,),
-        radius=1.0,
-        mass=1.0,
-        n_points=resolution,
+    model = initialize_model_1d(
+        CompositePolytropeConfig(
+            indices=(1.0, 1.0),
+            target_pressures=(-1.0, -np.inf),
+            density_jumps=(density_jump,),
+            radius=1.0,
+            mass=1.0,
+            n_points=resolution,
+        )
     )
 
     result = spheroidal_method(

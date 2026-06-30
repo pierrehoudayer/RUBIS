@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..models import PolytropicModelConfig
+from ..config import PolytropeConfig, CompositePolytropeConfig
 
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
 
 def make_output_filename(model_choice, rotation_target):
     """Build the output filename for a deformed model."""
-    if isinstance(model_choice, PolytropicModelConfig):
+    if isinstance(model_choice, PolytropeConfig | CompositePolytropeConfig):
         model_name = model_choice.filename_stem
     else:
         model_name = str(model_choice).removesuffix(".txt")

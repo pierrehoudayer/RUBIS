@@ -1,53 +1,49 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jan  5 17:06:45 2023
+"""Construction of simple and composite polytropic models."""
 
-@author: phoudayer
-"""
+from dataclasses import dataclass
 
-import numpy             as np
-import matplotlib.pyplot as plt
-from matplotlib      import rc
+import numpy as np
+from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
-from .models import (
+from .config import (
     CompositePolytropeConfig,
     PolytropeConfig,
-    PolytropicModelConfig,
-    SphericalModel,
 )
 
 
 __all__ = [
+    "PolytropicModel",
     "build_polytrope",
     "polytrope",
     "composite_polytrope",
 ]
 
 
-def build_polytrope(
-    config: PolytropicModelConfig,
-) -> SphericalModel:
-    """Build a spherical polytrope from its configuration."""
-    if isinstance(config, PolytropeConfig):
-        return polytrope(
-            config.index,
-            R=config.radius,
-            M=config.mass,
-            res=config.n_points,
-        )
-
-    if isinstance(config, CompositePolytropeConfig):
-        return composite_polytrope(config)
-
-    raise TypeError(
-        "config must be a PolytropeConfig or "
-        "CompositePolytropeConfig."
-    )
+FloatArray = NDArray[np.float64]
 
 
-def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) -> SphericalModel:
+@dataclass(kw_only=True)
+class PolytropicModel:
+    """Dimensional hydrostatic structure of a polytrope."""
+
+    r: FloatArray
+    p: FloatArray
+    rho: FloatArray
+    g: FloatArray
+
+    @property
+    def n_points(self) -> int:
+        return self.r.size
+
+
+def polytrope(
+    N,
+    R=1.0,
+    M=1.0,
+    P0=0.0,
+    res=1001,
+) -> PolytropicModel:
     """Generate a polytrope of given radius, mass and surface pressure."""
     
     if N in {1.0} :             # The analytical solution is known
@@ -115,7 +111,7 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) -> SphericalModel:
     x  = x0 * np.sin(np.linspace(0, np.pi/2, res))
     h, dh  = f(x), df(x)
     
-    return SphericalModel(
+    return PolytropicModel(
         r   = L_scale * x,
         p   = pc * h**(N + 1),
         rho = rhoc * h**N,
@@ -124,7 +120,7 @@ def polytrope(N, P0=0.0, R=1.0, M=1.0, res=1001) -> SphericalModel:
 
 def composite_polytrope(
     config: CompositePolytropeConfig,
-) -> SphericalModel:
+) -> PolytropicModel:
     """
     Generate a composite polytrope of given radius and mass.
     The latter is composed of N polytropes, the i-th one having an index n_i = indices[i].
@@ -281,7 +277,7 @@ def composite_polytrope(
         
     r = r_scale * np.hstack(x_per_domain)
 
-    return SphericalModel(
+    return PolytropicModel(
         r=r,
         p=p,
         rho=rho,
@@ -289,5 +285,24 @@ def composite_polytrope(
     )
     
     
+def build_polytrope(
+    config: PolytropeConfig | CompositePolytropeConfig,
+) -> PolytropicModel:
+    """Build a simple or composite polytropic model."""
+    if isinstance(config, PolytropeConfig):
+        return polytrope(
+            config.index,
+            R=config.radius,
+            M=config.mass,
+            res=config.n_points,
+        )
+
+    if isinstance(config, CompositePolytropeConfig):
+        return composite_polytrope(config)
+
+    raise TypeError(
+        "config must be a PolytropeConfig or "
+        "CompositePolytropeConfig."
+    )
     
     

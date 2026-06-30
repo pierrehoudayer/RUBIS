@@ -1,17 +1,24 @@
-"""Configuration of a centrifugal-deformation calculation."""
+"""User-facing configuration objects for RUBIS."""
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal, TypeAlias
 
-from .models import PolytropicModelConfig
+import numpy as np
+from numpy.typing import ArrayLike
+
 from .options import OutputOptions
 from .rotation_profiles import solid
 
 
 __all__ = [
+    "CompositePolytropeConfig",
     "DeformationConfig",
-    "ModelInput",
+    "LegacyModelConfig",
+    "ModelConfig",
+    "PolytropeConfig",
     "RotationConfig",
     "RotationProfile",
     "SolverMethod",
@@ -19,13 +26,92 @@ __all__ = [
 ]
 
 
-ModelInput: TypeAlias = PolytropicModelConfig | str
 RotationProfile: TypeAlias = Callable[..., object]
+
 SolverMethod: TypeAlias = Literal[
     "auto",
     "radial",
     "spheroidal",
 ]
+
+
+@dataclass(kw_only=True)
+class _PolytropeConfigBase(ABC):
+    """Parameters shared by simple and composite polytropes."""
+
+    radius: float = 1.0
+    mass: float = 1.0
+    n_points: int = 1001
+
+    @property
+    @abstractmethod
+    def polytropic_indices(self) -> tuple[float, ...]:
+        """Polytropic index of each region."""
+
+    @property
+    def n_regions(self) -> int:
+        return len(self.polytropic_indices)
+
+    @property
+    def filename_stem(self) -> str:
+        indices = "|".join(
+            f"{index:.1f}"
+            for index in self.polytropic_indices
+        )
+        return f"poly_|{indices}|"
+
+
+@dataclass(kw_only=True)
+class PolytropeConfig(_PolytropeConfigBase):
+    """Configuration of a single polytrope."""
+
+    index: float
+
+    @property
+    def polytropic_indices(self) -> tuple[float, ...]:
+        return (self.index,)
+
+
+@dataclass(kw_only=True)
+class CompositePolytropeConfig(_PolytropeConfigBase):
+    """Configuration of a composite polytrope."""
+
+    indices: ArrayLike
+    target_pressures: ArrayLike
+    density_jumps: ArrayLike | None = None
+
+    @property
+    def polytropic_indices(self) -> tuple[float, ...]:
+        if np.ndim(self.indices) == 0:
+            return (float(self.indices),)
+
+        return tuple(
+            float(index)
+            for index in self.indices
+        )
+
+
+@dataclass(kw_only=True)
+class LegacyModelConfig:
+    """Configuration of a model stored in the legacy RUBIS format."""
+
+    filename: str
+    directory: Path = Path("Models")
+
+    @property
+    def path(self) -> Path:
+        return self.directory / self.filename
+
+    @property
+    def filename_stem(self) -> str:
+        return Path(self.filename).stem
+
+
+ModelConfig: TypeAlias = (
+    PolytropeConfig
+    | CompositePolytropeConfig
+    | LegacyModelConfig
+)
 
 
 @dataclass(kw_only=True)
@@ -59,9 +145,15 @@ class SolverOptions:
 
 @dataclass(kw_only=True)
 class DeformationConfig:
-    """Complete input configuration for a deformation calculation."""
+    """Complete configuration of a deformation calculation."""
 
-    model: ModelInput
-    rotation: RotationConfig = field(default_factory=RotationConfig)
-    solver: SolverOptions = field(default_factory=SolverOptions)
-    output: OutputOptions = field(default_factory=OutputOptions)
+    model: ModelConfig
+    rotation: RotationConfig = field(
+        default_factory=RotationConfig
+    )
+    solver: SolverOptions = field(
+        default_factory=SolverOptions
+    )
+    output: OutputOptions = field(
+        default_factory=OutputOptions
+    )

@@ -2,11 +2,11 @@ import numpy as np
 
 from rubis.api import deform
 from rubis.config import (
+    CompositePolytropeConfig,
     DeformationConfig,
     RotationConfig,
     SolverOptions,
 )
-from rubis.models import CompositePolytropeConfig
 from rubis.options import (
     DiagnosticOptions,
     ModelOutputOptions,
