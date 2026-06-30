@@ -9,6 +9,12 @@ from pathlib import Path
 
 import numpy as np
 
+from rubis.api import deform
+from rubis.config import (
+    DeformationConfig,
+    RotationConfig,
+    SolverOptions,
+)
 from rubis.solvers import radial_method, spheroidal_method
 from rubis.models import CompositePolytropeConfig, PolytropeConfig
 from rubis.options import OutputOptions
@@ -121,21 +127,25 @@ def generate_radial_reference(
         n_points=65,
     )
 
-    result = radial_method(
-        model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        9,
-        9,
-        1,
-        1.0e-10,
-        3,
-        2,
-        OutputOptions(),
-        21,
-        True,
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=solid,
+                target=0.3,
+            ),
+            solver=SolverOptions(
+                method="radial",
+                max_degree=9,
+                angular_resolution=9,
+                full_rate=1,
+                mapping_precision=1.0e-10,
+                spline_order=3,
+                lagrange_order=2,
+                external_domain_res=21,
+                rescale_ab=True,
+            ),
+        )
     )
 
     _save_radial_reference(
@@ -158,21 +168,25 @@ def generate_spheroidal_reference(
         n_points=65,
     )
 
-    result = spheroidal_method(
-        model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        9,
-        9,
-        1,
-        1.0e-10,
-        3,
-        2,
-        OutputOptions(),
-        21,
-        True,
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=solid,
+                target=0.3,
+            ),
+            solver=SolverOptions(
+                method="spheroidal",
+                max_degree=9,
+                angular_resolution=9,
+                full_rate=1,
+                mapping_precision=1.0e-10,
+                spline_order=3,
+                lagrange_order=2,
+                external_domain_res=21,
+                rescale_ab=True,
+            ),
+        )
     )
 
     _save_spheroidal_reference(
