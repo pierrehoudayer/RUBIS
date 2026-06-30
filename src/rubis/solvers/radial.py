@@ -99,29 +99,25 @@ def initialize_radial_numerics(
         Asp=Asp,
     )
 
-def find_pressure(rho, dphi_eff, P0) :
-    """
-    Find the pressure evaluated on r1d thanks to the hydrostatic
-    equilibrium.
+def find_pressure(
+    rho,
+    dphi_eff,
+    surface_pressure,
+    num: RadialNumerics,
+):
+    """Integrate hydrostatic equilibrium on the radial grid."""
+    dp = -rho * dphi_eff
+    x = 1.0 - num.r1d[::-1]
 
-    Parameters
-    ----------
-    rho : array_like, shape (N, )
-        Density profile.
-    dphi_eff : array_like, shape (N, )
-        Effective potential derivative with respect to r1d.
-    P0 : float
-        Surface pressure.
+    p = interpolate_func(
+        x=x,
+        y=-dp[::-1],
+        der=-1,
+        k=num.spline_order,
+        prim_cond=(0, surface_pressure),
+    )(x)
 
-    Returns
-    -------
-    P : array_like, shape (N, )
-        Pressure profile.
-
-    """
-    dP = - rho * dphi_eff
-    P  = interpolate_func(1-r1d[::-1], -dP[::-1], der=-1, k=KSPL, prim_cond=(0, P0))(1-r1d[::-1])[::-1]
-    return P
+    return p[::-1]
 
 
 def find_rho_l(r2d, rho) : 
@@ -503,8 +499,8 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, P0, N, L, M, KSPL, KLAG
-    global r1d, zeta, rho
+    global G, N, L, M, KSPL, KLAG
+    global r1d, zeta
     global Lsp, Dsp, Asp
     global eval_phi_c, eval_omega
 
@@ -527,7 +523,7 @@ def radial_method(
     )
 
     G = model.G
-    P0 = model.surface_pressure
+    surface_pressure = model.surface_pressure
     radius = model.radius
     mass = model.mass
 
@@ -560,7 +556,7 @@ def radial_method(
     phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho)
     
     # Find pressure
-    P = find_pressure(rho, dphi_eff, P0)
+    p = find_pressure(rho, dphi_eff, surface_pressure, num)
     
     # Iterative centrifugal deformation
     polar_radius_history = [0.0, find_r_pol(r2d, L)]
@@ -610,11 +606,11 @@ def radial_method(
         m_corr    = integrate2D(r2d, rho, k=KSPL)
         radius   *= r_corr
         mass     *= m_corr
-        r2d    /=             r_corr
-        rho    /= m_corr    / r_corr**3
+        r2d      /=             r_corr
+        rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr**2
-        P        /= m_corr**2 / r_corr**4
+        p        /= m_corr**2 / r_corr**4
         
         # Update the polar radius
         polar_radius_history.append(find_r_pol(r2d, L))
@@ -643,7 +639,7 @@ def radial_method(
         mapping=r2d.copy(),
 
         density=rho.copy(),
-        pressure=P.copy(),
+        pressure=p.copy(),
 
         effective_potential=phi_eff.copy(),
         effective_potential_derivative=dphi_eff.copy(),
@@ -667,7 +663,7 @@ def radial_method(
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=True)   
+        virial = Virial_theorem(r2d, rho, omega_n, phi_eff, p, verbose=True)   
     
     # Plot model
     if output_options.plot.show_model :
@@ -721,14 +717,14 @@ def radial_method(
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius**2
-            P        *= G * mass**2 / radius**4
+            p        *= G * mass**2 / radius**4
         write_model(
             output_options.model.filename,
             (N, M, mass, radius, rotation_target, G),
             r2d,
             additional_variables,
             zeta,
-            P,
+            p,
             rho,
             phi_eff,
             rota,
