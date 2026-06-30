@@ -12,7 +12,6 @@ from .numerical import interpolate_func
 
 __all__ = [
     "MappingDerivatives",
-    "RadialMappingDerivatives",
     "ExtendedMappingDerivatives",
     "MappingGeometry",
     "extend_mapping",
@@ -34,12 +33,6 @@ class MappingDerivatives:
     r_z: FloatArray
     r_zt: FloatArray
     r_ztt: FloatArray
-
-
-@dataclass(kw_only=True)
-class RadialMappingDerivatives(MappingDerivatives):
-    """Mapping derivatives required by the radial method."""
-
     r_zz: FloatArray
 
 
@@ -94,44 +87,56 @@ def valid_reciprocal_domain(x, df, safety=1.0e-4):
     valid = np.squeeze(valid)
     return valid
 
-def compute_mapping_derivatives(r2d, z, t, L, spline_order):
-    """Compute the derivatives of r2d(z, t).
 
-    Parameters
-    ----------
-    r2d : ndarray, shape (N, M)
-        Radius of each mapped surface.
-    z : ndarray, shape (N,)
-        Radial mapping coordinate, with z = zeta.
-    t : ndarray, shape (M,)
-        Angular coordinate, with t = cos(theta).
-    L : int
-        Number of Legendre coefficients.
-    spline_order : int
-        Spline order used for radial derivatives.
+def differentiate_mapping_radially(
+    r2d,
+    z,
+    domain_ranges,
+    derivative,
+    spline_order,
+):
+    """Differentiate r2d independently in each radial domain."""
+    return np.array([
+        np.hstack([
+            interpolate_func(z[D], rk[D], der=derivative, k=spline_order)(z[D])
+            for D in domain_ranges
+        ])
+        for rk in r2d.T
+    ]).T
+    
 
-    Returns
-    -------
-    RadialMappingDerivatives
-        First and second derivatives of r2d.
-    """
-    r_l = pl_project_2D(r2d, L)
+def compute_mapping_derivatives(
+    r2d,
+    z,
+    t,
+    max_degree,
+    spline_order,
+    domain_ranges,
+):
+    """Compute radial and angular derivatives of r2d(z, t)."""
+    r_l = pl_project_2D(r2d, max_degree)
     _, r_t, r_tt = pl_eval_2D(r_l, t, der=2)
 
-    r_z = np.array([
-        interpolate_func(z, rk, der=1, k=spline_order)(z)
-        for rk in r2d.T
-    ]).T
+    r_z = differentiate_mapping_radially(
+        r2d,
+        z,
+        domain_ranges,
+        derivative=1,
+        spline_order=spline_order,
+    )
 
-    r_z_l = pl_project_2D(r_z, L)
+    r_z_l = pl_project_2D(r_z, max_degree)
     _, r_zt, r_ztt = pl_eval_2D(r_z_l, t, der=2)
 
-    r_zz = np.array([
-        interpolate_func(z, rk, der=2, k=spline_order)(z)
-        for rk in r2d.T
-    ]).T
+    r_zz = differentiate_mapping_radially(
+        r2d,
+        z,
+        domain_ranges,
+        derivative=2,
+        spline_order=spline_order,
+    )
 
-    return RadialMappingDerivatives(
+    return MappingDerivatives(
         r_t=r_t,
         r_tt=r_tt,
         r_z=r_z,

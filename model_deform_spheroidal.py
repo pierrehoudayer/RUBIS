@@ -27,9 +27,9 @@ from rubis.polytrope     import (
 )
 from rubis.domains       import find_domains
 from rubis.mapping       import (
-    MappingDerivatives,
     initialize_mapping, 
     valid_reciprocal_domain,
+    compute_mapping_derivatives,
     extend_mapping,
 )
 from rubis.rotation_profiles import configure_rotation_profile
@@ -210,52 +210,6 @@ def find_pressure(rho, dphi_eff, P0) :
     )(1-zeta[domains.internal_mask][::-1])[::-1]
     
     return P
-
-
-def find_metric_terms(r2d, t) : 
-    """
-    Finds the metric terms, i.e the derivatives of r(z, t) 
-    with respect to z or t (with z := zeta and t := cos(theta)).
-
-    Parameters
-    ----------
-    r2d : array_like, shape (N, M)
-        Isopotential mapping.
-    t : array_like, shape (M, )
-        Angular variable.
-
-    Returns
-    -------
-    der : DotDict instance
-        The mapping derivatives : {
-            _   = r(z, t),
-            t   = r_t(z, t),
-            tt  = r_tt(z, t),
-            z   = r_z(z, t),
-            zt  = r_zt(z, t),
-            ztt = r_ztt(z, t)
-            }          
-    """
-    r_l = pl_project_2D(r2d, L)
-    _, r_t, r_tt = pl_eval_2D(r_l, t, der=2)
-
-    r_z = np.array(
-        [np.hstack(
-            [interpolate_func(zeta[D], rk[D], der=1, k=KSPL)(zeta[D]) 
-             for D in domains.domain_ranges[:-1]]
-        ) for rk in r2d.T] # <- potentially discontinous on the interfaces
-    ).T
-
-    r_z_l = pl_project_2D(r_z, L)
-    _, r_zt, r_ztt = pl_eval_2D(r_z_l, t, der=2)
-
-    return MappingDerivatives(
-        r_t=r_t,
-        r_tt=r_tt,
-        r_z=r_z,
-        r_zt=r_zt,
-        r_ztt=r_ztt,
-    )
     
     
 def find_all_couplings(r2d, der, t, alpha=2) :
@@ -459,7 +413,14 @@ def find_phi_eff(r2d, t, rho, phi_eff=None, rescale_ab=True) :
 
     """        
     # Internal mapping derivatives
-    der = find_metric_terms(r2d, t)
+    der = compute_mapping_derivatives(
+        r2d,
+        zeta,
+        t,
+        max_degree=L,
+        spline_order=KSPL,
+        domain_ranges=domains.domain_ranges[:-1],
+    )
 
     # Matter source: internal domain only
     r2rz_l = pl_project_2D(
@@ -560,7 +521,14 @@ def find_new_mapping(r2d, t, omega_n, phi_g_l, dphi_g_l, phi_eff, dphi_eff) :
     targets = np.copy(phi_eff[:N])
     
     # Find metric terms
-    der = find_metric_terms(r2d, t)
+    der = compute_mapping_derivatives(
+        r2d,
+        zeta,
+        t,
+        max_degree=L,
+        spline_order=KSPL,
+        domain_ranges=domains.domain_ranges[:-1],
+    )
     z_ext = zeta[domains.external_mask]
     r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     
@@ -806,7 +774,14 @@ def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
     print(f'Time taken: {round(finish-start, 2)} secs')  
     
     # Estimated error on Poisson's equation
-    der = find_metric_terms(r2d, t)
+    der = compute_mapping_derivatives(
+        r2d,
+        zeta,
+        t,
+        max_degree=L,
+        spline_order=KSPL,
+        domain_ranges=domains.domain_ranges[:-1],
+    )
     z_ext = zeta[domains.external_mask]
     r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     

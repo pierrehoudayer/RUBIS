@@ -28,7 +28,6 @@ from rubis.mapping       import (
 )
 from rubis.rotation_profiles import configure_rotation_profile
 from rubis.results       import RadialResult
-from rubis._utils        import DotDict
 from rubis.io.legacy     import write_model
 from plot                import (
     plot_flux_lines,
@@ -812,7 +811,14 @@ def find_radiative_flux(
     x = (1 - z)[::-1]
     
     # Metric terms computation
-    der = compute_mapping_derivatives(r, z, t, L, spline_order=KSPL)
+    der = compute_mapping_derivatives(
+        r,
+        z,
+        t,
+        max_degree=L,
+        spline_order=KSPL,
+        domain_ranges=(slice(None),),
+    )
     geo = compute_mapping_geometry(r, der, t)
     r_l   = pl_project_2D(r, L)
     rhs_l = pl_project_2D(geo.gg, L, even=False)
