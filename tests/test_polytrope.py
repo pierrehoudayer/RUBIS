@@ -9,15 +9,21 @@ from rubis.models import (
     SphericalModel,
 )
 from rubis.polytrope import (
-    polytrope,
+    polytrope, 
     composite_polytrope,
+    build_polytrope,
 )
 
 
 G = 6.67384e-8
 
 def test_polytrope_returns_spherical_model():
-    model = polytrope(1.0, res=101)
+    model = build_polytrope(
+        PolytropeConfig(
+            index=1.0,
+            n_points=101,
+        )
+    )
 
     assert isinstance(model, SphericalModel)
     assert model.n_points == 101
@@ -31,22 +37,25 @@ def test_composite_polytrope_returns_spherical_model():
         n_points=101,
     )
 
-    model = composite_polytrope(config)
+    model = build_polytrope(config)
 
     assert isinstance(model, SphericalModel)
     assert model.n_points == 101
     
 
 def test_n1_polytrope_matches_analytic_solution():
+    index = 1.0
     radius = 2.0
     mass = 3.0
     n_points = 101
 
-    model = polytrope(
-        1.0,
-        R=radius,
-        M=mass,
-        res=n_points,
+    model = build_polytrope(
+        PolytropeConfig(
+            index=index,
+            radius=radius,
+            mass=mass,
+            n_points=n_points,
+        )
     )
 
     x = np.pi * model.r / radius
@@ -81,11 +90,18 @@ def test_n1_polytrope_matches_analytic_solution():
 
 
 def test_n1_polytrope_has_regular_central_gravity():
-    model = polytrope(
-        1.0,
-        R=2.0,
-        M=3.0,
-        res=101,
+    index = 1.0
+    radius = 2.0
+    mass = 3.0
+    n_points = 101
+
+    model = build_polytrope(
+        PolytropeConfig(
+            index=index,
+            radius=radius,
+            mass=mass,
+            n_points=n_points,
+        )
     )
 
     assert np.isfinite(model.g).all()
@@ -105,15 +121,41 @@ def test_n1_polytrope_has_regular_central_gravity():
     )
     
     
+def test_build_polytrope_preserves_simple_solution():
+    config = PolytropeConfig(
+        index=1.0,
+        radius=2.0,
+        mass=3.0,
+        n_points=101,
+    )
+
+    built = build_polytrope(config)
+    direct = polytrope(
+        config.index,
+        R=config.radius,
+        M=config.mass,
+        res=config.n_points,
+    )
+
+    np.testing.assert_array_equal(built.r, direct.r)
+    np.testing.assert_array_equal(built.rho, direct.rho)
+    np.testing.assert_array_equal(built.p, direct.p)
+    np.testing.assert_array_equal(built.g, direct.g)
+    
+    
 def test_n0_polytrope_matches_uniform_sphere():
+    index = 0.0
     radius = 2.0
     mass = 3.0
+    n_points = 101
 
-    model = polytrope(
-        0.0,
-        R=radius,
-        M=mass,
-        res=101,
+    model = build_polytrope(
+        PolytropeConfig(
+            index=index,
+            radius=radius,
+            mass=mass,
+            n_points=n_points,
+        )
     )
 
     expected_density = (
@@ -157,14 +199,18 @@ def test_n0_polytrope_matches_uniform_sphere():
     
     
 def test_n3_polytrope_global_properties():
+    index = 3.0
     radius = 2.0
     mass = 3.0
+    n_points = 501
 
-    model = polytrope(
-        3.0,
-        R=radius,
-        M=mass,
-        res=501,
+    model = build_polytrope(
+        PolytropeConfig(
+            index=index,
+            radius=radius,
+            mass=mass,
+            n_points=n_points,
+        )
     )
 
     assert np.isfinite(model.r).all()
@@ -214,19 +260,21 @@ def test_n3_polytrope_global_properties():
     
     
 def test_single_region_composite_matches_simple_polytrope():
+    index = 3.0
     radius = 2.0
     mass = 3.0
-    n_points = 501
-    index = 3.0
+    n_points = 101
 
-    simple_model = polytrope(
-        index,
-        R=radius,
-        M=mass,
-        res=n_points,
+    simple_model = build_polytrope(
+        PolytropeConfig(
+            index=index,
+            radius=radius,
+            mass=mass,
+            n_points=n_points,
+        )
     )
 
-    composite_model = composite_polytrope(
+    composite_model = build_polytrope(
         CompositePolytropeConfig(
             indices=index,
             target_pressures=-np.inf,
@@ -269,7 +317,7 @@ def test_composite_polytrope_interface_conditions():
     n_points = 301
     density_jump = 0.4
 
-    model = composite_polytrope(
+    model = build_polytrope(
         CompositePolytropeConfig(
             indices=(1.0, 1.0),
             target_pressures=(-1.0, -np.inf),
@@ -342,7 +390,7 @@ def test_composite_polytrope_rejects_invalid_pressure_count():
     )
 
     with pytest.raises(ValueError, match="target_pressures"):
-        composite_polytrope(config)
+        build_polytrope(config)
 
 
 def test_composite_polytrope_rejects_invalid_density_jump_count():
@@ -353,4 +401,21 @@ def test_composite_polytrope_rejects_invalid_density_jump_count():
     )
 
     with pytest.raises(ValueError, match="density_jumps"):
-        composite_polytrope(config)
+        build_polytrope(config)
+        
+        
+def test_build_polytrope_preserves_composite_solution():
+    config = CompositePolytropeConfig(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.4,),
+        n_points=101,
+    )
+
+    built = build_polytrope(config)
+    direct = composite_polytrope(config)
+
+    np.testing.assert_array_equal(built.r, direct.r)
+    np.testing.assert_array_equal(built.rho, direct.rho)
+    np.testing.assert_array_equal(built.p, direct.p)
+    np.testing.assert_array_equal(built.g, direct.g)

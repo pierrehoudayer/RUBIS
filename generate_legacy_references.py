@@ -1,70 +1,57 @@
+"""Regenerate solver reference files explicitly.
+
+The existing ``*_legacy.npz`` files are historical regression references.
+Do not overwrite them unless the numerical baseline is intentionally changed.
+"""
+
+from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
 
-from rubis._utils import DotDict
 from model_deform_radial import radial_method
 from model_deform_spheroidal import spheroidal_method
+from rubis.models import CompositePolytropeConfig, PolytropeConfig
+from rubis.options import OutputOptions
+from rubis.results import RadialResult, SpheroidalResult
 from rubis.rotation_profiles import solid
 
 
+REFERENCE_DIR = Path(__file__).parent / "tests" / "reference"
+
 RADIAL_REFERENCE_PATH = (
-    Path(__file__).parent
-    / "tests"
-    / "reference"
+    REFERENCE_DIR
     / "radial_n1_solid_omega_0p3_legacy.npz"
 )
 
 SPHEROIDAL_REFERENCE_PATH = (
-    Path(__file__).parent
-    / "tests"
-    / "reference"
+    REFERENCE_DIR
     / "spheroidal_composite_solid_omega_0p3_legacy.npz"
 )
 
 
-def generate_radial_reference():
-    model = DotDict(
-        indices=1.0,
-        target_pressures=-np.inf,
-        density_jumps=None,
-        radius=1.0,
-        mass=1.0,
-        resolution=65,
-    )
+def _check_output_path(path: Path, overwrite: bool) -> None:
+    if path.exists() and not overwrite:
+        raise FileExistsError(
+            f"{path} already exists. Pass --overwrite to replace "
+            "the historical reference intentionally."
+        )
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
-
-    result = radial_method(
-        model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        9,
-        9,
-        1,
-        1.0e-10,
-        3,
-        2,
-        output,
-        21,
-        True,
-    )
-
-    RADIAL_REFERENCE_PATH.parent.mkdir(
+    path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
+
+def _save_radial_reference(
+    path: Path,
+    result: RadialResult,
+    overwrite: bool,
+) -> None:
+    _check_output_path(path, overwrite)
+
     np.savez_compressed(
-        RADIAL_REFERENCE_PATH,
+        path,
         zeta=result.zeta,
         cos_theta=result.cos_theta,
         mapping=result.mapping,
@@ -83,54 +70,18 @@ def generate_radial_reference():
         rotation_rate=result.rotation_rate,
     )
 
-    print(
-        "Radial reference written to "
-        f"{RADIAL_REFERENCE_PATH}"
-    )
-    
-    
-def generate_spheroidal_reference():
-    model = DotDict(
-        indices=(1.0, 1.0),
-        target_pressures=(-1.0, -np.inf),
-        density_jumps=(0.4,),
-        radius=1.0,
-        mass=1.0,
-        resolution=65,
-    )
+    print(f"Radial reference written to {path}")
 
-    output = DotDict(
-        show_harmonics=False,
-        virial_test=False,
-        show_model=False,
-        gravitational_moments=False,
-        save_model=False,
-    )
 
-    result = spheroidal_method(
-        model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        9,
-        9,
-        1,
-        1.0e-10,
-        3,
-        2,
-        output,
-        21,
-        True,
-    )
-
-    SPHEROIDAL_REFERENCE_PATH.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+def _save_spheroidal_reference(
+    path: Path,
+    result: SpheroidalResult,
+    overwrite: bool,
+) -> None:
+    _check_output_path(path, overwrite)
 
     np.savez_compressed(
-        SPHEROIDAL_REFERENCE_PATH,
+        path,
         zeta=result.zeta,
         internal_zeta=result.internal_zeta,
         external_zeta=result.external_zeta,
@@ -157,12 +108,112 @@ def generate_spheroidal_reference():
         rotation_rate=result.rotation_rate,
     )
 
-    print(
-        "Spheroidal reference written to "
-        f"{SPHEROIDAL_REFERENCE_PATH}"
+    print(f"Spheroidal reference written to {path}")
+
+
+def generate_radial_reference(
+    *,
+    overwrite: bool = False,
+) -> None:
+    model = PolytropeConfig(
+        index=1.0,
+        radius=1.0,
+        mass=1.0,
+        n_points=65,
+    )
+
+    result = radial_method(
+        model,
+        solid,
+        0.3,
+        0.0,
+        1.0,
+        9,
+        9,
+        1,
+        1.0e-10,
+        3,
+        2,
+        OutputOptions(),
+        21,
+        True,
+    )
+
+    _save_radial_reference(
+        RADIAL_REFERENCE_PATH,
+        result,
+        overwrite,
     )
 
 
+def generate_spheroidal_reference(
+    *,
+    overwrite: bool = False,
+) -> None:
+    model = CompositePolytropeConfig(
+        indices=(1.0, 1.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.4,),
+        radius=1.0,
+        mass=1.0,
+        n_points=65,
+    )
+
+    result = spheroidal_method(
+        model,
+        solid,
+        0.3,
+        0.0,
+        1.0,
+        9,
+        9,
+        1,
+        1.0e-10,
+        3,
+        2,
+        OutputOptions(),
+        21,
+        True,
+    )
+
+    _save_spheroidal_reference(
+        SPHEROIDAL_REFERENCE_PATH,
+        result,
+        overwrite,
+    )
+
+
+def main() -> None:
+    parser = ArgumentParser(
+        description=(
+            "Regenerate the numerical regression references. "
+            "Existing files are protected by default."
+        )
+    )
+    parser.add_argument(
+        "--case",
+        choices=("all", "radial", "spheroidal"),
+        default="all",
+        help="Reference case to generate.",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Allow replacement of existing reference files.",
+    )
+
+    args = parser.parse_args()
+
+    if args.case in ("all", "radial"):
+        generate_radial_reference(
+            overwrite=args.overwrite,
+        )
+
+    if args.case in ("all", "spheroidal"):
+        generate_spheroidal_reference(
+            overwrite=args.overwrite,
+        )
+
+
 if __name__ == "__main__":
-    generate_radial_reference()
-    generate_spheroidal_reference()
+    main()

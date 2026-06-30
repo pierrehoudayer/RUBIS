@@ -30,21 +30,20 @@ def build_polytrope(
     config: PolytropicModelConfig,
 ) -> SphericalModel:
     """Build a spherical polytrope from its configuration."""
-    
     if isinstance(config, PolytropeConfig):
-        config = CompositePolytropeConfig(
-            indices=(config.index,),
-            target_pressures=(-np.inf,),
-            radius=config.radius,
-            mass=config.mass,
-            n_points=config.n_points,
+        return polytrope(
+            config.index,
+            R=config.radius,
+            M=config.mass,
+            res=config.n_points,
         )
 
     if isinstance(config, CompositePolytropeConfig):
         return composite_polytrope(config)
 
     raise TypeError(
-        "config must be a PolytropeConfig or CompositePolytropeConfig."
+        "config must be a PolytropeConfig or "
+        "CompositePolytropeConfig."
     )
 
 
