@@ -4,15 +4,13 @@ from rubis.api import deform
 from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
-    RotationConfig,
-    SolverOptions,
-)
-from rubis.options import (
     DiagnosticOptions,
     ModelOutputOptions,
     OutputOptions,
     PlotOptions,
     RadiativeFluxOptions,
+    RotationConfig,
+    SolverOptions,
 )
 from rubis.rotation_profiles import solid
 

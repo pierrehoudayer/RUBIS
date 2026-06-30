@@ -2,8 +2,11 @@ from pathlib import Path
 
 import numpy as np
 
-from rubis.options import OutputOptions
-from rubis.config import SolverOptions, RotationConfig
+from rubis.config import (
+    OutputOptions,
+    RotationConfig,
+    SolverOptions, 
+)
 from rubis.rotation_profiles import solid
 from rubis.config import CompositePolytropeConfig
 from rubis.initialization import initialize_model_1d

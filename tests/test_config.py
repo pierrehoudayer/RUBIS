@@ -5,14 +5,38 @@ import numpy as np
 from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
+    DiagnosticOptions,
     LegacyModelConfig,
+    ModelOutputOptions,
+    OutputOptions,
+    PlotOptions,
     PolytropeConfig,
+    RadiativeFluxOptions,
     RotationConfig,
     SolverOptions,
 )
-from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
 
+
+def test_output_options_builds_all_suboptions():
+    options = OutputOptions()
+
+    assert isinstance(options.diagnostics, DiagnosticOptions)
+    assert isinstance(options.plot, PlotOptions)
+    assert isinstance(options.flux, RadiativeFluxOptions)
+    assert isinstance(options.model, ModelOutputOptions)
+
+
+def test_output_options_defaults_disable_optional_outputs():
+    options = OutputOptions()
+
+    assert not options.diagnostics.virial_test
+    assert not options.diagnostics.gravitational_moments
+    assert not options.plot.show_harmonics
+    assert not options.plot.show_model
+    assert not options.flux.enabled
+    assert not options.model.save
+    
 
 def test_polytrope_config_has_one_region():
     config = PolytropeConfig(index=3.0)

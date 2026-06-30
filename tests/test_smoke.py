@@ -4,7 +4,6 @@ def test_core_modules_import():
     import rubis.mapping as mapping
     import rubis.models as models
     import rubis.numerical as numerical
-    import rubis.options as options
     import rubis.poisson as poisson
     import rubis.polytrope as polytrope
     import rubis.results as results

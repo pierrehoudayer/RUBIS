@@ -6,8 +6,11 @@ from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.special       import roots_legendre, eval_legendre
 from scipy.integrate     import solve_ivp
 
-from ..config import RotationConfig, SolverOptions
-from ..options import OutputOptions
+from ..config import (
+    OutputOptions,
+    RotationConfig, 
+    SolverOptions,
+)
 from ..legendre          import (
     find_r_eq, 
     find_r_pol, 

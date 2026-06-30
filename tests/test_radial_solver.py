@@ -2,10 +2,10 @@ import pytest
 
 import numpy as np
 
-from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
 from rubis.config import (
     CompositePolytropeConfig, 
+    OutputOptions,
     PolytropeConfig, 
     RotationConfig,
     SolverOptions,

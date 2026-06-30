@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from rubis.options import OutputOptions
 from rubis.config import (
+    DeformationConfig,
+    LegacyModelConfig,
+    OutputOptions,
     PolytropeConfig, 
     RotationConfig, 
     SolverOptions,
-    LegacyModelConfig,
-    DeformationConfig,
 )
 from rubis.initialization import initialize_model_1d
 from rubis.rotation_profiles import lorentzian, solid

@@ -19,8 +19,11 @@ from ..numerical         import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from ..config            import RotationConfig, SolverOptions
-from ..options           import OutputOptions
+from ..config import (
+    OutputOptions,
+    RotationConfig, 
+    SolverOptions,
+)
 from ..models            import Model1D
 from ..domains           import find_domains
 from ..mapping           import (
