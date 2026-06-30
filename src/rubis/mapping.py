@@ -14,6 +14,8 @@ __all__ = [
     "MappingDerivatives",
     "ExtendedMappingDerivatives",
     "MappingGeometry",
+    "compute_mapping_derivatives",
+    "compute_mapping_geometry",
     "extend_mapping",
     "initialize_mapping",
     "valid_reciprocal_domain",
@@ -88,7 +90,7 @@ def valid_reciprocal_domain(x, df, safety=1.0e-4):
     return valid
 
 
-def differentiate_mapping_radially(
+def _differentiate_mapping_radially(
     r2d,
     z,
     domain_ranges,
@@ -117,7 +119,7 @@ def compute_mapping_derivatives(
     r_l = pl_project_2D(r2d, max_degree)
     _, r_t, r_tt = pl_eval_2D(r_l, t, der=2)
 
-    r_z = differentiate_mapping_radially(
+    r_z = _differentiate_mapping_radially(
         r2d,
         z,
         domain_ranges,
@@ -128,7 +130,7 @@ def compute_mapping_derivatives(
     r_z_l = pl_project_2D(r_z, max_degree)
     _, r_zt, r_ztt = pl_eval_2D(r_z_l, t, der=2)
 
-    r_zz = differentiate_mapping_radially(
+    r_zz = _differentiate_mapping_radially(
         r2d,
         z,
         domain_ranges,
@@ -153,7 +155,7 @@ def compute_mapping_geometry(r2d, der, t):
     ----------
     r2d : ndarray, shape (N, M)
         Radius of each mapped surface.
-    der : RadialMappingDerivatives
+    der : MappingDerivatives
         Derivatives of r2d with respect to z and t.
     t : ndarray, shape (M,)
         Angular coordinate, with t = cos(theta).

@@ -12,12 +12,6 @@ __all__ = [
 ]
 
 
-from dataclasses import dataclass
-
-import numpy as np
-from numpy.typing import NDArray
-
-
 FloatArray = NDArray[np.float64]
 IntArray = NDArray[np.int_]
 BoolArray = NDArray[np.bool_]

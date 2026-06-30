@@ -1,59 +1,48 @@
-"""Data structures describing stellar models."""
+import numpy as np
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from numpy.typing import ArrayLike
-
-
-__all__ = [
-    "PolytropicModelConfig",
-    "PolytropeConfig",
-    "CompositePolytropeConfig",
-]
+from rubis.models import (
+    CompositePolytropeConfig,
+    PolytropeConfig,
+    SphericalModel,
+)
 
 
-@dataclass(kw_only=True)
-class PolytropicModelConfig(ABC):
-    """Common configuration of a generated polytropic model."""
+def test_polytrope_config_has_one_region():
+    config = PolytropeConfig(index=3.0)
 
-    radius: float = 1.0
-    mass: float = 1.0
-    resolution: int = 1001
-
-    @property
-    @abstractmethod
-    def polytropic_indices(self) -> tuple[float, ...]:
-        """Polytropic indices of all regions."""
-
-    @property
-    def n_regions(self) -> int:
-        return len(self.polytropic_indices)
-
-    @property
-    def filename_stem(self) -> str:
-        indices = "|".join(f"{index:.1f}" for index in self.polytropic_indices)
-        return f"poly_|{indices}|"
+    assert config.polytropic_indices == (3.0,)
+    assert config.n_regions == 1
+    assert config.filename_stem == "poly_|3.0|"
 
 
-@dataclass(kw_only=True)
-class PolytropeConfig(PolytropicModelConfig):
-    """Configuration of a single polytrope."""
+def test_composite_polytrope_config_accepts_scalar_index():
+    config = CompositePolytropeConfig(
+        indices=3.0,
+        target_pressures=-np.inf,
+    )
 
-    index: float
-
-    @property
-    def polytropic_indices(self) -> tuple[float, ...]:
-        return (self.index,)
+    assert config.polytropic_indices == (3.0,)
+    assert config.n_regions == 1
 
 
-@dataclass(kw_only=True)
-class CompositePolytropeConfig(PolytropicModelConfig):
-    """Configuration of a piecewise-polytropic model."""
+def test_composite_polytrope_config_has_multiple_regions():
+    config = CompositePolytropeConfig(
+        indices=(1.5, 3.0),
+        target_pressures=(-1.0, -np.inf),
+        density_jumps=(0.5,),
+    )
 
-    indices: ArrayLike
-    target_pressures: ArrayLike
-    density_jumps: ArrayLike | None = None
+    assert config.polytropic_indices == (1.5, 3.0)
+    assert config.n_regions == 2
+    assert config.filename_stem == "poly_|1.5|3.0|"
 
-    @property
-    def polytropic_indices(self) -> tuple[float, ...]:
-        return tuple(self.indices)
+
+def test_spherical_model_reports_number_of_points():
+    model = SphericalModel(
+        r=np.linspace(0.0, 1.0, 5),
+        p=np.ones(5),
+        rho=np.ones(5),
+        g=np.ones(5),
+    )
+
+    assert model.n_points == 5

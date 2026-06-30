@@ -21,10 +21,7 @@ from rubis.numerical     import (
     lagrange_matrix_P,
 )
 from rubis.models        import PolytropicModelConfig
-from rubis.polytrope     import (
-    build_polytrope,
-    composite_polytrope,
-)
+from rubis.polytrope     import build_polytrope
 from rubis.domains       import find_domains
 from rubis.mapping       import (
     initialize_mapping, 
@@ -84,7 +81,7 @@ def init_1D(model_choice) :
         R = model_choice.radius    
         
         # Polytrope computation
-        model = composite_polytrope(model_choice)
+        model = build_polytrope(model_choice)
         
         # Normalisation
         r1d = model.r     /  R
@@ -223,8 +220,8 @@ def find_Poisson_coefs(kl, ku, cpl, rhs_l, rescale) :
         Number of upper band in the matrix.
     kl : integer
         Number of lower band in the matrix.
-    cpl : DotDict instance
-        Harmonic couplings.
+    cpl : PoissonCouplings
+        Harmonic couplings of the Poisson operator.
     rhs_l : array_like, shape (N, Nl)
         right-hand side of Poisson's equation when projected
         onto the Legendre polynomials.

@@ -1,3 +1,5 @@
+"""Poisson-operator couplings in spheroidal coordinates."""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -28,11 +30,11 @@ class PoissonCouplings:
     
 def compute_poisson_couplings(
     r2d,
-    der,
+    der: ExtendedMappingDerivatives,
     t,
     max_degree,
     alpha=2,
-):
+) -> PoissonCouplings:
     """Compute the Legendre couplings of the Poisson operator.
 
     Parameters
