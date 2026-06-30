@@ -55,18 +55,7 @@ def deform(config: DeformationConfig) -> DeformationResult:
 
     return solver(
         model,
-        config.rotation.profile,
-        config.rotation.target,
-        config.rotation.central_diff_rate,
-        config.rotation.scale,
-        config.solver.max_degree,
-        config.solver.angular_resolution,
-        config.solver.full_rate,
-        config.solver.mapping_precision,
-        config.solver.spline_order,
-        config.solver.lagrange_order,
+        config.rotation,
+        config.solver,
         config.output,
-        config.solver.external_domain_res,
-        config.solver.rescale_ab,
-        max_iterations=config.solver.max_iterations,
     )

@@ -2,9 +2,17 @@ import numpy as np
 import pytest
 
 from rubis.options import OutputOptions
-from rubis.config import PolytropeConfig
+from rubis.config import (
+    PolytropeConfig, 
+    RotationConfig, 
+    SolverOptions,
+    LegacyModelConfig,
+    DeformationConfig,
+)
+from rubis.initialization import initialize_model_1d
 from rubis.rotation_profiles import lorentzian, solid
 from rubis.solvers import radial_method, spheroidal_method
+from rubis.api import deform
 
 @pytest.mark.slow
 @pytest.mark.readme
@@ -19,22 +27,27 @@ def test_readme_near_critical_n3_model_converges():
         n_points=1001,
     )
 
-    result = radial_method(
-        model,
-        solid,
-        rotation_target,
-        0.0,
-        1.0,
-        401,
-        401,
-        3,
-        mapping_precision,
-        5,
-        3,
-        OutputOptions(),
-        21,
-        True,
-        max_iterations=150,
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=solid,
+                target=rotation_target,
+            ),
+            solver=SolverOptions(
+                method="radial",
+                max_degree=401,
+                angular_resolution=401,
+                full_rate=3,
+                mapping_precision=mapping_precision,
+                spline_order=5,
+                lagrange_order=3,
+                external_domain_res=21,
+                rescale_ab=True,
+                max_iterations=150,
+            ),
+            output=OutputOptions(),
+        )
     )
 
     assert result.iterations < 150
@@ -109,22 +122,27 @@ def test_readme_super_keplerian_n05_model_converges():
         n_points=3001,
     )
 
-    result = radial_method(
-        model,
-        solid,
-        rotation_target,
-        0.0,
-        1.0,
-        401,
-        401,
-        3,
-        mapping_precision,
-        5,
-        2,
-        OutputOptions(),
-        21,
-        True,
-        max_iterations=150,
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=solid,
+                target=rotation_target,
+            ),
+            solver=SolverOptions(
+                method="radial",
+                max_degree=401,
+                angular_resolution=401,
+                full_rate=3,
+                mapping_precision=mapping_precision,
+                spline_order=5,
+                lagrange_order=2,
+                external_domain_res=21,
+                rescale_ab=True,
+                max_iterations=150,
+            ),
+            output=OutputOptions(),
+        )
     )
 
     assert result.iterations < 150
@@ -212,22 +230,28 @@ def test_readme_extreme_lorentzian_model_converges():
         n_points=1001,
     )
 
-    result = radial_method(
-        model,
-        lorentzian,
-        rotation_target,
-        central_diff_rate,
-        1.0,
-        401,
-        401,
-        3,
-        mapping_precision,
-        5,
-        3,
-        OutputOptions(),
-        21,
-        True,
-        max_iterations=150,
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=lorentzian,
+                target=rotation_target,
+                central_diff_rate=central_diff_rate,
+            ),
+            solver=SolverOptions(
+                method="radial",
+                max_degree=401,
+                angular_resolution=401,
+                full_rate=3,
+                mapping_precision=mapping_precision,
+                spline_order=5,
+                lagrange_order=3,
+                external_domain_res=21,
+                rescale_ab=True,
+                max_iterations=150,
+            ),
+            output=OutputOptions(),
+        )
     )
 
     assert result.iterations < 150
@@ -303,22 +327,31 @@ def test_readme_jupiter_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 0.9
 
-    result = spheroidal_method(
-        "Jupiter.txt",
-        solid,
-        rotation_target,
-        0.0,
-        1.0,
-        101,
-        101,
-        1,
-        mapping_precision,
-        5,
-        2,
-        OutputOptions(),
-        201,
-        True,
-        max_iterations=100,
+    model=LegacyModelConfig(
+        filename="Jupiter.txt",
+    )
+    
+    result = deform(
+        DeformationConfig(
+            model=model,
+            rotation=RotationConfig(
+                profile=solid,
+                target=rotation_target,
+            ),
+            solver=SolverOptions(
+                method="spheroidal",
+                max_degree=101,
+                angular_resolution=101,
+                full_rate=1,
+                mapping_precision=mapping_precision,
+                spline_order=5,
+                lagrange_order=2,
+                external_domain_res=201,
+                rescale_ab=True,
+                max_iterations=100,
+            ),
+            output=OutputOptions(),
+        )
     )
 
     assert result.iterations < 100

@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from rubis.options import OutputOptions
+from rubis.config import SolverOptions, RotationConfig
 from rubis.rotation_profiles import solid
 from rubis.config import CompositePolytropeConfig
 from rubis.initialization import initialize_model_1d
@@ -29,19 +30,22 @@ def test_spheroidal_solver_returns_normalised_state():
 
     result = spheroidal_method(
         model,
-        solid,
-        0.0,
-        0.0,
-        1.0,
-        max_degree,
-        angular_resolution,
-        1,
-        1.0e-10,
-        3,
-        2,
+        RotationConfig(
+            profile=solid,
+            target=0.0,
+        ),
+        SolverOptions(
+            method="spheroidal",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=1.0e-10,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=external_resolution,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        external_resolution,
-        True,
     )
 
     assert isinstance(result, SpheroidalResult)
@@ -129,19 +133,22 @@ def test_nonrotating_composite_model_remains_spherical():
     
     result = spheroidal_method(
         model,
-        solid,
-        0.0,
-        0.0,
-        1.0,
-        max_degree,
-        angular_resolution,
-        1,
-        1.0e-10,
-        3,
-        2,
+        RotationConfig(
+            profile=solid,
+            target=0.0,
+        ),
+        SolverOptions(
+            method="spheroidal",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=1.0e-10,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=external_resolution,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        external_resolution,
-        True,
     )
 
     # Every material surface must be spherical.
@@ -250,19 +257,22 @@ def test_uniform_rotation_deforms_composite_model():
 
     result = spheroidal_method(
         model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        max_degree,
-        angular_resolution,
-        1,
-        mapping_precision,
-        3,
-        2,
+        RotationConfig(
+            profile=solid,
+            target=0.3,
+        ),
+        SolverOptions(
+            method="spheroidal",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=mapping_precision,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=external_resolution,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        external_resolution,
-        True,
     )
 
     equator = np.argmin(

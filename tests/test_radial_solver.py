@@ -4,7 +4,12 @@ import numpy as np
 
 from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
-from rubis.config import PolytropeConfig, CompositePolytropeConfig
+from rubis.config import (
+    CompositePolytropeConfig, 
+    PolytropeConfig, 
+    RotationConfig,
+    SolverOptions,
+)
 from rubis.initialization import initialize_model_1d
 from rubis.solvers import radial_method
 from rubis.results import DeformationResult, RadialResult
@@ -26,19 +31,22 @@ def test_radial_solver_returns_normalised_state():
 
     result = radial_method(
         model,
-        solid,
-        0.0,    # Target rotation
-        0.0,    # Central differential rotation
-        1.0,    # Rotation scale
-        max_degree,
-        angular_resolution,
-        1,      # Rotation ramp
-        1.0e-10,
-        3,      # Spline order
-        2,      # Lagrange order
+        RotationConfig(
+            profile=solid,
+            target=0.0,
+        ),
+        SolverOptions(
+            method="radial",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=1.0e-10,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=21,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        21,     # Unused external-domain resolution
-        True,   # Unused matrix rescaling option
     )
 
     assert isinstance(result, RadialResult)
@@ -81,19 +89,22 @@ def test_radial_solver_rejects_multidomain_model():
     with pytest.raises(ValueError, match="single-domain"):
         radial_method(
             model,
-            solid,
-            0.0,
-            0.0,
-            1.0,
-            9,
-            9,
-            1,
-            1.0e-10,
-            3,
-            2,
-            None,
-            21,
-            True,
+            RotationConfig(
+                profile=solid,
+                target=0.0,
+            ),
+            SolverOptions(
+                method="radial",
+                max_degree=9,
+                angular_resolution=9,
+                full_rate=1,
+                mapping_precision=1.0e-10,
+                spline_order=3,
+                lagrange_order=2,
+                external_domain_res=21,
+                rescale_ab=True,
+            ),
+            OutputOptions(),
         )
     
     
@@ -113,19 +124,22 @@ def test_nonrotating_radial_model_remains_spherical():
 
     result = radial_method(
         model,
-        solid,
-        0.0,
-        0.0,
-        1.0,
-        max_degree,
-        angular_resolution,
-        1,
-        1.0e-10,
-        3,
-        2,
+        RotationConfig(
+            profile=solid,
+            target=0.0,
+        ),
+        SolverOptions(
+            method="radial",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=1.0e-10,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=21,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        21,
-        True,
     )
 
     # Every material surface must have the same radius
@@ -223,21 +237,24 @@ def test_uniform_rotation_produces_oblate_model():
 
     result = radial_method(
         model,
-        solid,
-        0.3,
-        0.0,
-        1.0,
-        max_degree,
-        angular_resolution,
-        1,
-        mapping_precision,
-        3,
-        2,
+        RotationConfig(
+            profile=solid,
+            target=0.3,
+        ),
+        SolverOptions(
+            method="radial",
+            max_degree=max_degree,
+            angular_resolution=angular_resolution,
+            full_rate=1,
+            mapping_precision=1.0e-10,
+            spline_order=3,
+            lagrange_order=2,
+            external_domain_res=21,
+            rescale_ab=True,
+        ),
         OutputOptions(),
-        21,
-        True,
     )
-
+    
     equator = np.argmin(
         np.abs(result.cos_theta)
     )
@@ -338,18 +355,21 @@ def test_radial_solver_enforces_iteration_limit():
     ):
         radial_method(
             model,
-            solid,
-            0.3,
-            0.0,
-            1.0,
-            max_degree,
-            angular_resolution,
-            1,
-            mapping_precision,
-            3,
-            2,
+            RotationConfig(
+                profile=solid,
+                target=0.3,
+            ),
+            SolverOptions(
+                method="radial",
+                max_degree=max_degree,
+                angular_resolution=angular_resolution,
+                full_rate=1,
+                mapping_precision=1.0e-10,
+                spline_order=3,
+                lagrange_order=2,
+                external_domain_res=21,
+                rescale_ab=True,
+                max_iterations=1,
+            ),
             OutputOptions(),
-            21,
-            True,
-            max_iterations=1,
         )

@@ -175,26 +175,11 @@ def test_deform_forwards_configuration(monkeypatch):
     assert result is expected
     assert calls["model_config"] is model_config
 
-    assert calls["args"] == (
-        model,
-        solid,
-        0.3,
-        0.2,
-        0.7,
-        9,
-        11,
-        2,
-        1.0e-8,
-        3,
-        2,
-        config.output,
-        21,
-        False,
-    )
-
-    assert calls["kwargs"] == {
-        "max_iterations": 17,
-    }
+    assert calls["args"][0] is model
+    assert calls["args"][1] is config.rotation
+    assert calls["args"][2] is config.solver
+    assert calls["args"][3] is config.output
+    assert calls["kwargs"] == {}
     
     
 def test_deform_rejects_unknown_method(monkeypatch):

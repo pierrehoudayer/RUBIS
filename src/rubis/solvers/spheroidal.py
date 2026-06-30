@@ -19,6 +19,8 @@ from ..numerical         import (
     interpolate_func, 
     lagrange_matrix_P,
 )
+from ..config            import RotationConfig, SolverOptions
+from ..options           import OutputOptions
 from ..models            import Model1D
 from ..domains           import find_domains
 from ..mapping           import (
@@ -526,73 +528,58 @@ def Virial_theorem(r2d, rho, omega_n, phi_g_l, P, verbose=False) :
     return virial
 
 
-def spheroidal_method(*params, max_iterations=200)-> SpheroidalResult:
-    """
-    Main routine for the centrifugal deformation method in spheroidal coordinates.
-
-    Parameters
-    ----------
-    params : tuple
-        All method parameters. Please refer to the documentation in RUBIS.py
-
-    """
+def spheroidal_method(
+    model: Model1D,
+    rotation: RotationConfig,
+    options: SolverOptions,
+    output_options: OutputOptions,
+) -> SpheroidalResult:
+    """ Main routine for the centrifugal deformation method in spheroidal coordinates. """
     
     # Global parameters, constants, variables and functions
-    start = time.perf_counter()
-    global G, P0, N, L, M, KSPL, KLAG, NE
+    global G, P0, N, NE, L, M, KSPL, KLAG
     global r1d, zeta, rho, domains
-    global eval_phi_c, eval_omega
     global Lsp, Dsp
-    (
-        model,
-        rotation_profile,
-        rotation_target,
-        central_diff_rate,
-        rotation_scale,
-        L,
-        M,
-        full_rate,
-        mapping_precision,
-        KSPL,
-        KLAG,
-        output_options,
-        NE,
-        rescale_ab,
-    ) = params
-    
-    # 1D model reading
-    if not isinstance(model, Model1D):
-        raise TypeError(
-            "spheroidal_method expects a Model1D."
-        )
+    global eval_phi_c, eval_omega
+
+    start = time.perf_counter()
 
     G = model.G
     P0 = model.surface_pressure
     N = model.n_points
-
     mass = model.mass
     radius = model.radius
 
     r1d = model.r
-    rho = model.rho
+    zeta = r1d.copy()
+    rho = model.rho.copy()
 
-    additional_variables = model.additional_variables 
-    
+    L = options.max_degree
+    M = options.angular_resolution
+    KSPL = options.spline_order
+    KLAG = options.lagrange_order
+    rescale_ab = options.rescale_ab
+
+    full_rate = options.full_rate
+    mapping_precision = options.mapping_precision
+    max_iterations = options.max_iterations
+    rotation_target = rotation.target
+
+    eval_phi_c, eval_omega = configure_rotation_profile(
+        rotation.profile,
+        rotation.central_diff_rate,
+        rotation.scale,
+    )
+
+    NE = options.external_domain_res
     r_ext = np.linspace(1.0, 2.0, NE)
     zeta = np.hstack((r1d, 1.0 + sp.betainc(2, 2, r_ext - 1.0)))
-    
-    # Domains identification
     domains = find_domains(zeta)
+    
+    Lsp, Dsp = init_sparse_matrices_per_domain()
     
     # Angular domain preparation
     r2d, t = initialize_mapping(r1d, M)
-    
-    # Centrifugal potential definition
-    eval_phi_c, eval_omega = configure_rotation_profile(
-        rotation_profile, 
-        central_diff_rate, 
-        rotation_scale
-    )
     
     # Find the lagrange matrices per domain
     Lsp, Dsp = init_sparse_matrices_per_domain()
