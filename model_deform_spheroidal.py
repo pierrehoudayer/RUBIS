@@ -32,6 +32,7 @@ from rubis.mapping       import (
     compute_mapping_derivatives,
     extend_mapping,
 )
+from rubis.poisson       import compute_poisson_couplings
 from rubis.rotation_profiles import configure_rotation_profile
 from rubis.results       import SpheroidalResult
 from rubis._utils        import DotDict
@@ -210,65 +211,12 @@ def find_pressure(rho, dphi_eff, P0) :
     )(1-zeta[domains.internal_mask][::-1])[::-1]
     
     return P
-    
-    
-def find_all_couplings(r2d, der, t, alpha=2) :
-    """
-    Find all the couplings needed to solve Poisson's equation in 
-    spheroidal coordinates.
 
-    Parameters
-    ----------
-    r2d : array_like, shape (N, M)
-        Isopotential mapping.
-    der : DotDict instance
-        Derivatives with respect to z and t
-    t : array_like, shape (M, )
-        Angular variable.
-    alpha : float, optional
-        Constant to be either set to 1 (typically for divergences)
-        or 2 (Laplacians).
 
-    Returns
-    -------
-    Pll : DotDict instance
-        Harmonic couplings. They are caracterised by their related 
-        metric term : {
-            zz : array_like, shape (N+NE, Nl, Nl)
-                coupling associated to phi_zz,
-            zt : array_like, shape (N+NE, Nl, Nl)
-                            //         phi_zt,
-            tt : array_like, shape (N+NE, Nl, Nl)
-                            //         phi_tt,
-            BC : array_like, shape (N+NE, Nl, Nl)
-                coupling used to ensure the gradient continuity.
-        }
-
-    """
-    Pll = DotDict()
-    l = np.arange(0, L, 2)
-    
-    r = r2d
-    r_z, r_t, r_tt = der.r_z, der.r_t, der.r_tt 
-    
-    Pll.zz = Legendre_coupling(
-        (r**2 + (1-t**2) * r_t**2) / r_z, L, der=(0, 0)
-    )
-    Pll.zt = Legendre_coupling(
-        (1-t**2) * r_tt - 2*t * r_t, L, der=(0, 0)
-    ) + alpha * Legendre_coupling(
-        (1-t**2) * r_t, L, der=(0, 1)
-    )
-    Pll.tt = Legendre_coupling(r_z, L, der=(0, 0)) * l*(l+1)
-    
-    Pll.BC = Legendre_coupling(1/r_z, L, der=(0, 0))
-    
-    return Pll 
-
-def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
+def find_Poisson_coefs(kl, ku, cpl, rhs_l, rescale) :
     """
     Finds the coefficients to fill the Poisson matrix (thanks
-    to Pll) and the right-hand side (using rhs).
+    to cpl) and the right-hand side (using rhs).
 
     Parameters
     ----------
@@ -276,7 +224,7 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
         Number of upper band in the matrix.
     kl : integer
         Number of lower band in the matrix.
-    Pll : DotDict instance
+    cpl : DotDict instance
         Harmonic couplings.
     rhs_l : array_like, shape (N, Nl)
         right-hand side of Poisson's equation when projected
@@ -316,10 +264,10 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
         # Main matrix parts filling
         temp = np.empty((2*KLAG, size, 2*Nl, 2*Nl))
         temp[..., 0::2, 0::2] = (
-            + Dsp_d_broad * Pll.zz[D]
-            - Lsp_d_broad * Pll.zt[D]
+            + Dsp_d_broad * cpl.zz[D]
+            - Lsp_d_broad * cpl.zt[D]
         )
-        temp[..., 0::2, 1::2] = - Lsp_d_broad * Pll.tt[D]
+        temp[..., 0::2, 1::2] = - Lsp_d_broad * cpl.tt[D]
         temp[..., 1::2, 0::2] = + Lsp_d_broad * np.eye(Nl)
         temp[..., 1::2, 1::2] = - Dsp_d_broad * np.eye(Nl)
         coefs[:, beg_j:end_j] = np.moveaxis(temp, 2, 1).reshape(
@@ -332,7 +280,7 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
             coefs[ku-2*Nl+1:ku-Nl+1, 0:2*Nl:2] = np.diag((1, ) + (0, )*(Nl-1))
             coefs[ku-2*Nl+1:ku-Nl+1, 1:2*Nl:2] = np.diag((0, ) + (1, )*(Nl-1))
         else :  
-            coefs[ku-3*Nl+1+0:ku-Nl+1:2, beg_j+0:beg_j+2*Nl:2] = -Pll.BC[D[0]]
+            coefs[ku-3*Nl+1+0:ku-Nl+1:2, beg_j+0:beg_j+2*Nl:2] = -cpl.boundary[D[0]]
             coefs[ku-3*Nl+1+1:ku-Nl+1:2, beg_j+1:beg_j+2*Nl:2] = -np.eye(Nl)
         
         # Outer boundary conditions
@@ -340,7 +288,7 @@ def find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale) :
             coefs[ku-Nl+1:ku+1, -2*Nl+0::2] = np.eye(Nl)
             coefs[ku-Nl+1:ku+1, -2*Nl+1::2] = np.diag((l+1)/2)
         else :  
-            coefs[ku-Nl+1+0:ku+Nl+1:2, end_j-2*Nl+0:end_j:2] = Pll.BC[D[-1]]
+            coefs[ku-Nl+1+0:ku+Nl+1:2, end_j-2*Nl+0:end_j:2] = cpl.boundary[D[-1]]
             coefs[ku-Nl+1+1:ku+Nl+1:2, end_j-2*Nl+1:end_j:2] = np.eye(Nl)
            
     col_scale = np.ones((Mb)) 
@@ -434,10 +382,12 @@ def find_phi_eff(r2d, t, rho, phi_eff=None, rescale_ab=True) :
     z_ext = zeta[domains.external_mask]
     r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
 
-    Pll = find_all_couplings(
+    # Coupling terms for the Poisson operator
+    cpl = compute_poisson_couplings(
         r2d_ext,
         der_ext,
         t,
+        max_degree=L,
         alpha=2,
     )
     
@@ -448,7 +398,7 @@ def find_phi_eff(r2d, t, rho, phi_eff=None, rescale_ab=True) :
     
     # Determination of matrix blocs (and b) from coupling harmonics (and rhs harmonics)
     # Rescale the coefficients in both coefs and b if rescale_ab is True.
-    coefs, b, col_scale = find_Poisson_coefs(kl, ku, Pll, rhs_l, rescale=rescale_ab)  
+    coefs, b, col_scale = find_Poisson_coefs(kl, ku, cpl, rhs_l, rescale=rescale_ab)  
     
     # Matrix filling (credits to N. Fargette for this part)
     ab = np.zeros((2*kl+ku+1, 2*Nl*(N+NE)))
