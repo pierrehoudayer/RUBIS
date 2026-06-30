@@ -4,8 +4,7 @@ import pytest
 from rubis.options import OutputOptions
 from rubis.polytrope import PolytropeConfig
 from rubis.rotation_profiles import lorentzian, solid
-from model_deform_radial import radial_method
-from model_deform_spheroidal import spheroidal_method
+from rubis.solvers import radial_method, spheroidal_method
 
 @pytest.mark.slow
 @pytest.mark.readme

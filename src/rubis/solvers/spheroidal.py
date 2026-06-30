@@ -7,35 +7,34 @@ from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbsv
 from scipy.special       import roots_legendre, eval_legendre
 
-from rubis.legendre      import (
+from ..legendre          import (
     find_r_eq, 
     find_r_pol, 
     pl_eval_2D, 
     pl_project_2D,
-    Legendre_coupling,
 )
-from rubis.numerical     import (
+from ..numerical         import (
     integrate, 
     integrate2D, 
     interpolate_func, 
     lagrange_matrix_P,
 )
-from rubis.models        import PolytropicModelConfig
-from rubis.polytrope     import build_polytrope
-from rubis.domains       import find_domains
-from rubis.mapping       import (
+from ..models            import PolytropicModelConfig
+from ..polytrope         import build_polytrope
+from ..domains           import find_domains
+from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
     compute_mapping_derivatives,
     extend_mapping,
 )
-from rubis.poisson       import compute_poisson_couplings
-from rubis.rotation_profiles import configure_rotation_profile
-from rubis.results       import SpheroidalResult
-from rubis.io.legacy     import write_model
-from plot                import (
-    plot_f_map, 
+from ..poisson           import compute_poisson_couplings
+from ..rotation_profiles import configure_rotation_profile
+from ..results           import SpheroidalResult
+from ..io.legacy         import write_model
+from ..plotting          import (
     phi_g_harmonics,
+    plot_f_map,
 )
 
 def init_1D(model_choice) : 

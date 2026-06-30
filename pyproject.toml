@@ -24,9 +24,6 @@ dev = [
 [tool.setuptools]
 py-modules = [
     "RUBIS",
-    "model_deform_radial",
-    "model_deform_spheroidal",
-    "plot",
 ]
 
 [tool.setuptools.packages.find]

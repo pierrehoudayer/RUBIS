@@ -6,7 +6,7 @@ from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
 from rubis.models import CompositePolytropeConfig
 from rubis.results import DeformationResult, SpheroidalResult
-from model_deform_spheroidal import spheroidal_method
+from rubis.solvers import spheroidal_method
 
 
 def test_spheroidal_solver_returns_normalised_state():

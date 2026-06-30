@@ -6,7 +6,7 @@ from rubis.options import OutputOptions
 from rubis.rotation_profiles import solid
 from rubis.models import PolytropeConfig, CompositePolytropeConfig
 from rubis.results import DeformationResult, RadialResult
-from model_deform_radial import radial_method
+from rubis.solvers import radial_method
 
 
 def test_radial_solver_returns_normalised_state():

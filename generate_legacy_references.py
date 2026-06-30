@@ -9,8 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from model_deform_radial import radial_method
-from model_deform_spheroidal import spheroidal_method
+from rubis.solvers import radial_method, spheroidal_method
 from rubis.models import CompositePolytropeConfig, PolytropeConfig
 from rubis.options import OutputOptions
 from rubis.results import RadialResult, SpheroidalResult

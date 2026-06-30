@@ -6,34 +6,34 @@ from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.special       import roots_legendre, eval_legendre
 from scipy.integrate     import solve_ivp
 
-from rubis.legendre      import (
+from ..legendre          import (
     find_r_eq, 
     find_r_pol, 
     pl_eval_2D, 
     pl_project_2D,
 )
-from rubis.numerical     import (
+from ..numerical         import (
     integrate, 
     integrate2D, 
     interpolate_func, 
     lagrange_matrix_P,
 )
-from rubis.models        import PolytropicModelConfig
-from rubis.polytrope     import build_polytrope
-from rubis.mapping       import (
+from ..models            import PolytropicModelConfig
+from ..polytrope         import build_polytrope
+from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
     compute_mapping_derivatives,
     compute_mapping_geometry,
 )
-from rubis.rotation_profiles import configure_rotation_profile
-from rubis.results       import RadialResult
-from rubis.io.legacy     import write_model
-from plot                import (
-    plot_flux_lines,
-    plot_3D_surface,
-    plot_f_map, 
+from ..rotation_profiles import configure_rotation_profile
+from ..results           import RadialResult
+from ..io.legacy         import write_model
+from ..plotting          import (
     phi_g_harmonics,
+    plot_3D_surface,
+    plot_f_map,
+    plot_flux_lines,
 )
 
 def init_1D(model_choice) : 

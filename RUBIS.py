@@ -11,8 +11,7 @@ from rubis.options           import (
 from rubis.models            import CompositePolytropeConfig
 from rubis.domains           import find_domains
 from rubis.rotation_profiles import solid, lorentzian, plateau
-from model_deform_radial     import radial_method
-from model_deform_spheroidal import spheroidal_method
+from rubis.solvers           import radial_method, spheroidal_method
 
 
 def set_params():
