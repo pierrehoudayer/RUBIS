@@ -120,95 +120,72 @@ def find_pressure(
     return p[::-1]
 
 
-def find_rho_l(r2d, rho) : 
-    """
-    Find the density distribution harmonics from a given mapping 
-    (r2d) which gives the lines of constant density (= rho).
+def find_rho_l(
+    r2d,
+    rho,
+    num: RadialNumerics,
+):
+    """Project the density distribution onto Legendre harmonics."""
+    safety_constant = 1.0e-15
+    angular_resolution = r2d.shape[1]
+    k_half = np.arange((angular_resolution + 1) // 2)
 
-    Parameters
-    ----------
-    r2d : array_like, shape (N, M)
-        Current mapping.
-    rho : array_like, shape (N, )
-        Current density on each equipotential.
-
-    Returns
-    -------
-    rho_l : array_like, shape (N, L)
-        Density distribution harmonics.
-
-    """
-    # Density interpolation on the mapping
-    safety_constant = 1e-15
-    all_k   = np.arange((M+1)//2)
     log_rho = np.log(rho + safety_constant)
-    rho2D   = np.zeros((N, M))
-    for k in all_k :
-        inside =  r1d < r2d[-1, k]
+    rho2D = np.zeros_like(r2d)
+
+    for k in k_half:
+        inside = num.r1d < r2d[-1, k]
+
         rho2D[inside, k] = interpolate_func(
-            x=r2d[:, k], y=log_rho, k=KSPL
-        )(r1d[inside])
-        rho2D[inside, k] = np.exp(rho2D[inside, k]) - safety_constant
-    rho2D[:,-1-all_k] = rho2D[:, all_k]
+            x=r2d[:, k],
+            y=log_rho,
+            k=num.spline_order,
+        )(num.r1d[inside])
+
+        rho2D[inside, k] = (
+            np.exp(rho2D[inside, k]) - safety_constant
+        )
+
+    rho2D[:, -1 - k_half] = rho2D[:, k_half]
+
+    return pl_project_2D(rho2D, num.max_degree)
     
-    # Corresponding harmonic decomposition
-    rho_l = pl_project_2D(rho2D, L)
     
-    return rho_l
-
-def filling_ab(ab, ku, kl, l) : 
-    """
-    Fill the band storage matrix according to the Poisson's
-    equation (written in terms of r^2). We optimize this
-    operation using the scipy sparse matrix storage (the 
-    [::-1] comes from the opposite storage convention 
-    between Fortran and Scipy) and exploiting the fact that 
-    most of the matrix stay the same when changing l.
-
-    Parameters
-    ----------
-    ab : array_like, shape (ldmat, 2*N)
-        Band storage matrix.
-    ku : integer
-        Number of terms in the upper matrix part.
-    kl : integer
-        Number of terms in the lower matrix part.
-    l : integer
-        Harmonic degree.
-
-    Returns
-    -------
-    ab : array_like, shape (ldmat, 2*N)
-        Filled band storage matrix.
-
-    """    
-    # Offset definition
+def filling_ab(ab, ku, kl, l, num: RadialNumerics):
+    """Fill the band matrix of Poisson's equation."""
     offset = ku + kl
-    
-    # The common filling part
-    if l == 0 :
-        ab[ku+1+(0-0):-1+(0-0):2, 0::2] =  Asp.data[::-1]
-        ab[ku+1+(1-0):        :2, 0::2] = -Lsp.data[::-1]
-        ab[ku+1+(1-1):-1+(1-1):2, 1::2] =  Dsp.data[::-1]
-                
-        # First boundary condition (l = 0)
+
+    # Common part, filled only once.
+    if l == 0:
+        ab[ku+1+(0-0):-1+(0-0):2, 0::2] =  num.Asp.data[::-1]
+        ab[ku+1+(1-0):        :2, 0::2] = -num.Lsp.data[::-1]
+        ab[ku+1+(1-1):-1+(1-1):2, 1::2] =  num.Dsp.data[::-1]
+
+        # Central boundary condition for l = 0.
         ab[offset, 0] = 6.0
-        
-    # The only l dependent part (~1/4 of the matrix)
-    else : 
-        ab[ku+1+(0-1):-1+(0-1):2, 1::2] = -l*(l+1) * Lsp.data[::-1]
-        
-        # First boundary condition (l != 0)
+
+    # Degree-dependent part.
+    else:
+        ab[ku+1+(0-1):-1+(0-1):2, 1::2] = -l*(l+1) * num.Lsp.data[::-1]
+
+        # Central boundary condition for l != 0.
         ab[offset-0, 0] = 0.0
         ab[offset-1, 1] = 1.0
-    
-    # Boundary conditions
+
+    # Surface boundary conditions.
     ab[offset+1, 2*N-2] = 2*r1d[-1]**2
     ab[offset+0, 2*N-1] = l+1 
+
     return ab
+
     
-    
-def find_phi_eff(r2d, rho, phi_eff=None, lub_l=None) :
+def find_phi_eff(
+    r2d,
+    rho,
+    num: RadialNumerics,
+    phi_eff=None,
+    lub_l=None,
+):
     """
     Determination of the effective potential from a given mapping
     (r2d, which gives the lines of constant density), and a given 
@@ -255,27 +232,30 @@ def find_phi_eff(r2d, rho, phi_eff=None, lub_l=None) :
         Cf. parameters
 
     """    
+    r = num.r1d[:, None]
+    N = num.n_points
+    
+    
     # Density distribution harmonics
-    rho_l    = find_rho_l(r2d, rho)
+    rho_l    = find_rho_l(r2d, rho, num)
     phi_g_l  = np.zeros((N, L))
     dphi_g_l = np.zeros((N, L))
     
     # Vector filling (vectorial)
-    Nl = (L+1)//2
-    bl = np.zeros((2*N, Nl))
-    bl[1:-1:2, :] = 4*np.pi * Lsp @ (r1d[:,None]**2 * rho_l[:, ::2])
-    bl[0     , 0] = 4*np.pi * rho_l[0, 0]     # Boundary condition
+    Nl = (L + 1) // 2
+    bl = np.zeros((2 * num.n_points, Nl))
+    bl[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r**2 * rho_l[:, ::2])
+    bl[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
     
     # Band matrix storage
-    kl = 2*KLAG
-    ku = 2*KLAG
-    ab = np.zeros((2*kl + ku + 1, 2*N))   
+    kl = ku = 2 * num.lagrange_order
+    ab = np.zeros((2 * kl + ku + 1, 2 * num.n_points))   
     
     if phi_eff is None :
         lub_l = []
         for l in range(0, L, 2) :
             # Matrix filling  
-            ab = filling_ab(ab, ku, kl, l)
+            ab = filling_ab(ab, ku, kl, l, num)
             
             # LU decomposition (LAPACK)
             lub_l.append(dgbtrf(ab, ku, kl)[:-1])
@@ -287,7 +267,7 @@ def find_phi_eff(r2d, rho, phi_eff=None, lub_l=None) :
         
     # Poisson's equation solution
     phi_g_l[: , ::2] = x[1::2]
-    dphi_g_l[:, ::2] = x[0::2] * (2*r1d[:, None])  # <- The equation is solved on r^2
+    dphi_g_l[:, ::2] = x[0::2] * (2*r)  # <- The equation is solved on r^2
     
     if phi_eff is None :
         # First estimate of the effective potential and its derivative
@@ -499,9 +479,8 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, N, L, M, KSPL, KLAG
+    global G, N, L, M, KSPL
     global r1d, zeta
-    global Lsp, Dsp, Asp
     global eval_phi_c, eval_omega
 
     start = time.perf_counter()
@@ -535,11 +514,6 @@ def radial_method(
     L = num.max_degree
     M = num.angular_resolution
     KSPL = num.spline_order
-    KLAG = num.lagrange_order
-
-    Lsp = num.Lsp
-    Dsp = num.Dsp
-    Asp = num.Asp
 
     eval_phi_c, eval_omega = configure_rotation_profile(
         rotation.profile,
@@ -553,7 +527,7 @@ def radial_method(
     max_iterations = options.max_iterations
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho, num)
     
     # Find pressure
     p = find_pressure(rho, dphi_eff, surface_pressure, num)
@@ -596,7 +570,13 @@ def radial_method(
         omega_n = min(rotation_target, ((iterations+1)/full_rate) * rotation_target)
         
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(r2d, rho, phi_eff, lub_l)
+        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(
+            r2d,
+            rho,
+            num,
+            phi_eff=phi_eff,
+            lub_l=lub_l,
+        )
 
         # Find a new estimate for the mapping
         r2d, omega_n = find_new_mapping(t, omega_n, phi_g_l, dphi_g_l, phi_eff)
