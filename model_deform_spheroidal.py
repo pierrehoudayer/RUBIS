@@ -35,7 +35,6 @@ from rubis.mapping       import (
 from rubis.poisson       import compute_poisson_couplings
 from rubis.rotation_profiles import configure_rotation_profile
 from rubis.results       import SpheroidalResult
-from rubis._utils        import DotDict
 from rubis.io.legacy     import write_model
 from plot                import (
     plot_f_map, 
