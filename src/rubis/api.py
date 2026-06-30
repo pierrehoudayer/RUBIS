@@ -1,9 +1,5 @@
 """Public interface for centrifugal-deformation calculations."""
 
-from pathlib import Path
-
-import numpy as np
-
 from .config import (
     DeformationConfig,
     SolverMethod,

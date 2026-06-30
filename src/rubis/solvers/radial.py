@@ -1,12 +1,14 @@
 import time
 import numpy        as np
 import scipy.sparse as sps
+from dataclasses         import dataclass
+from numpy.typing        import NDArray
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbtrf, dgbtrs
 from scipy.special       import roots_legendre, eval_legendre
 from scipy.integrate     import solve_ivp
 
-from ..config import (
+from ..config            import (
     OutputOptions,
     RotationConfig, 
     SolverOptions,
@@ -41,25 +43,61 @@ from ..plotting          import (
 )
 
 
-def init_sparse_matrices() : 
-    """
-    Finds the sparse matrices used for filling Poisson's matrix.
+FloatArray = NDArray[np.float64]
 
-    Returns
-    -------
-    Lsp, Dsp, Asp : sparse matrices in DIAgonal format (see scipy.sparse)
-        Sparse matrices respectively storing the interpolation (Lsp) and
-        derivation (Dsp) coefficients and the derivative -> derivative
-        terms of Poisson's matrix.
 
-    """
-    lag_mat = lagrange_matrix_P(r1d**2, order=KLAG)
+@dataclass(frozen=True, kw_only=True)
+class RadialNumerics:
+    """Fixed numerical representation used by the radial solver."""
+
+    r1d: FloatArray
+    t: FloatArray
+
+    max_degree: int
+    spline_order: int
+    lagrange_order: int
+
+    Lsp: sps.spmatrix
+    Dsp: sps.spmatrix
+    Asp: sps.spmatrix
+
+    @property
+    def n_points(self) -> int:
+        return self.r1d.size
+
+    @property
+    def angular_resolution(self) -> int:
+        return self.t.size
+
+
+def initialize_radial_numerics(
+    r1d,
+    t,
+    options: SolverOptions,
+) -> RadialNumerics:
+    """Build the fixed grids and operators of the radial solver."""
+    lag_mat = lagrange_matrix_P(
+        r1d**2,
+        order=options.lagrange_order,
+    )
+
     Lsp = sps.dia_matrix(lag_mat[..., 0])
     Dsp = sps.dia_matrix(lag_mat[..., 1])
     Asp = sps.dia_matrix(
-        4 * lag_mat[..., 1] * r1d**4 - 2 * lag_mat[..., 0] * r1d**2
+          4 * lag_mat[..., 1] * r1d**4
+        - 2 * lag_mat[..., 0] * r1d**2
     )
-    return Lsp, Dsp, Asp
+
+    return RadialNumerics(
+        r1d=r1d,
+        t=t,
+        max_degree=options.max_degree,
+        spline_order=options.spline_order,
+        lagrange_order=options.lagrange_order,
+        Lsp=Lsp,
+        Dsp=Dsp,
+        Asp=Asp,
+    )
 
 def find_pressure(rho, dphi_eff, P0) :
     """
@@ -477,25 +515,35 @@ def radial_method(
             "The radial solver only supports single-domain models."
         )
 
+    r2d, t = initialize_mapping(
+        model.r,
+        options.angular_resolution,
+    )
+
+    num = initialize_radial_numerics(
+        model.r,
+        t,
+        options,
+    )
+
     G = model.G
     P0 = model.surface_pressure
-    N = model.n_points
-    mass = model.mass
     radius = model.radius
+    mass = model.mass
 
-    r1d = model.r
-    zeta = r1d.copy()
+    r1d = num.r1d
+    zeta = num.r1d.copy()
     rho = model.rho.copy()
 
-    L = options.max_degree
-    M = options.angular_resolution
-    KSPL = options.spline_order
-    KLAG = options.lagrange_order
+    N = num.n_points
+    L = num.max_degree
+    M = num.angular_resolution
+    KSPL = num.spline_order
+    KLAG = num.lagrange_order
 
-    full_rate = options.full_rate
-    mapping_precision = options.mapping_precision
-    max_iterations = options.max_iterations
-    rotation_target = rotation.target
+    Lsp = num.Lsp
+    Dsp = num.Dsp
+    Asp = num.Asp
 
     eval_phi_c, eval_omega = configure_rotation_profile(
         rotation.profile,
@@ -503,10 +551,10 @@ def radial_method(
         rotation.scale,
     )
 
-    Lsp, Dsp, Asp = init_sparse_matrices()
-    
-    # Initialisation for the radial mapping
-    r2d, t = initialize_mapping(r1d, M)
+    rotation_target = rotation.target
+    full_rate = options.full_rate
+    mapping_precision = options.mapping_precision
+    max_iterations = options.max_iterations
     
     # Initialisation for the effective potential
     phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho)

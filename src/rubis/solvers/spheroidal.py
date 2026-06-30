@@ -584,9 +584,6 @@ def spheroidal_method(
     # Angular domain preparation
     r2d, t = initialize_mapping(r1d, M)
     
-    # Find the lagrange matrices per domain
-    Lsp, Dsp = init_sparse_matrices_per_domain()
-    
     # Initialisation for the effective potential
     phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(r2d, t, rho, rescale_ab=rescale_ab)
     
@@ -638,7 +635,7 @@ def spheroidal_method(
         m_corr    = integrate2D(r2d, rho, domains=domains.domain_ranges[:-1])   
         radius   *= r_corr
         mass     *= m_corr
-        r2d  /=             r_corr
+        r2d      /=             r_corr
         rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr    # <- /!\ This is a derivative w.r.t. to zeta
