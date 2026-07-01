@@ -411,7 +411,7 @@ def Virial_theorem(
     # Potential energy
     volumic_potential_work = lambda rk, ck, mask: (
         -rho[mask]
-        * (phi_eff[mask] - rot.phi_c(rk[mask],ck, rot)[0])
+        * (phi_eff[mask] - rot.phi_c(rk[mask], ck)[0])
     )
     potential_work = integrate2D(r2d, volumic_potential_work,k=spl_order)
 
@@ -574,8 +574,7 @@ def radial_method(
         
         # Current rotation rate
         rotation_cap = ((iterations+1)/full_rate) * rotation_target
-        omega_eq = min(rotation_target, rotation_cap)
-        rot = rot.with_omega_eq(omega_eq)
+        rot = rot.with_omega_eq(min(rotation_target, rotation_cap))
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(
@@ -645,7 +644,7 @@ def radial_method(
         radius=radius,
 
         rotation_target=rotation_target,
-        rotation_rate=omega_eq,
+        rotation_rate=rot.omega_eq,
 
         polar_radius_history=np.asarray(polar_radius_history),
         iterations=iterations,
@@ -706,7 +705,7 @@ def radial_method(
     # Model writing
     if output_options.model.save :
         j_eq = (J - 1) // 2
-        omega_eq = rot.omega(r2d[:, j_eq], 0.0)
+        omega_equator = rot.omega(r2d[:, j_eq], 0.0)
         
         if output_options.model.dimensional : 
             r2d      *=               radius
@@ -724,7 +723,7 @@ def radial_method(
             p,
             rho,
             phi_eff,
-            omega_eq,
+            omega_equator,
         )
         
     return result
