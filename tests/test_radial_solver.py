@@ -12,7 +12,7 @@ from rubis.config import (
     SolverOptions,
 )
 from rubis.initialization import initialize_model_1d
-from rubis.solvers import radial_method
+from rubis.solvers import solve_radial
 from rubis.results import DeformationResult, RadialResult
 
 
@@ -30,7 +30,7 @@ def test_radial_solver_returns_normalised_state():
         )
     )
 
-    result = radial_method(
+    result = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -88,7 +88,7 @@ def test_radial_solver_rejects_multidomain_model():
     )
 
     with pytest.raises(ValueError, match="single-domain"):
-        radial_method(
+        solve_radial(
             model,
             RotationConfig(
                 profile=solid,
@@ -123,7 +123,7 @@ def test_nonrotating_radial_model_remains_spherical():
         )
     )
 
-    result = radial_method(
+    result = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -236,7 +236,7 @@ def test_uniform_rotation_produces_oblate_model():
         )
     )
 
-    result = radial_method(
+    result = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -354,7 +354,7 @@ def test_radial_solver_enforces_iteration_limit():
         RuntimeError,
         match="did not converge after 1 iterations",
     ):
-        radial_method(
+        solve_radial(
             model,
             RotationConfig(
                 profile=solid,
@@ -386,7 +386,7 @@ def test_radial_solver_runs_virial_diagnostic(capsys):
         )
     )
 
-    result = radial_method(
+    result = solve_radial(
         model,
         RotationConfig(
             profile=solid,

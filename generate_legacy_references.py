@@ -18,7 +18,7 @@ from rubis.config import (
     RotationConfig,
     SolverOptions,
 )
-from rubis.solvers import radial_method, spheroidal_method
+from rubis.solvers import solve_radial, spheroidal_method
 from rubis.results import RadialResult, SpheroidalResult
 from rubis.rotation_profiles import solid
 

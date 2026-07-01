@@ -4,7 +4,7 @@ import rubis.solvers.radial as radial
 from rubis.config import RadiativeFluxOptions, SolverOptions
 from rubis.mapping import initialize_mapping
 from rubis.solvers.radial import (
-    find_radiative_flux,
+    compute_radiative_flux,
     initialize_radial_numerics,
 )
 
@@ -38,7 +38,7 @@ def test_radiative_flux_is_uniform_for_spherical_mapping(monkeypatch):
         lambda *args, **kwargs: None,
     )
 
-    Q_l, (fig, ax) = find_radiative_flux(
+    Q_l, (fig, ax) = compute_radiative_flux(
         r2d,
         zeta,
         num,

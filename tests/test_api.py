@@ -41,7 +41,7 @@ def test_auto_selects_radial_solver(monkeypatch):
     )
     monkeypatch.setattr(
         api,
-        "radial_method",
+        "solve_radial",
         lambda *args, **kwargs: expected,
     )
     monkeypatch.setattr(
@@ -72,7 +72,7 @@ def test_auto_selects_spheroidal_solver(monkeypatch):
     )
     monkeypatch.setattr(
         api,
-        "radial_method",
+        "solve_radial",
         lambda *args, **kwargs: pytest.fail(
             "The radial solver should not be called."
         ),
@@ -142,7 +142,7 @@ def test_deform_forwards_configuration(monkeypatch):
     )
     monkeypatch.setattr(
         api,
-        "radial_method",
+        "solve_radial",
         fake_solver,
     )
 

@@ -103,7 +103,7 @@ def initialize_radial_numerics(
         Asp=Asp,
     )
 
-def find_pressure(
+def integrate_pressure(
     rho,
     dphi_eff,
     surface_pressure,
@@ -124,7 +124,7 @@ def find_pressure(
     return p[::-1]
 
 
-def find_rho_l(
+def compute_density_harmonics(
     r2d,
     rho,
     num: RadialNumerics,
@@ -152,7 +152,7 @@ def find_rho_l(
     return pl_project_2D(rho2D, L)
     
     
-def filling_ab(ab, ku, kl, l, num: RadialNumerics):
+def fill_poisson_band_matrix(ab, ku, kl, l, num: RadialNumerics):
     """Fill the band matrix of Poisson's equation."""
     I = num.n_points
     offset = ku + kl
@@ -181,7 +181,7 @@ def filling_ab(ab, ku, kl, l, num: RadialNumerics):
     return ab
 
     
-def find_phi_eff(
+def solve_gravitational_potential(
     r2d,
     rho,
     num: RadialNumerics,
@@ -239,7 +239,7 @@ def find_phi_eff(
     r1d = num.r1d[:, None]
     
     # Density distribution harmonics
-    rho_l    = find_rho_l(r2d, rho, num)
+    rho_l    = compute_density_harmonics(r2d, rho, num)
     phi_g_l  = np.zeros((I, L))
     dphi_g_l = np.zeros((I, L))
     
@@ -256,7 +256,7 @@ def find_phi_eff(
         lub_l = []
         for l in range(0, L, 2) :
             # Matrix filling  
-            ab = filling_ab(ab, ku, kl, l, num)
+            ab = fill_poisson_band_matrix(ab, ku, kl, l, num)
             
             # LU decomposition (LAPACK)
             lub_l.append(dgbtrf(ab, ku, kl)[:-1])
@@ -283,7 +283,7 @@ def find_phi_eff(
     return phi_g_l, dphi_g_l, phi_eff
 
 
-def find_new_mapping(
+def update_mapping(
     phi_g_l,
     dphi_g_l,
     phi_eff,
@@ -395,7 +395,7 @@ def find_new_mapping(
     return r2d_new, rot_new
 
 
-def Virial_theorem(
+def evaluate_virial_balance(
     r2d,
     rho,
     phi_eff,
@@ -461,7 +461,7 @@ def Virial_theorem(
     return virial
 
 
-def find_gravitational_moments(
+def report_gravitational_moments(
     r2d,
     rho,
     num: RadialNumerics,
@@ -489,7 +489,7 @@ def find_gravitational_moments(
         print(f"Moment n°{l:2d} : {moment:+.10e}")
         
 
-def radial_method(
+def solve_radial(
     model: Model1D,
     rotation_config: RotationConfig,
     solver_options: SolverOptions,
@@ -533,10 +533,10 @@ def radial_method(
     max_iterations = solver_options.max_iterations
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho, num)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = solve_gravitational_potential(r2d, rho, num)
     
     # Find pressure
-    p = find_pressure(rho, dphi_eff, surface_pressure, num)
+    p = integrate_pressure(rho, dphi_eff, surface_pressure, num)
     
     # Iterative centrifugal deformation
     polar_radius_history = [0.0, find_r_pol(r2d, L)]
@@ -577,7 +577,7 @@ def radial_method(
         rot = rot.with_omega_eq(min(rotation_target, rotation_cap))
         
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = find_phi_eff(
+        phi_g_l, dphi_g_l, phi_eff = solve_gravitational_potential(
             r2d,
             rho,
             num,
@@ -586,7 +586,7 @@ def radial_method(
         )
 
         # Find a new estimate for the mapping
-        r2d, rot = find_new_mapping(
+        r2d, rot = update_mapping(
             phi_g_l,
             dphi_g_l,
             phi_eff,
@@ -656,7 +656,7 @@ def radial_method(
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = Virial_theorem(
+        virial = evaluate_virial_balance(
             r2d,
             rho,
             phi_eff,
@@ -674,7 +674,7 @@ def radial_method(
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
             
         if output_options.flux.enabled:
-            Q_l, (fig, ax) = find_radiative_flux(
+            Q_l, (fig, ax) = compute_radiative_flux(
                 r2d,
                 zeta,
                 num,
@@ -700,7 +700,7 @@ def radial_method(
     
     # Gravitational moments
     if output_options.diagnostics.gravitational_moments :
-        find_gravitational_moments(r2d, rho, num)
+        report_gravitational_moments(r2d, rho, num)
     
     # Model writing
     if output_options.model.save :
@@ -732,7 +732,7 @@ def radial_method(
 #----------------------------------------------------------------#
 #                   Radiative flux computation                   #
 #----------------------------------------------------------------#
-def find_radiative_flux(
+def compute_radiative_flux(
     r2d,
     zeta,
     num: RadialNumerics,
