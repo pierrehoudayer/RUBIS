@@ -128,19 +128,20 @@ def find_rho_l(
     """Project the density distribution onto Legendre harmonics."""
     safety_constant = 1.0e-15
     L = num.max_degree
-    k = num.spline_order
+    spl_order = num.spline_order
     
     J = r2d.shape[1]
     j_dw = np.arange((J + 1) // 2)
     j_up = -j_dw - 1
 
+    r = num.r1d
     log_rho = np.log(rho + safety_constant)
     rho2D = np.zeros_like(r2d)
 
-    for m in j_dw:
-        inside = num.r1d < r2d[-1, m]
-        rho2D[inside, m] = interpolate_func(x=r2d[:, m], y=log_rho, k=k)(num.r1d[inside])
-        rho2D[inside, m] = np.exp(rho2D[inside, m]) - safety_constant
+    for j in j_dw:
+        inside = r < r2d[-1, j]
+        rho2D[inside, j] = interpolate_func(x=r2d[:, j], y=log_rho, k=spl_order)(r[inside])
+        rho2D[inside, j] = np.exp(rho2D[inside, j]) - safety_constant
 
     rho2D[:, j_up] = rho2D[:, j_dw]
 
@@ -295,11 +296,11 @@ def find_new_mapping(
 
     # Northern hemisphere, including the equator.
     eq = (J - 1) // 2
-    m_up = np.arange(eq + 1)
+    j_dw = np.arange(eq + 1)
 
     # Interior gravitational potential.
-    phi2D_g_int  = pl_eval_2D( phi_g_l, t[m_up])
-    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[m_up])
+    phi2D_g_int  = pl_eval_2D( phi_g_l, t[j_dw])
+    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[j_dw])
 
     # Exterior gravitational potential.
     l = np.arange(L)
@@ -309,8 +310,8 @@ def find_new_mapping(
     phi_g_l_ext = phi_g_l[-1] * r_ext[:, None] ** -(l + 1)
     dphi_g_l_ext = -(l + 1) * phi_g_l_ext / r_ext[:, None]
 
-    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[m_up])
-    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[m_up])
+    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[j_dw])
+    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[j_dw])
 
     # Full radial domain.
     r_tot = np.hstack((r, r_ext))
@@ -334,7 +335,7 @@ def find_new_mapping(
     phi2D_c, dphi2D_c = np.moveaxis(
         np.array([
             eval_phi_c(r_tot, ck, omega_new)
-            for ck in t[m_up]
+            for ck in t[j_dw]
         ]),
         (0, 1, 2),
         (2, 0, 1),
@@ -355,21 +356,21 @@ def find_new_mapping(
     phi2D_g_cnt = np.array([
         CubicHermiteSpline(
             x=r,
-            y=phi2D_g_int[:, m],
-            dydx=dphi2D_g_int[:, m],
+            y=phi2D_g_int[:, j],
+            dydx=dphi2D_g_int[:, j],
         )(r_cnt)
-        for m in m_up
+        for j in j_dw
     ]).T
 
     phi2D_c_cnt = np.array([
         eval_phi_c(r_cnt, ck, omega_new)[0]
-        for ck in t[m_up]
+        for ck in t[j_dw]
     ]).T
 
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
 
     # Estimate the radius at each target equipotential.
-    r2d_up_origin = np.zeros_like(m_up)
+    r2d_up_origin = np.zeros_like(j_dw)
     r2d_up_center = np.array([
         interpolate_func(x=pk, y=r_cnt, k=k)(phi_eff[1:lim_idx])
         for pk in phi2D_cnt.T
