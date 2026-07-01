@@ -187,7 +187,7 @@ def find_phi_eff(
     """
     Determination of the effective potential from a given mapping
     (r2d, which gives the lines of constant density), and a given 
-    rotation rate (omega_n). This potential is determined by solving
+    rotation rate (omega). This potential is determined by solving
     the Poisson's equation on each degree of the harmonic decomposition
     (giving the gravitational potential harmonics which are also
     returned) and then adding the centrifugal potential.
@@ -240,8 +240,7 @@ def find_phi_eff(
     dphi_g_l = np.zeros((I, L))
     
     # Vector filling (vectorial)
-    L_even = (L + 1) // 2
-    b_l = np.zeros((2*I, L_even))
+    b_l = np.zeros((2*I, (L + 1) // 2))
     b_l[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r1d**2 * rho_l[:, ::2])
     b_l[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
     
@@ -260,11 +259,12 @@ def find_phi_eff(
             
     # System solving (LAPACK)
     x = np.array([
-        dgbtrs(lub_l[l][0], kl, ku, b_l[:, l], lub_l[l][1])[0] for l in range(L_even)
+        dgbtrs(lu, kl, ku, b, piv)[0]
+        for (lu, piv), b in zip(lub_l, b_l.T)
     ]).T
         
     # Poisson's equation solution
-    phi_g_l[: , ::2] = x[1::2]
+    phi_g_l[:, ::2]  = x[1::2]
     dphi_g_l[:, ::2] = x[0::2] * (2*r1d)  # <- The equation is solved on r^2
     
     if phi_eff is None :
@@ -370,28 +370,28 @@ def find_new_mapping(
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
 
     # Estimate the radius at each target equipotential.
-    r2d_up_origin = np.zeros_like(j_dw)
-    r2d_up_center = np.array([
+    r2d_dw_origin = np.zeros_like(j_dw)
+    r2d_dw_center = np.array([
         interpolate_func(x=pk, y=r_cnt, k=k)(phi_eff[1:lim_idx])
         for pk in phi2D_cnt.T
     ]).T
-    r2d_up_envelope = np.array([
+    r2d_dw_envelope = np.array([
         interpolate_func(x=pk[vk], y=r_tot[vk], k=k)(phi_eff[lim_idx:])
         for pk, vk in zip(phi2D.T, valid.T)
     ]).T
-    r2d_up = np.vstack((
-        r2d_up_origin,
-        r2d_up_center,
-        r2d_up_envelope,
+    r2d_dw = np.vstack((
+        r2d_dw_origin,
+        r2d_dw_center,
+        r2d_dw_envelope,
     ))
-    r2d_dw = np.flip(r2d_up, axis=1)[:, 1:]
+    r2d_up = np.flip(r2d_dw, axis=1)[:, 1:]
 
-    r2d_new = np.hstack((r2d_up, r2d_dw))
+    r2d_new = np.hstack((r2d_dw, r2d_up))
 
     return r2d_new, omega_new
 
 
-def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) : 
+def Virial_theorem(r2d, rho, omega, phi_eff, P, verbose=False) : 
     """
     Compute the Virial equation and gives the result as a diagnostic
     for how well the hydrostatic equilibrium is satisfied (the closer
@@ -403,7 +403,7 @@ def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) :
         Mapping
     rho : array_like, shape (I, )
         Density on each equipotential.
-    omega_n : float
+    omega : float
         Rotation rate.
     phi_eff : array_like, shape (I, )
         Effective potential on each equipotential.
@@ -420,14 +420,14 @@ def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) :
 
     """    
     # Potential energy
-    volumic_potential_energy = lambda rk, ck, D : -(  
-       rho[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
+    volumic_potential_energy = lambda rk, ck, mask : -(  
+       rho[mask] * (phi_eff[mask]-eval_phi_c(rk[mask], ck, omega)[0])
     )
     potential_energy = integrate2D(r2d, volumic_potential_energy, k=spl_order)
     
     # Kinetic energy
-    volumic_kinetic_energy = lambda rk, ck, D : (  
-       0.5 * rho[D] * (1 - ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
+    volumic_kinetic_energy = lambda rk, ck, mask : (  
+       0.5 * rho[mask] * (1 - ck**2) * rk[mask]**2 * eval_omega(rk[mask], ck, omega)**2
     )
     kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=spl_order)
     
@@ -677,9 +677,9 @@ def radial_method(
             
         if output_options.flux.enabled : 
             z0 = output_options.flux.origin
-            M1 = output_options.flux.n_lines
+            J_lines = output_options.flux.n_lines
             Q_l, (fig, ax) = find_radiative_flux(
-                r2d, t, z0, M1,
+                r2d, t, z0, J_lines,
                 add_flux_lines=output_options.flux.plot_lines, 
                 show_T_eff=output_options.flux.show_effective_temperature,
                 res=output_options.flux.resolution,
@@ -736,7 +736,7 @@ def radial_method(
 #                   Radiative flux computation                   #
 #----------------------------------------------------------------#
 def find_radiative_flux(
-    mapping, t, z0, M_lines, 
+    mapping, t, z0, J_lines, 
     add_flux_lines, show_T_eff, res, flux_cmap
 ) :
     """
@@ -778,7 +778,7 @@ def find_radiative_flux(
     """
     # Find domain
     from scipy.special import roots_legendre
-    t1, w1 = np.array(roots_legendre(2*M_lines))[:, :M_lines]
+    t1, w1 = np.array(roots_legendre(2*J_lines))[:, :J_lines]
     valid = np.squeeze(np.argwhere(zeta >= z0))
     z = zeta[valid]
     r = r2d[valid]
@@ -808,10 +808,10 @@ def find_radiative_flux(
     
     def jac(xi, tk) : 
         jac_t = np.atleast_2d(pl_eval_2D(jac_l, tk.flatten()))
-        J = np.diag([
+        jacobian = np.diag([
             interpolate_func(x, -jac_tk[::-1], k=3)(xi) for jac_tk in jac_t.T
         ]).reshape(-1, *tk.shape)
-        return J
+        return jacobian
     
     # Actual solving
     a = time.perf_counter()
@@ -844,7 +844,7 @@ def find_radiative_flux(
     Q = Q_0 * Q_z * np.abs(
         pl_eval_2D(pl_project_2D(geo.gzz[-1], L), t[-1])
     )**0.5
-    Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*M_lines)
+    Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*J_lines)
     
     # 3D plot of the surface flux
     plot_3D_surface(r_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
