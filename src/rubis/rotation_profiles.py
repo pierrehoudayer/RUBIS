@@ -16,7 +16,6 @@ __all__ = [
     "lorentzian",
     "plateau",
     "la_bidouille",
-    "configure_rotation_profile",
 ]
 
 
@@ -160,6 +159,7 @@ def plateau(r, cth, omega, alpha, scale, return_profile=False, k=1) :
     dphi_c = -0.5 * ds2 * (w0**2 - 2*w0*dw * II1 + dw**2 * II2)
     return phi_c, dphi_c
 
+
 def la_bidouille(fname, smoothing=0) : 
     """
     Sets up the function phi_c_func(r, cth, omega) which computes
@@ -248,20 +248,3 @@ def la_bidouille(fname, smoothing=0) :
         return phi_c, dphi_c
     
     return phi_c_func
-
-def configure_rotation_profile(rotation_profile, central_diff_rate, rotation_scale):
-    """Bind the parameters required by a rotation profile."""
-    nb_args = (
-          rotation_profile.__code__.co_argcount 
-        - len(rotation_profile.__defaults__ or '')
-    )
-    mask = np.array([0, 1]) < nb_args - 3
-    
-    # Creation of the centrifugal potential function
-    args_phi = np.array([central_diff_rate, rotation_scale])[mask]
-    phi_c = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_phi)
-    
-    # Creation of the rotation profile function
-    args_w = np.hstack((np.atleast_1d(args_phi), (True,)))
-    w = lambda r, cth, omega : rotation_profile(r, cth, omega, *args_w)
-    return phi_c, w

@@ -5,7 +5,6 @@ from typing import Self
 import numpy as np
 
 from .config import RotationConfig
-from .rotation_profiles import configure_rotation_profile
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -52,6 +51,41 @@ class RotationState:
             self.omega(r_j, t_j)
             for r_j, t_j in zip(r2d.T, t)
         ]).T
+        
+        
+def _bind_rotation_profile(config: RotationConfig):
+    """Bind the parameters required by a rotation profile."""
+    profile = config.profile
+
+    n_required = (
+        profile.__code__.co_argcount
+        - len(profile.__defaults__ or ())
+    )
+    n_parameters = n_required - 3
+
+    parameters = (
+        config.central_diff_rate,
+        config.scale,
+    )[:n_parameters]
+
+    def eval_phi_c(r, t, omega_eq):
+        return profile(
+            r,
+            t,
+            omega_eq,
+            *parameters,
+        )
+
+    def eval_omega(r, t, omega_eq):
+        return profile(
+            r,
+            t,
+            omega_eq,
+            *parameters,
+            return_profile=True,
+        )
+
+    return eval_phi_c, eval_omega
 
 
 def initialize_rotation_state(
@@ -59,11 +93,7 @@ def initialize_rotation_state(
     omega_eq: float = 0.0,
 ) -> RotationState:
     """Bind a rotation configuration into an evaluable state."""
-    eval_phi_c, eval_omega = configure_rotation_profile(
-        config.profile,
-        config.central_diff_rate,
-        config.scale,
-    )
+    eval_phi_c, eval_omega = _bind_rotation_profile(config)
 
     return RotationState(
         omega_eq=omega_eq,
