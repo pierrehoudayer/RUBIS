@@ -2,7 +2,9 @@ import time
 import numpy             as np
 import scipy.sparse      as sps
 import scipy.special     as sp
+from dataclasses         import dataclass
 from gc                  import collect
+from numpy.typing        import NDArray
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbsv
 from scipy.special       import roots_legendre, eval_legendre
@@ -25,7 +27,10 @@ from ..config import (
     SolverOptions,
 )
 from ..models            import Model1D
-from ..domains           import find_domains
+from ..domains           import (
+    DomainLayout,
+    find_domains,
+)
 from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
@@ -42,28 +47,97 @@ from ..plotting          import (
 )
 
 
-def init_sparse_matrices_per_domain() : 
-    """
-    Finds the interpolation and derivation matrices (in scipy sparse
-    storage format) for each spheroidal domain.
+FloatArray = NDArray[np.float64]
 
-    Returns
-    -------
-    Lsp, Dsp : list of array_like, shape (size_domain - 1, size_domain)
-        Interpolation and derivation matrices.
 
+@dataclass(frozen=True, kw_only=True)
+class SpheroidalNumerics:
     """
-    Lsp, Dsp = [], []
-    for D in domains.domain_ranges : 
-        
-        # Find the lagrange matrices per domain
-        lag_mat = lagrange_matrix_P(zeta[D], order=KLAG)
-        
-        # Define sparse matrices 
-        Lsp.append(sps.dia_matrix(lag_mat[..., 0]))
-        Dsp.append(sps.dia_matrix(lag_mat[..., 1]))
-    
-    return Lsp, Dsp
+    Fixed numerical representation used by the spheroidal solver.
+
+    It stores the full multidomain zeta coordinate, the angular
+    collocation grid, and the domainwise operators used by the
+    spheroidal Poisson problem.
+    """
+
+    zeta: FloatArray
+    t: FloatArray
+    domains: DomainLayout
+
+    max_degree: int
+    spline_order: int
+    lagrange_order: int
+
+    Lsp: tuple[sps.spmatrix, ...]
+    Dsp: tuple[sps.spmatrix, ...]
+
+    @property
+    def n_points(self) -> int:
+        """Total number of radial points, including the exterior."""
+        return self.zeta.size
+
+    @property
+    def n_internal_points(self) -> int:
+        return int(np.count_nonzero(self.domains.internal_mask))
+
+    @property
+    def n_external_points(self) -> int:
+        return int(np.count_nonzero(self.domains.external_mask))
+
+    @property
+    def angular_resolution(self) -> int:
+        return self.t.size
+
+
+def initialize_spheroidal_numerics(
+    r1d,
+    t,
+    options: SolverOptions,
+) -> SpheroidalNumerics:
+    """
+    Build the fixed multidomain representation of the spheroidal solver.
+
+    The material coordinate is extended by one vacuum domain, and the
+    interpolation and differentiation operators are constructed
+    independently in each domain.
+    """
+    I_ext = options.external_domain_res
+
+    x_ext = np.linspace(1.0, 2.0, I_ext)
+    zeta_ext = 1.0 + sp.betainc(2, 2, x_ext - 1.0)
+
+    zeta = np.hstack((r1d, zeta_ext))
+
+    domains = find_domains(zeta)
+
+    Lsp = []
+    Dsp = []
+
+    for i_dom in domains.domain_ids:
+        idx = domains.domain_ranges[i_dom]
+
+        lag_mat = lagrange_matrix_P(
+            zeta[idx],
+            order=options.lagrange_order,
+        )
+
+        Lsp.append(
+            sps.dia_matrix(lag_mat[..., 0])
+        )
+        Dsp.append(
+            sps.dia_matrix(lag_mat[..., 1])
+        )
+
+    return SpheroidalNumerics(
+        zeta=zeta,
+        t=t,
+        domains=domains,
+        max_degree=options.max_degree,
+        spline_order=options.spline_order,
+        lagrange_order=options.lagrange_order,
+        Lsp=tuple(Lsp),
+        Dsp=tuple(Dsp),
+    )
 
 
 def find_gravitational_moments(r2d, t, rho, max_degree=14) :
@@ -531,55 +605,80 @@ def Virial_theorem(r2d, rho, omega_n, phi_g_l, P, verbose=False) :
     return virial
 
 
-def spheroidal_method(
+def solve_spheroidal(
     model: Model1D,
-    rotation: RotationConfig,
-    options: SolverOptions,
+    rotation_config: RotationConfig,
+    solver_options: SolverOptions,
     output_options: OutputOptions,
 ) -> SpheroidalResult:
-    """ Main routine for the centrifugal deformation method in spheroidal coordinates. """
-    
-    # Global parameters, constants, variables and functions
-    global G, P0, N, NE, L, M, KSPL, KLAG
-    global r1d, zeta, rho, domains
+    """
+    Compute rotational deformation on a multidomain spheroidal grid.
+
+    Poisson's equation is solved directly in the evolving material
+    coordinates, extended by an exterior vacuum domain. The mapping,
+    rotation state, mass, and radius are iterated until convergence.
+    """
+    global N, NE, L, M, KSPL, KLAG
+    global zeta, domains
     global Lsp, Dsp
     global eval_phi_c, eval_omega
 
     start = time.perf_counter()
 
+    # Physical model
     G = model.G
-    P0 = model.surface_pressure
-    N = model.n_points
+    surface_pressure = model.surface_pressure
     mass = model.mass
     radius = model.radius
 
-    r1d = model.r
-    zeta = r1d.copy()
+    r1d = model.r.copy()
     rho = model.rho.copy()
+    additional_variables = model.additional_variables
 
-    L = options.max_degree
-    M = options.angular_resolution
-    KSPL = options.spline_order
-    KLAG = options.lagrange_order
-    rescale_ab = options.rescale_ab
-
-    full_rate = options.full_rate
-    mapping_precision = options.mapping_precision
-    max_iterations = options.max_iterations
-    rotation_target = rotation.target
-
-    eval_phi_c, eval_omega = configure_rotation_profile(
-        rotation.profile,
-        rotation.central_diff_rate,
-        rotation.scale,
+    # Angular grid and initial material mapping
+    r2d, t = initialize_mapping(
+        r1d,
+        solver_options.angular_resolution,
     )
 
-    NE = options.external_domain_res
-    r_ext = np.linspace(1.0, 2.0, NE)
-    zeta = np.hstack((r1d, 1.0 + sp.betainc(2, 2, r_ext - 1.0)))
-    domains = find_domains(zeta)
-    
-    Lsp, Dsp = init_sparse_matrices_per_domain()
+    # Fixed multidomain numerical representation
+    num = initialize_spheroidal_numerics(
+        r1d,
+        t,
+        solver_options,
+    )
+
+    # Modern local dimension names
+    I = num.n_internal_points
+    I_ext = num.n_external_points
+    J = num.angular_resolution
+
+    # Temporary aliases required by legacy helpers
+    N = I
+    NE = I_ext
+    M = J
+
+    L = num.max_degree
+    KSPL = num.spline_order
+    KLAG = num.lagrange_order
+
+    zeta = num.zeta
+    domains = num.domains
+    Lsp = num.Lsp
+    Dsp = num.Dsp
+
+    # Temporary evaluators required by update_mapping and the virial
+    eval_phi_c, eval_omega = configure_rotation_profile(
+        rotation_config.profile,
+        rotation_config.central_diff_rate,
+        rotation_config.scale,
+    )
+
+    rescale_ab = solver_options.rescale_ab
+    full_rate = solver_options.full_rate
+    mapping_precision = solver_options.mapping_precision
+    max_iterations = solver_options.max_iterations
+    rotation_target = rotation_config.target
     
     # Angular domain preparation
     r2d, t = initialize_mapping(r1d, M)
@@ -588,7 +687,11 @@ def spheroidal_method(
     phi_g_l, dphi_g_l, phi_eff, dphi_eff = find_phi_eff(r2d, t, rho, rescale_ab=rescale_ab)
     
     # Find pressure
-    P = find_pressure(rho, dphi_eff, P0)
+    p = find_pressure(
+        rho,
+        dphi_eff,
+        surface_pressure,
+    )
     
     # Iterative centrifugal deformation
     polar_radius_history = [0.0, find_r_pol(r2d, L)]
@@ -639,7 +742,7 @@ def spheroidal_method(
         rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr    # <- /!\ This is a derivative w.r.t. to zeta
-        P        /= m_corr**2 / r_corr**4
+        p        /= m_corr**2 / r_corr**4
         
         # Update the polar radius
         polar_radius_history.append(find_r_pol(r2d, L))
@@ -678,7 +781,7 @@ def spheroidal_method(
         mapping=r2d.copy(),
 
         density=rho.copy(),
-        pressure=P.copy(),
+        pressure=p.copy(),
 
         effective_potential=phi_eff.copy(),
         effective_potential_derivative=dphi_eff.copy(),
@@ -709,7 +812,7 @@ def spheroidal_method(
     
     # Virial test
     if output_options.diagnostics.virial_test :
-        virial = Virial_theorem(r2d, rho, omega_n, phi_g_l, P, verbose=True)   
+        virial = Virial_theorem(r2d, rho, omega_n, phi_g_l, p, verbose=True)   
     
     # Plot model
     if output_options.plot.show_model :
@@ -735,14 +838,14 @@ def spheroidal_method(
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius
-            P        *= G * mass**2 / radius**4
+            p        *= G * mass**2 / radius**4
         write_model(
             output_options.model.filename,
             (N, M, mass, radius, rotation_target, G),
             r2d,
             additional_variables,
             zeta,
-            P,
+            p,
             rho,
             phi_eff,
             rota,

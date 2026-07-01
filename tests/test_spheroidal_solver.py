@@ -10,7 +10,7 @@ from rubis.config import (
 from rubis.rotation_profiles import solid
 from rubis.config import CompositePolytropeConfig
 from rubis.initialization import initialize_model_1d
-from rubis.solvers import spheroidal_method
+from rubis.solvers import solve_spheroidal
 from rubis.results import DeformationResult, SpheroidalResult
 
 
@@ -31,7 +31,7 @@ def test_spheroidal_solver_returns_normalised_state():
         )
     )
 
-    result = spheroidal_method(
+    result = solve_spheroidal(
         model,
         RotationConfig(
             profile=solid,
@@ -134,7 +134,7 @@ def test_nonrotating_composite_model_remains_spherical():
         )
     )
     
-    result = spheroidal_method(
+    result = solve_spheroidal(
         model,
         RotationConfig(
             profile=solid,
@@ -258,7 +258,7 @@ def test_uniform_rotation_deforms_composite_model():
         )
     )
 
-    result = spheroidal_method(
+    result = solve_spheroidal(
         model,
         RotationConfig(
             profile=solid,

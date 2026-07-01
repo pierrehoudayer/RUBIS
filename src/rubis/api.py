@@ -7,7 +7,7 @@ from .config import (
 from .initialization import initialize_model_1d
 from .models import Model1D
 from .results import DeformationResult
-from .solvers import solve_radial, spheroidal_method
+from .solvers import solve_radial, solve_spheroidal
 
 
 __all__ = [
@@ -46,7 +46,7 @@ def deform(config: DeformationConfig) -> DeformationResult:
 
     solver = {
         "radial": solve_radial,
-        "spheroidal": spheroidal_method,
+        "spheroidal": solve_spheroidal,
     }[method]
 
     return solver(

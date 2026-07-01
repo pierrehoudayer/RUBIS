@@ -11,7 +11,7 @@ from rubis.config import (
 )
 from rubis.initialization import initialize_model_1d
 from rubis.rotation_profiles import lorentzian, solid
-from rubis.solvers import solve_radial, spheroidal_method
+from rubis.solvers import solve_radial, solve_spheroidal
 from rubis.api import deform
 
 @pytest.mark.slow

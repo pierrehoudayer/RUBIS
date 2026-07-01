@@ -46,7 +46,7 @@ def test_auto_selects_radial_solver(monkeypatch):
     )
     monkeypatch.setattr(
         api,
-        "spheroidal_method",
+        "solve_spheroidal",
         lambda *args, **kwargs: pytest.fail(
             "The spheroidal solver should not be called."
         ),
@@ -79,7 +79,7 @@ def test_auto_selects_spheroidal_solver(monkeypatch):
     )
     monkeypatch.setattr(
         api,
-        "spheroidal_method",
+        "solve_spheroidal",
         lambda *args, **kwargs: expected,
     )
 
@@ -105,7 +105,7 @@ def test_explicit_method_overrides_domain_selection(
     )
     monkeypatch.setattr(
         api,
-        "spheroidal_method",
+        "solve_spheroidal",
         lambda *args, **kwargs: expected,
     )
 

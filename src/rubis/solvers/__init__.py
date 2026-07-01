@@ -1,10 +1,10 @@
 """Centrifugal-deformation solvers."""
 
 from .radial import solve_radial
-from .spheroidal import spheroidal_method
+from .spheroidal import solve_spheroidal
 
 
 __all__ = [
     "solve_radial",
-    "spheroidal_method",
+    "solve_spheroidal",
 ]
