@@ -36,6 +36,7 @@ from ..mapping           import (
     compute_mapping_derivatives,
     extend_mapping,
 )
+from ..hydrostatics      import integrate_pressure
 from ..poisson           import compute_poisson_couplings
 from ..rotation          import (
     RotationState,
@@ -331,39 +332,6 @@ def assemble_poisson_system(
 
     return ab, b, col_scale, kl, ku
 
-
-def integrate_pressure(
-    rho,
-    dphi_eff,
-    surface_pressure,
-    num: SpheroidalNumerics,
-):
-    """
-    Integrate hydrostatic equilibrium from the surface inward.
-
-    The pressure is reconstructed across the internal material domains,
-    using one copy of each duplicated interface coordinate.
-    """
-    zeta = num.zeta
-    domains = num.domains
-    internal = domains.internal_mask
-    unique = domains.unique_internal_indices
-
-    zeta_int = zeta[internal]
-    dp = -rho * dphi_eff[internal]
-
-    x_unique = 1.0 - zeta_int[unique][::-1]
-    x_internal = 1.0 - zeta_int[::-1]
-
-    p = interpolate_func(
-        x=x_unique,
-        y=-dp[unique][::-1],
-        der=-1,
-        k=num.spline_order,
-        prim_cond=(0, surface_pressure),
-    )(x_internal)
-
-    return p[::-1]
 
 def solve_gravitational_potential(
     r2d,
@@ -698,11 +666,15 @@ def solve_spheroidal(
     )
     
     # Find pressure
+    internal = num.domains.internal_mask
+
     p = integrate_pressure(
+        num.zeta[internal],
         rho,
-        dphi_eff,
+        dphi_eff[internal],
         surface_pressure,
-        num,
+        unique_indices=num.domains.unique_internal_indices,
+        spline_order=num.spline_order,
     )
     
     # Iterative centrifugal deformation

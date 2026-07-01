@@ -33,6 +33,7 @@ from ..mapping           import (
     compute_mapping_derivatives,
     compute_mapping_geometry,
 )
+from ..hydrostatics      import integrate_pressure
 from ..rotation          import (
     RotationState,
     initialize_rotation_state,
@@ -118,31 +119,6 @@ def initialize_radial_numerics(
         Dsp=Dsp,
         Asp=Asp,
     )
-
-def integrate_pressure(
-    rho,
-    dphi_eff,
-    surface_pressure,
-    num: RadialNumerics,
-):
-    """
-    Integrate hydrostatic equilibrium from the surface inward.
-
-    The pressure gradient is evaluated along the one-dimensional
-    effective-potential profile carried by the material surfaces.
-    """
-    dp = -rho * dphi_eff
-    x = 1.0 - num.r1d[::-1]
-
-    p = interpolate_func(
-        x=x,
-        y=-dp[::-1],
-        der=-1,
-        k=num.spline_order,
-        prim_cond=(0, surface_pressure),
-    )(x)
-
-    return p[::-1]
 
 
 def compute_density_harmonics(
@@ -458,7 +434,13 @@ def solve_radial(
     phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors = solve_gravitational_potential(r2d, rho, num)
     
     # Find pressure
-    p = integrate_pressure(rho, dphi_eff, surface_pressure, num)
+    p = integrate_pressure(
+        zeta,
+        rho,
+        dphi_eff,
+        surface_pressure,
+        spline_order=num.spline_order,
+    )
     
     # Iterative centrifugal deformation
     polar_radius_history = [0.0, find_r_pol(r2d, L)]
