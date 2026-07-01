@@ -52,7 +52,12 @@ FloatArray = NDArray[np.float64]
 
 @dataclass(frozen=True, kw_only=True)
 class RadialNumerics:
-    """Fixed numerical representation used by the radial solver."""
+    """
+    Fixed numerical representation used by the radial solver.
+
+    It stores the spherical radial grid, the angular collocation grid,
+    and the discrete operators that remain unchanged during iteration.
+    """
 
     r1d: FloatArray
     t: FloatArray
@@ -79,7 +84,12 @@ def initialize_radial_numerics(
     t,
     options: SolverOptions,
 ) -> RadialNumerics:
-    """Build the fixed grids and operators of the radial solver."""
+    """
+    Build the fixed grids and operators of the radial solver.
+
+    The radial operators are constructed on the spherical Poisson grid,
+    independently of the evolving material mapping.
+    """
     lag_mat = lagrange_matrix_P(
         r1d**2,
         order=options.lagrange_order,
@@ -109,7 +119,12 @@ def integrate_pressure(
     surface_pressure,
     num: RadialNumerics,
 ):
-    """Integrate hydrostatic equilibrium on the radial grid."""
+    """
+    Integrate hydrostatic equilibrium from the surface inward.
+
+    The pressure gradient is evaluated along the one-dimensional
+    effective-potential profile carried by the material surfaces.
+    """
     dp = -rho * dphi_eff
     x = 1.0 - num.r1d[::-1]
 
@@ -129,7 +144,13 @@ def compute_density_harmonics(
     rho,
     num: RadialNumerics,
 ):
-    """Project the density distribution onto Legendre harmonics."""
+    """
+    Reconstruct the density on spherical shells and project it onto
+    Legendre harmonics.
+
+    Density is attached to the material surfaces of the current mapping
+    and is interpolated onto the fixed spherical Poisson grid.
+    """
     safety_constant = 1.0e-15
     L = num.max_degree
     spl_order = num.spline_order
@@ -152,29 +173,40 @@ def compute_density_harmonics(
     return pl_project_2D(rho2D, L)
     
     
-def fill_poisson_band_matrix(ab, ku, kl, l, num: RadialNumerics):
-    """Fill the band matrix of Poisson's equation."""
+def fill_poisson_band_matrix(
+    ab, 
+    ku, 
+    kl, 
+    l, 
+    num: RadialNumerics
+):
+    """
+    Fill the banded Poisson operator for one Legendre degree.
+
+    The degree-independent radial terms are initialized for the monopole
+    and reused while the harmonic and boundary terms are updated.
+    """
     I = num.n_points
     offset = ku + kl
 
-    # Common part, filled only once.
+    # Common part, filled only once
     if l == 0:
         ab[ku+1+(0-0):-1+(0-0):2, 0::2] =  num.Asp.data[::-1]
         ab[ku+1+(1-0):        :2, 0::2] = -num.Lsp.data[::-1]
         ab[ku+1+(1-1):-1+(1-1):2, 1::2] =  num.Dsp.data[::-1]
 
-        # Central boundary condition for l = 0.
+        # Central boundary condition for l = 0
         ab[offset, 0] = 6.0
 
-    # Degree-dependent part.
+    # Degree-dependent part
     else:
         ab[ku+1+(0-1):-1+(0-1):2, 1::2] = -l*(l+1) * num.Lsp.data[::-1]
 
-        # Central boundary condition for l != 0.
+        # Central boundary condition for l != 0
         ab[offset-0, 0] = 0.0
         ab[offset-1, 1] = 1.0
 
-    # Surface boundary conditions.
+    # Surface boundary conditions
     ab[offset+1, 2*I-2] = 2*num.r1d[-1]**2
     ab[offset+0, 2*I-1] = l+1 
 
@@ -186,54 +218,16 @@ def solve_gravitational_potential(
     rho,
     num: RadialNumerics,
     phi_eff=None,
-    lub_l=None,
+    poisson_factors=None,
 ):
     """
-    Determination of the effective potential from a given mapping
-    (r2d, which gives the lines of constant density), and a given 
-    rotation rate (omega_eq). This potential is determined by solving
-    the Poisson's equation on each degree of the harmonic decomposition
-    (giving the gravitational potential harmonics which are also
-    returned) and then adding the centrifugal potential.
+    Solve Poisson's equation on the fixed spherical radial grid.
 
-    Parameters
-    ----------
-    r2d : array_like, shape (I, J)
-        Current mapping.
-    rho : array_like, shape (I, )
-        Density on each equipotential.
-    phi_eff : array_like, shape (I, ), optional
-        If given, the current effective potential on each 
-        equipotential. If not given, it will be calculated inside
-        this fonction. The default is None.
-    lub_l : list (size: Nl) of tuples (size: 2), optional
-        Each element of the list contains contains the LU
-        decomposition of Poisson's matrix (first tuple element)
-        and the corresponding pivot indices (second tuple element)
-        to solve Poisson's equation at a diven degree l. The 
-        routine therefore fully exploit the invariance of Poisson's 
-        matrix by computing those two elements once and for all.
-        The default is None.
-
-    Raises
-    ------
-    ValueError
-        If the matrix inversion enconters a difficulty ...
-
-    Returns
-    -------
-    phi_g_l : array_like, shape (I, L)
-        Gravitation potential harmonics.
-    dphi_g_l : array_like, shape (I, L)
-        Gravitation potential harmonics derivative with respect to r^2.
-    phi_eff : array_like, shape (I, )
-        Effective potential on each equipotential.
-    dphi_eff : array_like, shape (I, ), optional
-        Effective potential derivative with respect to r^2.
-    lub_l : list (size: Nl) of tuples (size: 2), optional
-        Cf. parameters
-
-    """    
+    The density is first reconstructed and projected onto Legendre
+    harmonics, after which each even degree is solved independently.
+    The effective-potential profile is initialized on the first call
+    and subsequently shifted to remain consistent at the centre.
+    """
     I = num.n_points
     L = num.max_degree
     r1d = num.r1d[:, None]
@@ -253,18 +247,18 @@ def solve_gravitational_potential(
     ab = np.zeros((2*kl + ku + 1, 2*I))   
     
     if phi_eff is None :
-        lub_l = []
+        poisson_factors = []
         for l in range(0, L, 2) :
             # Matrix filling  
             ab = fill_poisson_band_matrix(ab, ku, kl, l, num)
             
             # LU decomposition (LAPACK)
-            lub_l.append(dgbtrf(ab, ku, kl)[:-1])
+            poisson_factors.append(dgbtrf(ab, ku, kl)[:-1])
             
     # System solving (LAPACK)
     x = np.array([
         dgbtrs(lu, kl, ku, b, piv)[0]
-        for (lu, piv), b in zip(lub_l, b_l.T)
+        for (lu, piv), b in zip(poisson_factors, b_l.T)
     ]).T
         
     # Poisson's equation solution
@@ -275,11 +269,11 @@ def solve_gravitational_potential(
         # First estimate of the effective potential and its derivative
         phi_eff  = pl_eval_2D( phi_g_l, 0.0)
         dphi_eff = pl_eval_2D(dphi_g_l, 0.0)        
-        return phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l
+        return phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors
     
     # The effective potential is known to an additive constant 
-    C = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
-    phi_eff += C
+    phi_offset = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
+    phi_eff += phi_offset
     return phi_g_l, dphi_g_l, phi_eff
 
 
@@ -290,22 +284,29 @@ def update_mapping(
     num: RadialNumerics,
     rot: RotationState,
 ):
-    """Update the mapping and rotation rate from the total potential."""
+    """
+    Construct the next material mapping from the total potential.
+
+    The gravitational solution is extended outside the spherical grid,
+    combined with the centrifugal potential, and inverted at fixed
+    effective potential to recover r(zeta, t). The equatorial rotation
+    rate is corrected consistently with the estimated surface radius.
+    """
     r = num.r1d
     t = num.t
     L = num.max_degree
     J = num.angular_resolution
     k = num.spline_order
 
-    # Northern hemisphere, including the equator.
+    # Lower angular half-domain, including the equator
     j_eq = (J - 1) // 2
     j_dw = np.arange(j_eq + 1)
 
-    # Interior gravitational potential.
+    # Interior gravitational potential
     phi2D_g_int  = pl_eval_2D( phi_g_l, t[j_dw])
     dphi2D_g_int = pl_eval_2D(dphi_g_l, t[j_dw])
 
-    # Exterior gravitational potential.
+    # Exterior gravitational potential
     l = np.arange(L)
     outside = 1.3
     r_ext = np.linspace(1.0, outside, 101)[1:]
@@ -316,12 +317,12 @@ def update_mapping(
     phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[j_dw])
     dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[j_dw])
 
-    # Full radial domain.
+    # Full radial domain
     r_tot = np.hstack((r, r_ext))
     phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
     dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
 
-    # Find a rotation rate consistent with the equatorial radius.
+    # Find a rotation rate consistent with the equatorial radius
     safe = r_tot > 0.0
     r_safe = r_tot[safe]
 
@@ -335,7 +336,7 @@ def update_mapping(
     omega_eq_new = rot.omega_eq * r_est**-1.5
     rot_new = rot.with_omega_eq(omega_eq_new)
 
-    # Centrifugal potential.
+    # Centrifugal potential
     phi2D_c, dphi2D_c = np.moveaxis(
         np.array([
             rot_new.phi_c(r_tot, t_j)
@@ -345,13 +346,13 @@ def update_mapping(
         (2, 0, 1),
     )
 
-    # Total potential.
+    # Total potential
     phi2D  =  phi2D_g + phi2D_c
     dphi2D = dphi2D_g + dphi2D_c
 
     valid = valid_reciprocal_domain(r_tot, dphi2D)
 
-    # Refined central domain.
+    # Refined central domain
     lim = 1.0e-1
     lim_idx = np.max(np.argwhere(r_tot < lim)) + 1
 
@@ -373,7 +374,7 @@ def update_mapping(
 
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
 
-    # Estimate the radius at each target equipotential.
+    # Estimate the radius at each target equipotential
     r2d_dw_origin = np.zeros_like(j_dw)
     r2d_dw_center = np.array([
         interpolate_func(x=pk, y=r_cnt, k=k)(phi_eff[1:lim_idx])
@@ -404,7 +405,12 @@ def evaluate_virial_balance(
     rot: RotationState,
     verbose=False,
 ):
-    """Evaluate the scalar virial balance."""
+    """
+    Evaluate the scalar virial residual of the converged model.
+
+    The balance combines rotational kinetic energy, gravitational work,
+    thermodynamic work, and the surface-pressure contribution.
+    """
     J = num.angular_resolution
     spl_order = num.spline_order
 
@@ -467,7 +473,12 @@ def report_gravitational_moments(
     num: RadialNumerics,
     max_degree=14,
 ):
-    """Compute and display the gravitational moments."""
+    """
+    Compute and display the even gravitational mass moments.
+
+    The moments are integrated directly on the deformed material
+    mapping up to the requested Legendre degree.
+    """
     t = num.t
     spl_order = num.spline_order
 
@@ -495,7 +506,15 @@ def solve_radial(
     solver_options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    """ Main routine for the centrifugal deformation method in radial coordinates. """
+    """
+    Compute the rotational deformation using a spherical Poisson grid.
+
+    Density remains attached to material equipotential surfaces through
+    the mapping r(zeta, t), while Poisson's equation is solved on a fixed
+    spherical radial grid. The mapping and rotation state are iterated 
+    while the global mass and radius are rescaled to preserve the 
+    prescribed model constraints.
+    """
     start = time.perf_counter()
 
     if model.n_domains > 1:
@@ -533,7 +552,7 @@ def solve_radial(
     max_iterations = solver_options.max_iterations
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = solve_gravitational_potential(r2d, rho, num)
+    phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors = solve_gravitational_potential(r2d, rho, num)
     
     # Find pressure
     p = integrate_pressure(rho, dphi_eff, surface_pressure, num)
@@ -582,7 +601,7 @@ def solve_radial(
             rho,
             num,
             phi_eff=phi_eff,
-            lub_l=lub_l,
+            poisson_factors=poisson_factors,
         )
 
         # Find a new estimate for the mapping
@@ -610,8 +629,11 @@ def solve_radial(
         
         # Iteration count
         iterations += 1
-        DEC = int(-np.log10(mapping_precision))
-        print(f"Iteration n°{iterations:02d}, R_pol = {polar_radius_history[-1].round(DEC)}")
+        n_decimals = int(-np.log10(mapping_precision))
+        print(
+            f"Iteration n°{iterations:02d}:",
+            f"R_pol = {polar_radius_history[-1].round(n_decimals)}"
+        )
     
     # Deformation summary
     finish = time.perf_counter()
@@ -624,7 +646,7 @@ def solve_radial(
     
     
     # Store the normalised solver state before any output
-    # operation can modify the arrays in place.
+    # operation can modify the arrays in place
     result = RadialResult(
         zeta=zeta.copy(),
         radial_grid=r1d.copy(),
@@ -650,7 +672,7 @@ def solve_radial(
         iterations=iterations,
     )
 
-    # Estimated error on Poisson's equation
+    # Gravitational-potential harmonics
     if output_options.plot.show_harmonics : 
         phi_g_harmonics(zeta, phi_g_l, radial=True)
     
@@ -707,22 +729,26 @@ def solve_radial(
         j_eq = (J - 1) // 2
         omega_equator = rot.omega(r2d[:, j_eq], 0.0)
         
-        if output_options.model.dimensional : 
-            r2d      *=               radius
-            rho      *=     mass    / radius**3
-            phi_eff  *= G * mass    / radius   
-            dphi_eff *= G * mass    / radius**2
-            p        *= G * mass**2 / radius**4
+        if output_options.model.dimensional: 
+            r2d_out      = r2d      * (              radius**1)
+            rho_out      = rho      * (    mass**1 / radius**3)
+            phi_eff_out  = phi_eff  * (G * mass**1 / radius**1)
+            p_out        = p        * (G * mass**2 / radius**4)
+        else:
+            r2d_out      = r2d
+            rho_out      = rho
+            phi_eff_out  = phi_eff
+            p_out        = p
             
         write_model(
             output_options.model.filename,
             (I, J, mass, radius, rotation_target, G),
-            r2d,
+            r2d_out,
             additional_variables,
             zeta,
-            p,
-            rho,
-            phi_eff,
+            p_out,
+            rho_out,
+            phi_eff_out,
             omega_equator,
         )
         
@@ -738,7 +764,14 @@ def compute_radiative_flux(
     num: RadialNumerics,
     options: RadiativeFluxOptions,
 ):
-    """Compute radiative-flux characteristics and the surface flux."""
+    """
+    Compute the surface radiative-flux distribution from flux lines.
+
+    Characteristics are integrated through the deformed mapping from
+    the surface to the chosen inner origin. Flux conservation along
+    these lines determines the normalized surface distribution, which
+    is returned as Legendre coefficients.
+    """
     t_grid = num.t
     L = num.max_degree
     spl_order = num.spline_order
@@ -746,20 +779,20 @@ def compute_radiative_flux(
     z0 = options.origin
     j_lines = options.n_lines
 
-    # Initial angular positions of the downward characteristics.
+    # Initial angular positions of the downward characteristics
     t_flux, weights_flux = roots_legendre(2 * j_lines)
     t_dw = t_flux[:j_lines]
     weights_dw = weights_flux[:j_lines]
 
-    # Restrict the mapping to the radiative-flux domain.
+    # Restrict the mapping to the radiative-flux domain
     flux_domain = zeta >= z0
     z = zeta[flux_domain]
     r2d_flux = r2d[flux_domain]
 
-    # Integration coordinate measured inward from the surface.
+    # Integration coordinate measured inward from the surface
     depth = (1.0 - z)[::-1]
 
-    # Metric terms.
+    # Metric terms
     der = compute_mapping_derivatives(
         r2d_flux,
         z,
@@ -778,7 +811,7 @@ def compute_radiative_flux(
     rhs_l = pl_project_2D(geo.gg, L, even=False)
     jac_l = pl_project_2D(geo.jacobian, L)
 
-    # Characteristic equation dt / d(depth).
+    # Characteristic equation dt / d(depth)
     def flux_line_rhs(depth_eval, t_eval):
         rhs_t = np.atleast_2d(
             pl_eval_2D(
@@ -815,7 +848,7 @@ def compute_radiative_flux(
 
         return jacobian.reshape(-1, *t_eval.shape)
 
-    # Solve the characteristics from the surface to z0.
+    # Solve the characteristics from the surface to z0
     start = time.perf_counter()
 
     solution = solve_ivp(
@@ -838,7 +871,7 @@ def compute_radiative_flux(
         f"{finish - start:.2f} secs"
     )
 
-    # Mapping and angular derivative along the characteristics.
+    # Mapping and angular derivative along the characteristics
     r_lines, r_t_lines = np.moveaxis(
         np.array([
             pl_eval_2D(r_l[i], t_i, der=1)
@@ -848,7 +881,7 @@ def compute_radiative_flux(
         1,
     )
 
-    # Radial derivative and relative divergence along the lines.
+    # Radial derivative and relative divergence along the lines
     r_z_l = pl_project_2D(der.r_z, L)
     divrel_z_l = pl_project_2D(geo.divrelz, L)
 
@@ -862,7 +895,7 @@ def compute_radiative_flux(
         for i, t_i in enumerate(t_lines)
     ])
 
-    # Flux transport along each characteristic.
+    # Flux transport along each characteristic
     Q_z = np.exp([
         -integrate(z, divrel_z_i)
         for divrel_z_i in divrel_z_lines.T
@@ -881,7 +914,7 @@ def compute_radiative_flux(
 
     Q_dw = Q0 * Q_z * np.sqrt(np.abs(gzz_surface))
 
-    # Restore the symmetric upper hemisphere.
+    # Restore the symmetric upper hemisphere
     Q_l = pl_project_2D(np.hstack((Q_dw, Q_dw[::-1])), 2 * j_lines)
 
     plot_3D_surface(
