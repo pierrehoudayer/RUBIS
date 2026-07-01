@@ -130,26 +130,26 @@ def find_rho_l(
     L = num.max_degree
     k = num.spline_order
     
-    M = r2d.shape[1]
-    m_up = np.arange((M + 1) // 2)
-    m_dw = -m_up - 1
+    J = r2d.shape[1]
+    j_dw = np.arange((J + 1) // 2)
+    j_up = -j_dw - 1
 
     log_rho = np.log(rho + safety_constant)
     rho2D = np.zeros_like(r2d)
 
-    for m in m_up:
+    for m in j_dw:
         inside = num.r1d < r2d[-1, m]
         rho2D[inside, m] = interpolate_func(x=r2d[:, m], y=log_rho, k=k)(num.r1d[inside])
         rho2D[inside, m] = np.exp(rho2D[inside, m]) - safety_constant
 
-    rho2D[:, m_dw] = rho2D[:, m_up]
+    rho2D[:, j_up] = rho2D[:, j_dw]
 
     return pl_project_2D(rho2D, L)
     
     
 def filling_ab(ab, ku, kl, l, num: RadialNumerics):
     """Fill the band matrix of Poisson's equation."""
-    N = num.n_points
+    I = num.n_points
     offset = ku + kl
 
     # Common part, filled only once.
@@ -170,8 +170,8 @@ def filling_ab(ab, ku, kl, l, num: RadialNumerics):
         ab[offset-1, 1] = 1.0
 
     # Surface boundary conditions.
-    ab[offset+1, 2*N-2] = 2*num.r1d[-1]**2
-    ab[offset+0, 2*N-1] = l+1 
+    ab[offset+1, 2*I-2] = 2*num.r1d[-1]**2
+    ab[offset+0, 2*I-1] = l+1 
 
     return ab
 
@@ -193,11 +193,11 @@ def find_phi_eff(
 
     Parameters
     ----------
-    r2d : array_like, shape (N, M)
+    r2d : array_like, shape (I, J)
         Current mapping.
-    rho : array_like, shape (N, )
+    rho : array_like, shape (I, )
         Density on each equipotential.
-    phi_eff : array_like, shape (N, ), optional
+    phi_eff : array_like, shape (I, ), optional
         If given, the current effective potential on each 
         equipotential. If not given, it will be calculated inside
         this fonction. The default is None.
@@ -217,36 +217,36 @@ def find_phi_eff(
 
     Returns
     -------
-    phi_g_l : array_like, shape (N, L)
+    phi_g_l : array_like, shape (I, L)
         Gravitation potential harmonics.
-    dphi_g_l : array_like, shape (N, L)
+    dphi_g_l : array_like, shape (I, L)
         Gravitation potential harmonics derivative with respect to r^2.
-    phi_eff : array_like, shape (N, )
+    phi_eff : array_like, shape (I, )
         Effective potential on each equipotential.
-    dphi_eff : array_like, shape (N, ), optional
+    dphi_eff : array_like, shape (I, ), optional
         Effective potential derivative with respect to r^2.
     lub_l : list (size: Nl) of tuples (size: 2), optional
         Cf. parameters
 
     """    
-    N = num.n_points
+    I = num.n_points
     L = num.max_degree
     r1d = num.r1d[:, None]
     
     # Density distribution harmonics
     rho_l    = find_rho_l(r2d, rho, num)
-    phi_g_l  = np.zeros((N, L))
-    dphi_g_l = np.zeros((N, L))
+    phi_g_l  = np.zeros((I, L))
+    dphi_g_l = np.zeros((I, L))
     
     # Vector filling (vectorial)
     L_even = (L + 1) // 2
-    b_l = np.zeros((2*N, L_even))
+    b_l = np.zeros((2*I, L_even))
     b_l[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r1d**2 * rho_l[:, ::2])
     b_l[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
     
     # Band matrix storage
     kl = ku = 2 * num.lagrange_order
-    ab = np.zeros((2*kl + ku + 1, 2*N))   
+    ab = np.zeros((2*kl + ku + 1, 2*I))   
     
     if phi_eff is None :
         lub_l = []
@@ -287,14 +287,14 @@ def find_new_mapping(
     eval_phi_c,
 ):
     """Update the mapping and rotation rate from the total potential."""
-    r1d = num.r1d
+    r = num.r1d
     t = num.t
     L = num.max_degree
-    M = num.angular_resolution
+    J = num.angular_resolution
     k = num.spline_order
 
     # Northern hemisphere, including the equator.
-    eq = (M - 1) // 2
+    eq = (J - 1) // 2
     m_up = np.arange(eq + 1)
 
     # Interior gravitational potential.
@@ -313,19 +313,19 @@ def find_new_mapping(
     dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[m_up])
 
     # Full radial domain.
-    r_tot = np.hstack((r1d, r_ext))
+    r_tot = np.hstack((r, r_ext))
     phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
     dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
 
     # Find a rotation rate consistent with the equatorial radius.
-    n_safe = r_tot > 0.5
-    r_safe = r_tot[n_safe]
+    safe = r_tot > 0.0
+    r_safe = r_tot[safe]
 
     phi1D_c, dphi1D_c = eval_phi_c(r_safe, 0.0, omega) / r_safe**3
     dphi1D_c -= 3.0 * phi1D_c / r_safe
 
-    phi1D  =  phi2D_g[n_safe, eq] + phi1D_c
-    dphi1D = dphi2D_g[n_safe, eq] + dphi1D_c
+    phi1D  =  phi2D_g[safe, eq] + phi1D_c
+    dphi1D = dphi2D_g[safe, eq] + dphi1D_c
 
     r_est = CubicHermiteSpline(x=phi1D, y=r_safe, dydx=dphi1D**-1)(phi_eff[-1])
     omega_new = omega * r_est**-1.5
@@ -354,7 +354,7 @@ def find_new_mapping(
 
     phi2D_g_cnt = np.array([
         CubicHermiteSpline(
-            x=r1d,
+            x=r,
             y=phi2D_g_int[:, m],
             dydx=dphi2D_g_int[:, m],
         )(r_cnt)
@@ -398,15 +398,15 @@ def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) :
     
     Parameters
     ----------
-    r2d : array_like, shape (N, M)
+    r2d : array_like, shape (I, J)
         Mapping
-    rho : array_like, shape (N, )
+    rho : array_like, shape (I, )
         Density on each equipotential.
     omega_n : float
         Rotation rate.
-    phi_eff : array_like, shape (N, )
+    phi_eff : array_like, shape (I, )
         Effective potential on each equipotential.
-    P : array_like, shape (N, )
+    P : array_like, shape (I, )
         Pressure on each equipotential.
     verbose : bool
         Whether to print the individual energy values or not.
@@ -422,19 +422,19 @@ def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) :
     volumic_potential_energy = lambda rk, ck, D : -(  
        rho[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
     )
-    potential_energy = integrate2D(r2d, volumic_potential_energy, k=k)
+    potential_energy = integrate2D(r2d, volumic_potential_energy, k=spl_order)
     
     # Kinetic energy
     volumic_kinetic_energy = lambda rk, ck, D : (  
        0.5 * rho[D] * (1 - ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
-    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=k)
+    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=spl_order)
     
     # Internal energy
-    internal_energy = integrate2D(r2d, P, k=k)
+    internal_energy = integrate2D(r2d, P, k=spl_order)
     
     # Surface term
-    _, weights = roots_legendre(M)
+    _, weights = roots_legendre(J)
     surface_term = 2*np.pi * (r2d[-1]**3 @ weights) * P[-1]
     
     # Compute the virial equation
@@ -457,11 +457,11 @@ def find_gravitational_moments(r2d, t, rho, max_degree=14) :
 
     Parameters
     ----------
-    r2d : array_like, shape (N, M)
+    r2d : array_like, shape (I, J)
         Isopotential mapping.
-    t : array_like, shape (M, )
+    t : array_like, shape (J, )
         Value of cos(theta).
-    rho : array_like, shape (N, )
+    rho : array_like, shape (I, )
         Density profile (the same in each direction).
     max_degree : int, optional
         Maximum degree for the gravitational moments. The default is 14.
@@ -478,7 +478,7 @@ def find_gravitational_moments(r2d, t, rho, max_degree=14) :
     )
     for l in range(0, max_degree+1, 2):
         m_l = integrate2D(
-            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=k
+            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=spl_order
         )
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
         
@@ -489,7 +489,7 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, L, M, k
+    global G, J, L, spl_order
     global r1d, zeta
     global eval_phi_c, eval_omega
 
@@ -516,14 +516,14 @@ def radial_method(
     radius = model.radius
     mass = model.mass
 
-    r1d = num.r1d
+    r1d  = num.r1d.copy()
     zeta = num.r1d.copy()
     rho = model.rho.copy()
 
-    N = num.n_points
+    I = num.n_points
+    J = num.angular_resolution
     L = num.max_degree
-    M = num.angular_resolution
-    k = num.spline_order
+    spl_order = num.spline_order
 
     eval_phi_c, eval_omega = configure_rotation_profile(
         rotation.profile,
@@ -601,7 +601,7 @@ def radial_method(
         
         # Renormalisation
         r_corr    = find_r_eq(r2d, L)
-        m_corr    = integrate2D(r2d, rho, k=k)
+        m_corr    = integrate2D(r2d, rho, k=spl_order)
         radius   *= r_corr
         mass     *= m_corr
         r2d      /=             r_corr
@@ -709,7 +709,7 @@ def radial_method(
     
     # Model writing
     if output_options.model.save :
-        rota = eval_omega(r2d[:, (M-1)//2], 0.0, rotation_target)
+        rota = eval_omega(r2d[:, (J-1)//2], 0.0, rotation_target)
         if output_options.model.dimensional : 
             r2d      *=               radius
             rho      *=     mass    / radius**3
@@ -718,7 +718,7 @@ def radial_method(
             p        *= G * mass**2 / radius**4
         write_model(
             output_options.model.filename,
-            (N, M, mass, radius, rotation_target, G),
+            (I, J, mass, radius, rotation_target, G),
             r2d,
             additional_variables,
             zeta,
@@ -745,9 +745,9 @@ def find_radiative_flux(
 
     Parameters
     ----------
-    mapping : array_like, shape (N, M)
+    mapping : array_like, shape (I, J)
         Model mapping.
-    t : array_like, shape (M, )
+    t : array_like, shape (J, )
         Angular variable.
     z0 : float
         Zeta value for which the radiative flux is assumed to be constant.
@@ -789,7 +789,7 @@ def find_radiative_flux(
         z,
         t,
         max_degree=L,
-        spline_order=k,
+        spline_order=spl_order,
         domain_ranges=(slice(None),),
     )
     geo = compute_mapping_geometry(r, der, t)
