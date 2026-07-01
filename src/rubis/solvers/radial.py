@@ -271,9 +271,10 @@ def solve_gravitational_potential(
         dphi_eff = pl_eval_2D(dphi_g_l, 0.0)        
         return phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors
     
-    # The effective potential is known to an additive constant 
+    # The effective potential is known up to an additive constant 
     phi_offset = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
     phi_eff += phi_offset
+    
     return phi_g_l, dphi_g_l, phi_eff
 
 
@@ -729,16 +730,16 @@ def solve_radial(
         j_eq = (J - 1) // 2
         omega_equator = rot.omega(r2d[:, j_eq], 0.0)
         
-        if output_options.model.dimensional: 
-            r2d_out      = r2d      * (              radius**1)
-            rho_out      = rho      * (    mass**1 / radius**3)
-            phi_eff_out  = phi_eff  * (G * mass**1 / radius**1)
-            p_out        = p        * (G * mass**2 / radius**4)
+        if output_options.model.dimensional:
+            r2d_out     = r2d     * (              radius   )
+            rho_out     = rho     * (    mass**1 / radius**3)
+            phi_eff_out = phi_eff * (G * mass**1 / radius**1)
+            p_out       = p       * (G * mass**2 / radius**4)
         else:
-            r2d_out      = r2d
-            rho_out      = rho
-            phi_eff_out  = phi_eff
-            p_out        = p
+            r2d_out     = r2d
+            rho_out     = rho
+            phi_eff_out = phi_eff
+            p_out       = p
             
         write_model(
             output_options.model.filename,
