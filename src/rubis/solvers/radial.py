@@ -33,7 +33,10 @@ from ..mapping           import (
     compute_mapping_derivatives,
     compute_mapping_geometry,
 )
-from ..rotation_profiles import configure_rotation_profile
+from ..rotation          import (
+    RotationState,
+    initialize_rotation_state,
+)
 from ..results           import RadialResult
 from ..io.legacy         import write_model
 from ..plotting          import (
@@ -188,7 +191,7 @@ def find_phi_eff(
     """
     Determination of the effective potential from a given mapping
     (r2d, which gives the lines of constant density), and a given 
-    rotation rate (omega). This potential is determined by solving
+    rotation rate (omega_eq). This potential is determined by solving
     the Poisson's equation on each degree of the harmonic decomposition
     (giving the gravitational potential harmonics which are also
     returned) and then adding the centrifugal potential.
@@ -281,12 +284,11 @@ def find_phi_eff(
 
 
 def find_new_mapping(
-    omega,
     phi_g_l,
     dphi_g_l,
     phi_eff,
     num: RadialNumerics,
-    eval_phi_c,
+    rot: RotationState,
 ):
     """Update the mapping and rotation rate from the total potential."""
     r = num.r1d
@@ -296,8 +298,8 @@ def find_new_mapping(
     k = num.spline_order
 
     # Northern hemisphere, including the equator.
-    eq = (J - 1) // 2
-    j_dw = np.arange(eq + 1)
+    j_eq = (J - 1) // 2
+    j_dw = np.arange(j_eq + 1)
 
     # Interior gravitational potential.
     phi2D_g_int  = pl_eval_2D( phi_g_l, t[j_dw])
@@ -323,20 +325,21 @@ def find_new_mapping(
     safe = r_tot > 0.0
     r_safe = r_tot[safe]
 
-    phi1D_c, dphi1D_c = eval_phi_c(r_safe, 0.0, omega) / r_safe**3
+    phi1D_c, dphi1D_c = rot.phi_c(r_safe, 0.0) / r_safe**3
     dphi1D_c -= 3.0 * phi1D_c / r_safe
 
-    phi1D  =  phi2D_g[safe, eq] + phi1D_c
-    dphi1D = dphi2D_g[safe, eq] + dphi1D_c
+    phi1D  =  phi2D_g[safe, j_eq] + phi1D_c
+    dphi1D = dphi2D_g[safe, j_eq] + dphi1D_c
 
     r_est = CubicHermiteSpline(x=phi1D, y=r_safe, dydx=dphi1D**-1)(phi_eff[-1])
-    omega_new = omega * r_est**-1.5
+    omega_eq_new = rot.omega_eq * r_est**-1.5
+    rot_new = rot.with_omega_eq(omega_eq_new)
 
     # Centrifugal potential.
     phi2D_c, dphi2D_c = np.moveaxis(
         np.array([
-            eval_phi_c(r_tot, ck, omega_new)
-            for ck in t[j_dw]
+            rot_new.phi_c(r_tot, t_j)
+            for t_j in t[j_dw]
         ]),
         (0, 1, 2),
         (2, 0, 1),
@@ -364,8 +367,8 @@ def find_new_mapping(
     ]).T
 
     phi2D_c_cnt = np.array([
-        eval_phi_c(r_cnt, ck, omega_new)[0]
-        for ck in t[j_dw]
+        rot_new.phi_c(r_cnt, t_j)[0]
+        for t_j in t[j_dw]
     ]).T
 
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
@@ -389,18 +392,16 @@ def find_new_mapping(
 
     r2d_new = np.hstack((r2d_dw, r2d_up))
 
-    return r2d_new, omega_new
+    return r2d_new, rot_new
 
 
 def Virial_theorem(
     r2d,
     rho,
-    omega,
     phi_eff,
     p,
     num: RadialNumerics,
-    eval_phi_c,
-    eval_omega,
+    rot: RotationState,
     verbose=False,
 ):
     """Evaluate the scalar virial balance."""
@@ -409,7 +410,8 @@ def Virial_theorem(
 
     # Potential energy
     volumic_potential_work = lambda rk, ck, mask: (
-        -rho[mask] * (phi_eff[mask] - eval_phi_c(rk[mask], ck, omega)[0])
+        -rho[mask]
+        * (phi_eff[mask] - rot.phi_c(rk[mask],ck, rot)[0])
     )
     potential_work = integrate2D(r2d, volumic_potential_work,k=spl_order)
 
@@ -419,11 +421,11 @@ def Virial_theorem(
         * rho[mask]
         * (1.0 - ck**2)
         * rk[mask]**2
-        * eval_omega(rk[mask], ck, omega)**2
+        * rot.omega(rk[mask], ck)**2
     )
     kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=spl_order)
 
-    # Internal energy
+    # Thermodynamic potential work
     thermodynamic_work = - integrate2D(r2d, p, k=spl_order)
 
     # Surface term
@@ -449,9 +451,11 @@ def Virial_theorem(
         + surface_work
     )
 
+    virial = virial_residual / virial_scale
+
     print(
         "Virial theorem verified at "
-        f"{round(virial_residual / virial_scale, 16)}"
+        f"{round(virial, 16)}"
     )
 
     return virial
@@ -487,8 +491,8 @@ def find_gravitational_moments(
 
 def radial_method(
     model: Model1D,
-    rotation: RotationConfig,
-    options: SolverOptions,
+    rotation_config: RotationConfig,
+    solver_options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
     """ Main routine for the centrifugal deformation method in radial coordinates. """
@@ -501,15 +505,16 @@ def radial_method(
 
     r2d, t = initialize_mapping(
         model.r,
-        options.angular_resolution,
+        solver_options.angular_resolution,
     )
 
-    num = initialize_radial_numerics(model.r, t, options)
+    num = initialize_radial_numerics(model.r, t, solver_options)
 
     G = model.G
     surface_pressure = model.surface_pressure
     radius = model.radius
     mass = model.mass
+    additional_variables = model.additional_variables
 
     r1d  = num.r1d.copy()
     zeta = num.r1d.copy()
@@ -520,16 +525,12 @@ def radial_method(
     L = num.max_degree
     spl_order = num.spline_order
 
-    eval_phi_c, eval_omega = configure_rotation_profile(
-        rotation.profile,
-        rotation.central_diff_rate,
-        rotation.scale,
-    )
-
-    rotation_target = rotation.target
-    full_rate = options.full_rate
-    mapping_precision = options.mapping_precision
-    max_iterations = options.max_iterations
+    rot = initialize_rotation_state(rotation_config)
+    rotation_target = rotation_config.target
+    
+    full_rate = solver_options.full_rate
+    mapping_precision = solver_options.mapping_precision
+    max_iterations = solver_options.max_iterations
     
     # Initialisation for the effective potential
     phi_g_l, dphi_g_l, phi_eff, dphi_eff, lub_l = find_phi_eff(r2d, rho, num)
@@ -573,7 +574,8 @@ def radial_method(
         
         # Current rotation rate
         rotation_cap = ((iterations+1)/full_rate) * rotation_target
-        omega = min(rotation_target, rotation_cap)
+        omega_eq = min(rotation_target, rotation_cap)
+        rot = rot.with_omega_eq(omega_eq)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(
@@ -585,13 +587,12 @@ def radial_method(
         )
 
         # Find a new estimate for the mapping
-        r2d, omega = find_new_mapping(
-            omega,
+        r2d, rot = find_new_mapping(
             phi_g_l,
             dphi_g_l,
             phi_eff,
             num,
-            eval_phi_c,
+            rot,
         )
         
         # Renormalisation
@@ -644,7 +645,7 @@ def radial_method(
         radius=radius,
 
         rotation_target=rotation_target,
-        rotation_rate=omega,
+        rotation_rate=omega_eq,
 
         polar_radius_history=np.asarray(polar_radius_history),
         iterations=iterations,
@@ -659,12 +660,10 @@ def radial_method(
         virial = Virial_theorem(
             r2d,
             rho,
-            omega,
             phi_eff,
             p,
             num,
-            eval_phi_c,
-            eval_omega,
+            rot,
             verbose=True,
         )
     
@@ -674,10 +673,6 @@ def radial_method(
         # Variable to plot
         f = rho
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        rota2D = np.array([
-            eval_omega(rk, ck, rotation_target)
-            for rk, ck in zip(r2d.T, t)
-        ]).T
             
         if output_options.flux.enabled:
             Q_l, (fig, ax) = find_radiative_flux(
@@ -710,13 +705,16 @@ def radial_method(
     
     # Model writing
     if output_options.model.save :
-        rota = eval_omega(r2d[:, (J-1)//2], 0.0, rotation_target)
+        j_eq = (J - 1) // 2
+        omega_eq = rot.omega(r2d[:, j_eq], 0.0)
+        
         if output_options.model.dimensional : 
             r2d      *=               radius
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius**2
             p        *= G * mass**2 / radius**4
+            
         write_model(
             output_options.model.filename,
             (I, J, mass, radius, rotation_target, G),
@@ -726,7 +724,7 @@ def radial_method(
             p,
             rho,
             phi_eff,
-            rota,
+            omega_eq,
         )
         
     return result
