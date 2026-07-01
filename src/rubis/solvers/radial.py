@@ -153,6 +153,7 @@ def find_rho_l(
     
 def filling_ab(ab, ku, kl, l, num: RadialNumerics):
     """Fill the band matrix of Poisson's equation."""
+    N = num.n_points
     offset = ku + kl
 
     # Common part, filled only once.
@@ -173,7 +174,7 @@ def filling_ab(ab, ku, kl, l, num: RadialNumerics):
         ab[offset-1, 1] = 1.0
 
     # Surface boundary conditions.
-    ab[offset+1, 2*N-2] = 2*r1d[-1]**2
+    ab[offset+1, 2*N-2] = 2*num.r1d[-1]**2
     ab[offset+0, 2*N-1] = l+1 
 
     return ab
@@ -232,9 +233,9 @@ def find_phi_eff(
         Cf. parameters
 
     """    
-    r = num.r1d[:, None]
     N = num.n_points
-    
+    L = num.max_degree
+    r = num.r1d[:, None]
     
     # Density distribution harmonics
     rho_l    = find_rho_l(r2d, rho, num)
@@ -242,14 +243,14 @@ def find_phi_eff(
     dphi_g_l = np.zeros((N, L))
     
     # Vector filling (vectorial)
-    Nl = (L + 1) // 2
-    bl = np.zeros((2 * num.n_points, Nl))
-    bl[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r**2 * rho_l[:, ::2])
-    bl[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
+    L_even = (L + 1) // 2
+    b_l = np.zeros((2*N, L_even))
+    b_l[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r**2 * rho_l[:, ::2])
+    b_l[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
     
     # Band matrix storage
     kl = ku = 2 * num.lagrange_order
-    ab = np.zeros((2 * kl + ku + 1, 2 * num.n_points))   
+    ab = np.zeros((2*kl + ku + 1, 2*N))   
     
     if phi_eff is None :
         lub_l = []
@@ -262,7 +263,7 @@ def find_phi_eff(
             
     # System solving (LAPACK)
     x = np.array([
-        dgbtrs(lub_l[k][0], kl, ku, bl[:, k], lub_l[k][1])[0] for k in range(Nl)
+        dgbtrs(lub_l[k][0], kl, ku, b_l[:, k], lub_l[k][1])[0] for k in range(L_even)
     ]).T
         
     # Poisson's equation solution
@@ -479,7 +480,7 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, N, L, M, KSPL
+    global G, L, M, KSPL
     global r1d, zeta
     global eval_phi_c, eval_omega
 
