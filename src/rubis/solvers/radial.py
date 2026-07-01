@@ -10,6 +10,7 @@ from scipy.integrate     import solve_ivp
 
 from ..config            import (
     OutputOptions,
+    RadiativeFluxOptions,
     RotationConfig, 
     SolverOptions,
 )
@@ -391,97 +392,97 @@ def find_new_mapping(
     return r2d_new, omega_new
 
 
-def Virial_theorem(r2d, rho, omega, phi_eff, P, verbose=False) : 
-    """
-    Compute the Virial equation and gives the result as a diagnostic
-    for how well the hydrostatic equilibrium is satisfied (the closer
-    to zero, the better).
-    
-    Parameters
-    ----------
-    r2d : array_like, shape (I, J)
-        Mapping
-    rho : array_like, shape (I, )
-        Density on each equipotential.
-    omega : float
-        Rotation rate.
-    phi_eff : array_like, shape (I, )
-        Effective potential on each equipotential.
-    P : array_like, shape (I, )
-        Pressure on each equipotential.
-    verbose : bool
-        Whether to print the individual energy values or not.
-        The default is None.
+def Virial_theorem(
+    r2d,
+    rho,
+    omega,
+    phi_eff,
+    p,
+    num: RadialNumerics,
+    eval_phi_c,
+    eval_omega,
+    verbose=False,
+):
+    """Evaluate the scalar virial balance."""
+    J = num.angular_resolution
+    spl_order = num.spline_order
 
-    Returns
-    -------
-    virial : float
-        Value of the normalised Virial equation.
-
-    """    
     # Potential energy
-    volumic_potential_energy = lambda rk, ck, mask : -(  
-       rho[mask] * (phi_eff[mask]-eval_phi_c(rk[mask], ck, omega)[0])
+    volumic_potential_work = lambda rk, ck, mask: (
+        -rho[mask] * (phi_eff[mask] - eval_phi_c(rk[mask], ck, omega)[0])
     )
-    potential_energy = integrate2D(r2d, volumic_potential_energy, k=spl_order)
-    
+    potential_work = integrate2D(r2d, volumic_potential_work,k=spl_order)
+
     # Kinetic energy
-    volumic_kinetic_energy = lambda rk, ck, mask : (  
-       0.5 * rho[mask] * (1 - ck**2) * rk[mask]**2 * eval_omega(rk[mask], ck, omega)**2
+    volumic_kinetic_energy = lambda rk, ck, mask: (
+        0.5
+        * rho[mask]
+        * (1.0 - ck**2)
+        * rk[mask]**2
+        * eval_omega(rk[mask], ck, omega)**2
     )
     kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=spl_order)
-    
+
     # Internal energy
-    internal_energy = integrate2D(r2d, P, k=spl_order)
-    
+    thermodynamic_work = - integrate2D(r2d, p, k=spl_order)
+
     # Surface term
     _, weights = roots_legendre(J)
-    surface_term = 2*np.pi * (r2d[-1]**3 @ weights) * P[-1]
-    
-    # Compute the virial equation
-    if verbose :
-        print(f"Kinetic energy  : {kinetic_energy:12.10f}")
-        print(f"Internal energy : {internal_energy:12.10f}")
-        print(f"Potential energy: {potential_energy:12.10f}")
-        print(f"Surface term    : {surface_term:12.10f}")
-    virial = ( 
-          (2*kinetic_energy - 0.5*potential_energy + 3*internal_energy - surface_term)
-        / (2*kinetic_energy + 0.5*potential_energy + 3*internal_energy + surface_term)
+    surface_work = 2 * np.pi * (r2d[-1] ** 3 @ weights) * p[-1]
+
+    if verbose:
+        print(f"Kinetic energy    : {kinetic_energy:12.10f}")
+        print(f"Thermodynamic work: {thermodynamic_work:12.10f}")
+        print(f"Potential work    : {potential_work:12.10f}")
+        print(f"Surface work      : {surface_work:12.10f}")
+
+    virial_residual = (
+        2.0 * kinetic_energy
+        - 0.5 * potential_work
+        - 3.0 * thermodynamic_work
+        - surface_work
+    ) 
+    virial_scale = (
+        2.0 * kinetic_energy
+        + 0.5 * potential_work
+        - 3.0 * thermodynamic_work
+        + surface_work
     )
-    print(f"Virial theorem verified at {round(virial, 16)}")
+
+    print(
+        "Virial theorem verified at "
+        f"{round(virial_residual / virial_scale, 16)}"
+    )
+
     return virial
 
 
-def find_gravitational_moments(r2d, t, rho, max_degree=14) :
-    """
-    Find the gravitational moments up to max_degree.
+def find_gravitational_moments(
+    r2d,
+    rho,
+    num: RadialNumerics,
+    max_degree=14,
+):
+    """Compute and display the gravitational moments."""
+    t = num.t
+    spl_order = num.spline_order
 
-    Parameters
-    ----------
-    r2d : array_like, shape (I, J)
-        Isopotential mapping.
-    t : array_like, shape (J, )
-        Value of cos(theta).
-    rho : array_like, shape (I, )
-        Density profile (the same in each direction).
-    max_degree : int, optional
-        Maximum degree for the gravitational moments. The default is 14.
-        
-    Returns
-    -------
-    None.
-
-    """
     print(
         "\n+-----------------------+",
-        "\n| Gravitational moments |", 
-        "\n+-----------------------+\n"
+        "\n| Gravitational moments |",
+        "\n+-----------------------+\n",
     )
-    for l in range(0, max_degree+1, 2):
-        m_l = integrate2D(
-            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=spl_order
+
+    for l in range(0, max_degree + 1, 2):
+        moment = integrate2D(
+            r2d,
+            rho[:, None]
+            * r2d**l
+            * eval_legendre(l, t),
+            k=spl_order,
         )
-        print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
+
+        print(f"Moment n°{l:2d} : {moment:+.10e}")
         
 
 def radial_method(
@@ -490,10 +491,7 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, J, L, spl_order
-    global r1d, zeta
-    global eval_phi_c, eval_omega
-
+    """ Main routine for the centrifugal deformation method in radial coordinates. """
     start = time.perf_counter()
 
     if model.n_domains > 1:
@@ -506,11 +504,7 @@ def radial_method(
         options.angular_resolution,
     )
 
-    num = initialize_radial_numerics(
-        model.r,
-        t,
-        options,
-    )
+    num = initialize_radial_numerics(model.r, t, options)
 
     G = model.G
     surface_pressure = model.surface_pressure
@@ -662,7 +656,17 @@ def radial_method(
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = Virial_theorem(r2d, rho, omega, phi_eff, p, verbose=True)   
+        virial = Virial_theorem(
+            r2d,
+            rho,
+            omega,
+            phi_eff,
+            p,
+            num,
+            eval_phi_c,
+            eval_omega,
+            verbose=True,
+        )
     
     # Plot model
     if output_options.plot.show_model :
@@ -670,43 +674,39 @@ def radial_method(
         # Variable to plot
         f = rho
         label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        rota2D = np.array([eval_omega(rk, ck, rotation_target) for rk, ck in zip(r2d.T, t)]).T
-        # if rota2D.max() - rota2D.min() > 1e-2 : 
-        #     f = np.log10(rota2D)
-        #     label = r"$\log_{10} \left(\Omega/\Omega_K\right)$"
+        rota2D = np.array([
+            eval_omega(rk, ck, rotation_target)
+            for rk, ck in zip(r2d.T, t)
+        ]).T
             
-        if output_options.flux.enabled : 
-            z0 = output_options.flux.origin
-            J_lines = output_options.flux.n_lines
+        if output_options.flux.enabled:
             Q_l, (fig, ax) = find_radiative_flux(
-                r2d, t, z0, J_lines,
-                add_flux_lines=output_options.flux.plot_lines, 
-                show_T_eff=output_options.flux.show_effective_temperature,
-                res=output_options.flux.resolution,
-                flux_cmap=output_options.flux.cmap
+                r2d,
+                zeta,
+                num,
+                output_options.flux,
             )
+
             plot_f_map(
-                r2d, f, phi_eff, L, 
+                r2d,
+                f,
+                phi_eff,
+                L,
                 angular_res=output_options.plot.resolution,
                 cmap=output_options.plot.field_cmap,
                 show_surfaces=output_options.plot.surfaces,
                 cmap_lines=output_options.plot.surface_cmap,
                 label=label,
-                add_to_fig=(fig, ax) if output_options.flux.plot_lines else None
+                add_to_fig=(
+                    (fig, ax)
+                    if output_options.flux.plot_lines
+                    else None
+                ),
             )
-        else : 
-            plot_f_map(
-                r2d, f, phi_eff, L, 
-                angular_res=output_options.plot.resolution,
-                cmap=output_options.plot.field_cmap,
-                show_surfaces=output_options.plot.surfaces,
-                cmap_lines=output_options.plot.surface_cmap,
-                label=label
-            )      
     
     # Gravitational moments
     if output_options.diagnostics.gravitational_moments :
-        find_gravitational_moments(r2d, t, rho)
+        find_gravitational_moments(r2d, rho, num)
     
     # Model writing
     if output_options.model.save :
@@ -736,124 +736,171 @@ def radial_method(
 #                   Radiative flux computation                   #
 #----------------------------------------------------------------#
 def find_radiative_flux(
-    mapping, t, z0, J_lines, 
-    add_flux_lines, show_T_eff, res, flux_cmap
-) :
-    """
-    Determines the radiative flux lines and the surface flux, given 
-    a model mapping (mapping) and a boundary on which to impose a 
-    constant flux (characteristed by z0).
+    r2d,
+    zeta,
+    num: RadialNumerics,
+    options: RadiativeFluxOptions,
+):
+    """Compute radiative-flux characteristics and the surface flux."""
+    t_grid = num.t
+    L = num.max_degree
+    spl_order = num.spline_order
 
-    Parameters
-    ----------
-    mapping : array_like, shape (I, J)
-        Model mapping.
-    t : array_like, shape (J, )
-        Angular variable.
-    z0 : float
-        Zeta value for which the radiative flux is assumed to be constant.
-        The value of the constant is determined by setting the rescaling
-        the integrated flux on the surface by the star's luminosity.
-    M_lines : integer
-        Number of flux lines to be computed.
-    add_flux_lines : boolean
-        Whether to return a figure containing the flux lines so that
-        they may be plotted on top of plot_f_map().
-    show_T_eff : boolean
-        Whether to show the effective temperature instead of the radiative
-        flux amplitude on the 3D surface.
-    res : tuple of floats (res_t, res_p)
-        Gives the resolution of the 3D surface in theta and phi coordinates 
-        respectively.
-    flux_cmap : Colormap instance
-        Colormap to plot the radiative flux at the model surface.
+    z0 = options.origin
+    j_lines = options.n_lines
 
-    Returns
-    -------
-    Q_l : array_like, shape (2*M_lines, )
-        Radiative flux harmonics
-    (fig, ax) : Subplot object
-        Figure and axis containing the flux lines.
+    # Initial angular positions of the downward characteristics.
+    t_flux, weights_flux = roots_legendre(2 * j_lines)
+    t_dw = t_flux[:j_lines]
+    weights_dw = weights_flux[:j_lines]
 
-    """
-    # Find domain
-    from scipy.special import roots_legendre
-    t1, w1 = np.array(roots_legendre(2*J_lines))[:, :J_lines]
-    valid = np.squeeze(np.argwhere(zeta >= z0))
-    z = zeta[valid]
-    r = r2d[valid]
-    x = (1 - z)[::-1]
-    
-    # Metric terms computation
+    # Restrict the mapping to the radiative-flux domain.
+    flux_domain = zeta >= z0
+    z = zeta[flux_domain]
+    r2d_flux = r2d[flux_domain]
+
+    # Integration coordinate measured inward from the surface.
+    depth = (1.0 - z)[::-1]
+
+    # Metric terms.
     der = compute_mapping_derivatives(
-        r,
+        r2d_flux,
         z,
-        t,
+        t_grid,
         max_degree=L,
         spline_order=spl_order,
         domain_ranges=(slice(None),),
     )
-    geo = compute_mapping_geometry(r, der, t)
-    r_l   = pl_project_2D(r, L)
+    geo = compute_mapping_geometry(
+        r2d_flux,
+        der,
+        t_grid,
+    )
+
+    r_l   = pl_project_2D(r2d_flux, L)
     rhs_l = pl_project_2D(geo.gg, L, even=False)
     jac_l = pl_project_2D(geo.jacobian, L)
-    
-    # Differential equation dt_dx = f(x, t)    
-    def fun(xi, tk) : 
-        rhs_t = np.atleast_2d(pl_eval_2D(rhs_l, tk.flatten()))
-        f = np.array([
-            interpolate_func(x, -rhs_tk[::-1], k=3)(xi) for rhs_tk in rhs_t.T
-        ]).reshape(*tk.shape)
-        return f
-    
-    def jac(xi, tk) : 
-        jac_t = np.atleast_2d(pl_eval_2D(jac_l, tk.flatten()))
+
+    # Characteristic equation dt / d(depth).
+    def flux_line_rhs(depth_eval, t_eval):
+        rhs_t = np.atleast_2d(
+            pl_eval_2D(
+                rhs_l,
+                t_eval.ravel(),
+            )
+        )
+
+        return np.array([
+            interpolate_func(
+                depth,
+                -rhs_tk[::-1],
+                k=3,
+            )(depth_eval)
+            for rhs_tk in rhs_t.T
+        ]).reshape(t_eval.shape)
+
+    def flux_line_jacobian(depth_eval, t_eval):
+        jac_t = np.atleast_2d(
+            pl_eval_2D(
+                jac_l,
+                t_eval.ravel(),
+            )
+        )
+
         jacobian = np.diag([
-            interpolate_func(x, -jac_tk[::-1], k=3)(xi) for jac_tk in jac_t.T
-        ]).reshape(-1, *tk.shape)
-        return jacobian
-    
-    # Actual solving
-    a = time.perf_counter()
-    t = solve_ivp(
-        fun=fun, 
-        t_span=(0.0, 1-z0), 
-        y0=t1, 
-        method='LSODA', 
-        dense_output=True, 
-        rtol=1e-4, 
-        atol=1e-4,
-        jac=jac,
-        vectorized=True
-    ).sol(x).T[::-1]
-    b = time.perf_counter()
-    print(f"\nFlux lines found in {b-a:.2f} secs")
-    
-    # Integrate the flux along the characteristics
-    r, r_t = np.moveaxis(
-        np.array([pl_eval_2D(map_l[i], ti, der=1) for i, ti in enumerate(t)]), 0, 1
+            interpolate_func(
+                depth,
+                -jac_tk[::-1],
+                k=3,
+            )(depth_eval)
+            for jac_tk in jac_t.T
+        ])
+
+        return jacobian.reshape(-1, *t_eval.shape)
+
+    # Solve the characteristics from the surface to z0.
+    start = time.perf_counter()
+
+    solution = solve_ivp(
+        fun=flux_line_rhs,
+        t_span=(0.0, 1.0 - z0),
+        y0=t_dw,
+        method="LSODA",
+        dense_output=True,
+        rtol=1.0e-4,
+        atol=1.0e-4,
+        jac=flux_line_jacobian,
+        vectorized=True,
     )
-    
-    r_z_l      = pl_project_2D(der.r_z, L)
+
+    t_lines = solution.sol(depth).T[::-1]
+
+    finish = time.perf_counter()
+    print(
+        "\nFlux lines found in "
+        f"{finish - start:.2f} secs"
+    )
+
+    # Mapping and angular derivative along the characteristics.
+    r_lines, r_t_lines = np.moveaxis(
+        np.array([
+            pl_eval_2D(r_l[i], t_i, der=1)
+            for i, t_i in enumerate(t_lines)
+        ]),
+        0,
+        1,
+    )
+
+    # Radial derivative and relative divergence along the lines.
+    r_z_l = pl_project_2D(der.r_z, L)
     divrel_z_l = pl_project_2D(geo.divrelz, L)
-    r_z      = np.array([pl_eval_2D(     r_z_l[i], ti) for i, ti in enumerate(t)])
-    divrel_z = np.array([pl_eval_2D(divrel_z_l[i], ti) for i, ti in enumerate(t)])
-    
-    Q_z = np.exp([-integrate(z, divrel_zk) for divrel_zk in divrel_z.T])
-    Q_0 = 1.0 / sum(Q_z * (r[-1]**2 + (1-t1**2) * r_t[-1]**2) / r_z[-1] * w1)
-    Q = Q_0 * Q_z * np.abs(
-        pl_eval_2D(pl_project_2D(geo.gzz[-1], L), t[-1])
-    )**0.5
-    Q_l = pl_project_2D(np.hstack((Q, Q[::-1])), 2*J_lines)
-    
-    # 3D plot of the surface flux
-    plot_3D_surface(r_l[-1], Q_l, show_T_eff=show_T_eff, res=res, cmap=flux_cmap)
-    
-    # Draw characteristics
-    if add_flux_lines : 
-        r = np.hstack((r, +r[:, ::-1]))
-        t = np.hstack((t, -t[:, ::-1]))
-        (fig, ax) = plot_flux_lines(r, t, color='grey')
-    else : 
-        (fig, ax) = (None, None)
+
+    r_z_lines = np.array([
+        pl_eval_2D(r_z_l[i], t_i)
+        for i, t_i in enumerate(t_lines)
+    ])
+
+    divrel_z_lines = np.array([
+        pl_eval_2D(divrel_z_l[i], t_i)
+        for i, t_i in enumerate(t_lines)
+    ])
+
+    # Flux transport along each characteristic.
+    Q_z = np.exp([
+        -integrate(z, divrel_z_i)
+        for divrel_z_i in divrel_z_lines.T
+    ])
+
+    surface_factor = (
+        r_lines[-1] ** 2
+        + (1.0 - t_dw**2)
+        * r_t_lines[-1] ** 2
+    ) / r_z_lines[-1]
+
+    Q0 = 1.0 / np.sum(Q_z * surface_factor * weights_dw)
+
+    gzz_surface_l = pl_project_2D(geo.gzz[-1], L)
+    gzz_surface = pl_eval_2D(gzz_surface_l, t_lines[-1])
+
+    Q_dw = Q0 * Q_z * np.sqrt(np.abs(gzz_surface))
+
+    # Restore the symmetric upper hemisphere.
+    Q_l = pl_project_2D(np.hstack((Q_dw, Q_dw[::-1])), 2 * j_lines)
+
+    plot_3D_surface(
+        r_l[-1],
+        Q_l,
+        show_T_eff=options.show_effective_temperature,
+        res=options.resolution,
+        cmap=options.cmap,
+    )
+
+    if options.plot_lines:
+        r_lines = np.hstack((r_lines,  r_lines[:, ::-1]))
+        t_lines = np.hstack((t_lines, -t_lines[:, ::-1]))
+
+        fig, ax = plot_flux_lines(r_lines, t_lines, color="grey")
+    else:
+        fig, ax = None, None
+
     return Q_l, (fig, ax)
