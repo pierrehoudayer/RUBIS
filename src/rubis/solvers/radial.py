@@ -5,7 +5,7 @@ from dataclasses         import dataclass
 from numpy.typing        import NDArray
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbtrf, dgbtrs
-from scipy.special       import roots_legendre, eval_legendre
+from scipy.special       import roots_legendre
 from scipy.integrate     import solve_ivp
 
 from ..config            import (
@@ -38,6 +38,12 @@ from ..rotation          import (
     initialize_rotation_state,
 )
 from ..results           import RadialResult
+from ..diagnostics       import (
+    compute_gravitational_moments,
+    compute_virial_balance,
+    report_gravitational_moments,
+    report_virial_balance,
+)
 from ..io.legacy         import write_model
 from ..plotting          import (
     phi_g_harmonics,
@@ -395,110 +401,6 @@ def update_mapping(
     r2d_new = np.hstack((r2d_dw, r2d_up))
 
     return r2d_new, rot_new
-
-
-def evaluate_virial_balance(
-    r2d,
-    rho,
-    phi_eff,
-    p,
-    num: RadialNumerics,
-    rot: RotationState,
-    verbose=False,
-):
-    """
-    Evaluate the scalar virial residual of the converged model.
-
-    The balance combines rotational kinetic energy, gravitational work,
-    thermodynamic work, and the surface-pressure contribution.
-    """
-    J = num.angular_resolution
-    spl_order = num.spline_order
-
-    # Potential energy
-    volumic_potential_work = lambda rk, ck, mask: (
-        -rho[mask]
-        * (phi_eff[mask] - rot.phi_c(rk[mask], ck)[0])
-    )
-    potential_work = integrate2D(r2d, volumic_potential_work,k=spl_order)
-
-    # Kinetic energy
-    volumic_kinetic_energy = lambda rk, ck, mask: (
-        0.5
-        * rho[mask]
-        * (1.0 - ck**2)
-        * rk[mask]**2
-        * rot.omega(rk[mask], ck)**2
-    )
-    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=spl_order)
-
-    # Thermodynamic potential work
-    thermodynamic_work = - integrate2D(r2d, p, k=spl_order)
-
-    # Surface term
-    _, weights = roots_legendre(J)
-    surface_work = 2 * np.pi * (r2d[-1] ** 3 @ weights) * p[-1]
-
-    if verbose:
-        print(f"Kinetic energy    : {kinetic_energy:12.10f}")
-        print(f"Thermodynamic work: {thermodynamic_work:12.10f}")
-        print(f"Potential work    : {potential_work:12.10f}")
-        print(f"Surface work      : {surface_work:12.10f}")
-
-    virial_residual = (
-        2.0 * kinetic_energy
-        - 0.5 * potential_work
-        - 3.0 * thermodynamic_work
-        - surface_work
-    ) 
-    virial_scale = (
-        2.0 * kinetic_energy
-        + 0.5 * potential_work
-        - 3.0 * thermodynamic_work
-        + surface_work
-    )
-
-    virial = virial_residual / virial_scale
-
-    print(
-        "Virial theorem verified at "
-        f"{round(virial, 16)}"
-    )
-
-    return virial
-
-
-def report_gravitational_moments(
-    r2d,
-    rho,
-    num: RadialNumerics,
-    max_degree=14,
-):
-    """
-    Compute and display the even gravitational mass moments.
-
-    The moments are integrated directly on the deformed material
-    mapping up to the requested Legendre degree.
-    """
-    t = num.t
-    spl_order = num.spline_order
-
-    print(
-        "\n+-----------------------+",
-        "\n| Gravitational moments |",
-        "\n+-----------------------+\n",
-    )
-
-    for l in range(0, max_degree + 1, 2):
-        moment = integrate2D(
-            r2d,
-            rho[:, None]
-            * r2d**l
-            * eval_legendre(l, t),
-            k=spl_order,
-        )
-
-        print(f"Moment n°{l:2d} : {moment:+.10e}")
         
 
 def solve_radial(
@@ -678,14 +580,24 @@ def solve_radial(
         phi_g_harmonics(zeta, phi_g_l, radial=True)
     
     # Virial test
-    if output_options.diagnostics.virial_test : 
-        evaluate_virial_balance(
+    if output_options.diagnostics.virial_test:
+        phi_g2d = (
+            phi_eff[:, None]
+            - rot.phi_c2d(r2d, num.t)
+        )
+
+        balance = compute_virial_balance(
             r2d,
             rho,
-            phi_eff,
             p,
-            num,
+            phi_g2d,
+            num.t,
             rot,
+            spline_order=num.spline_order,
+        )
+
+        report_virial_balance(
+            balance,
             verbose=True,
         )
     
@@ -722,8 +634,15 @@ def solve_radial(
             )
     
     # Gravitational moments
-    if output_options.diagnostics.gravitational_moments :
-        report_gravitational_moments(r2d, rho, num)
+    if output_options.diagnostics.gravitational_moments:
+        moments = compute_gravitational_moments(
+            r2d,
+            rho,
+            num.t,
+            spline_order=num.spline_order,
+        )
+
+        report_gravitational_moments(moments)
     
     # Model writing
     if output_options.model.save :

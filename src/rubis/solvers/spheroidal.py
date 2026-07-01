@@ -7,7 +7,6 @@ from gc                  import collect
 from numpy.typing        import NDArray
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbsv
-from scipy.special       import roots_legendre, eval_legendre
 
 from ..legendre          import (
     find_r_eq, 
@@ -43,6 +42,12 @@ from ..rotation          import (
     initialize_rotation_state,
 )
 from ..results           import SpheroidalResult
+from ..diagnostics       import (
+    compute_gravitational_moments,
+    compute_virial_balance,
+    report_gravitational_moments,
+    report_virial_balance,
+)
 from ..io.legacy         import write_model
 from ..plotting          import (
     phi_g_harmonics,
@@ -627,131 +632,6 @@ def update_mapping(
     return r2d_new, rot_new
 
 
-def evaluate_virial_balance(
-    r2d,
-    rho,
-    phi_g_l,
-    p,
-    num: SpheroidalNumerics,
-    rot: RotationState,
-    verbose=False,
-):
-    """
-    Evaluate the scalar virial residual of the converged model.
-
-    The balance combines rotational kinetic energy, gravitational work,
-    thermodynamic work, and the surface-pressure contribution.
-    """
-    J = num.angular_resolution
-    domains = num.domains.domain_ranges[:-1]
-    spl_order = num.spline_order
-
-    # Potential work
-    volumic_potential_work = lambda rk, ck, mask: (
-        -rho[mask] * pl_eval_2D(phi_g_l[mask], ck)
-    )
-    potential_work = integrate2D(
-        r2d,
-        volumic_potential_work,
-        domains=domains,
-        k=spl_order,
-    )
-
-    # Kinetic energy
-    volumic_kinetic_energy = lambda rk, ck, mask: (
-        0.5
-        * rho[mask]
-        * (1.0 - ck**2)
-        * rk[mask]**2
-        * rot.omega(rk[mask], ck)**2
-    )
-    kinetic_energy = integrate2D(
-        r2d,
-        volumic_kinetic_energy,
-        domains=domains,
-        k=spl_order,
-    )
-
-    # Thermodynamic potential work
-    thermodynamic_work = -integrate2D(
-        r2d,
-        p,
-        domains=domains,
-        k=spl_order,
-    )
-
-    # Surface work
-    _, weights = roots_legendre(J)
-    surface_work = (
-        2.0 * np.pi
-        * (r2d[-1]**3 @ weights)
-        * p[-1]
-    )
-
-    if verbose:
-        print(f"Kinetic energy     : {kinetic_energy:12.10f}")
-        print(f"Thermodynamic work : {thermodynamic_work:12.10f}")
-        print(f"Potential work     : {potential_work:12.10f}")
-        print(f"Surface work       : {surface_work:12.10f}")
-
-    virial_residual = (
-        2.0 * kinetic_energy
-        - 0.5 * potential_work
-        - 3.0 * thermodynamic_work
-        - surface_work
-    )
-    virial_scale = (
-        2.0 * kinetic_energy
-        + 0.5 * potential_work
-        - 3.0 * thermodynamic_work
-        + surface_work
-    )
-
-    virial = virial_residual / virial_scale
-
-    print(
-        "Virial theorem verified at "
-        f"{round(virial, 16)}"
-    )
-
-    return virial
-
-
-def report_gravitational_moments(
-    r2d,
-    rho,
-    num: SpheroidalNumerics,
-    max_degree=14,
-):
-    """
-    Compute and display the even gravitational mass moments.
-
-    The moments are integrated directly over the internal material
-    domains up to the requested Legendre degree.
-    """
-    t = num.t
-    domains = num.domains.domain_ranges[:-1]
-    spl_order = num.spline_order
-
-    print(
-        "\n+-----------------------+",
-        "\n| Gravitational moments |",
-        "\n+-----------------------+\n",
-    )
-
-    for l in range(0, max_degree + 1, 2):
-        moment = integrate2D(
-            r2d,
-            rho[:, None]
-            * r2d**l
-            * eval_legendre(l, t),
-            domains=domains,
-            k=spl_order,
-        )
-
-        print(f"Moment n°{l:2d} : {moment:+.10e}")
-
-
 def solve_spheroidal(
     model: Model1D,
     rotation_config: RotationConfig,
@@ -964,15 +844,26 @@ def solve_spheroidal(
     
     # Virial test
     if output_options.diagnostics.virial_test:
-        evaluate_virial_balance(
+        phi_g2d = pl_eval_2D(
+            phi_g_l[num.domains.internal_mask],
+            num.t,
+        )
+
+        balance = compute_virial_balance(
             r2d,
             rho,
-            phi_g_l,
             p,
-            num,
+            phi_g2d,
+            num.t,
             rot,
+            domains=num.domains.domain_ranges[:-1],
+            spline_order=num.spline_order,
+        )
+
+        report_virial_balance(
+            balance,
             verbose=True,
-        ) 
+        )
     
     # Plot model
     if output_options.plot.show_model :
@@ -988,11 +879,15 @@ def solve_spheroidal(
     
     # Gravitational moments
     if output_options.diagnostics.gravitational_moments:
-        report_gravitational_moments(
+        moments = compute_gravitational_moments(
             r2d,
             rho,
-            num,
+            num.t,
+            domains=num.domains.domain_ranges[:-1],
+            spline_order=num.spline_order,
         )
+
+        report_gravitational_moments(moments)
     
     # Model writing
     if output_options.model.save:
