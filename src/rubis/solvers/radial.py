@@ -679,7 +679,7 @@ def solve_radial(
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = evaluate_virial_balance(
+        evaluate_virial_balance(
             r2d,
             rho,
             phi_eff,

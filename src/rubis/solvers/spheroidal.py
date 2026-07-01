@@ -834,6 +834,11 @@ def solve_spheroidal(
         "\n+---------------------+\n"
     )
     
+    if max_iterations < 1:
+        raise ValueError(
+            "max_iterations must be a positive integer."
+        )
+    
     while abs(polar_radius_history[-1] - polar_radius_history[-2]) > mapping_precision:
         if iterations >= max_iterations:
             delta_polar = abs(
@@ -907,7 +912,7 @@ def solve_spheroidal(
     )
     print(f'Time taken: {round(finish-start, 2)} secs')  
     
-    # Estimated error on Poisson's equation
+    # Extend the converged mapping through the vacuum domain
     der = compute_mapping_derivatives(
         r2d,
         zeta,
