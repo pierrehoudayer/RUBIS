@@ -127,28 +127,24 @@ def find_rho_l(
 ):
     """Project the density distribution onto Legendre harmonics."""
     safety_constant = 1.0e-15
-    angular_resolution = r2d.shape[1]
-    k_half = np.arange((angular_resolution + 1) // 2)
+    L = num.max_degree
+    k = num.spline_order
+    
+    M = r2d.shape[1]
+    m_up = np.arange((M + 1) // 2)
+    m_dw = -m_up - 1
 
     log_rho = np.log(rho + safety_constant)
     rho2D = np.zeros_like(r2d)
 
-    for k in k_half:
-        inside = num.r1d < r2d[-1, k]
+    for m in m_up:
+        inside = num.r1d < r2d[-1, m]
+        rho2D[inside, m] = interpolate_func(x=r2d[:, m], y=log_rho, k=k)(num.r1d[inside])
+        rho2D[inside, m] = np.exp(rho2D[inside, m]) - safety_constant
 
-        rho2D[inside, k] = interpolate_func(
-            x=r2d[:, k],
-            y=log_rho,
-            k=num.spline_order,
-        )(num.r1d[inside])
+    rho2D[:, m_dw] = rho2D[:, m_up]
 
-        rho2D[inside, k] = (
-            np.exp(rho2D[inside, k]) - safety_constant
-        )
-
-    rho2D[:, -1 - k_half] = rho2D[:, k_half]
-
-    return pl_project_2D(rho2D, num.max_degree)
+    return pl_project_2D(rho2D, L)
     
     
 def filling_ab(ab, ku, kl, l, num: RadialNumerics):
@@ -235,7 +231,7 @@ def find_phi_eff(
     """    
     N = num.n_points
     L = num.max_degree
-    r = num.r1d[:, None]
+    r1d = num.r1d[:, None]
     
     # Density distribution harmonics
     rho_l    = find_rho_l(r2d, rho, num)
@@ -245,7 +241,7 @@ def find_phi_eff(
     # Vector filling (vectorial)
     L_even = (L + 1) // 2
     b_l = np.zeros((2*N, L_even))
-    b_l[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r**2 * rho_l[:, ::2])
+    b_l[1:-1:2, :] = 4 * np.pi * num.Lsp @ (r1d**2 * rho_l[:, ::2])
     b_l[0     , 0] = 4 * np.pi * rho_l[0, 0]     # Boundary condition
     
     # Band matrix storage
@@ -263,12 +259,12 @@ def find_phi_eff(
             
     # System solving (LAPACK)
     x = np.array([
-        dgbtrs(lub_l[k][0], kl, ku, b_l[:, k], lub_l[k][1])[0] for k in range(L_even)
+        dgbtrs(lub_l[l][0], kl, ku, b_l[:, l], lub_l[l][1])[0] for l in range(L_even)
     ]).T
         
     # Poisson's equation solution
     phi_g_l[: , ::2] = x[1::2]
-    dphi_g_l[:, ::2] = x[0::2] * (2*r)  # <- The equation is solved on r^2
+    dphi_g_l[:, ::2] = x[0::2] * (2*r1d)  # <- The equation is solved on r^2
     
     if phi_eff is None :
         # First estimate of the effective potential and its derivative
@@ -282,103 +278,116 @@ def find_phi_eff(
     return phi_g_l, dphi_g_l, phi_eff
 
 
-def find_new_mapping(t, omega_n, phi_g_l, dphi_g_l, phi_eff) :
-    """
-    Find the new mapping by comparing the effective potential
-    and the total potential (calculated from phi_g_l and omega_n).
+def find_new_mapping(
+    omega,
+    phi_g_l,
+    dphi_g_l,
+    phi_eff,
+    num: RadialNumerics,
+    eval_phi_c,
+):
+    """Update the mapping and rotation rate from the total potential."""
+    r1d = num.r1d
+    t = num.t
+    L = num.max_degree
+    M = num.angular_resolution
+    k = num.spline_order
 
-    Parameters
-    ----------
-    t : array_like, shape (M, )
-        Value of cos(theta).
-    omega_n : float
-        Current rotation rate.
-    phi_g_l : array_like, shape (N, L)
-        Gravitation potential harmonics.
-    dphi_g_l : array_like, shape (N, L)
-        Gravitation potential derivative harmonics.
-    phi_eff : array_like, shape (N, )
-        Effective potential on each equipotential.
+    # Northern hemisphere, including the equator.
+    eq = (M - 1) // 2
+    m_up = np.arange(eq + 1)
 
-    Returns
-    -------
-    map_n_new : array_like, shape (N, M)
-        Updated mapping.
-    omega_n_new : float
-        Updated rotation rate.
+    # Interior gravitational potential.
+    phi2D_g_int  = pl_eval_2D( phi_g_l, t[m_up])
+    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[m_up])
 
-    """    
-    # 2D gravitational potential (interior)
-    eq = (M-1)//2
-    up = np.arange(eq+1)
-    phi2D_g_int  = pl_eval_2D( phi_g_l, t[up])
-    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[up])
-    
-    # 2D gravitational potential (exterior)
+    # Exterior gravitational potential.
     l = np.arange(L)
-    outside = 1.3        # Some guess
+    outside = 1.3
     r_ext = np.linspace(1.0, outside, 101)[1:]
-    phi_g_l_ext  = phi_g_l[-1] * (r_ext[:, None])**-(l+1)
-    dphi_g_l_ext = -(l+1) * phi_g_l_ext / r_ext[:, None]
-    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[up])
-    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[up])
-    
-    # 2D gravitational potential
+
+    phi_g_l_ext = phi_g_l[-1] * r_ext[:, None] ** -(l + 1)
+    dphi_g_l_ext = -(l + 1) * phi_g_l_ext / r_ext[:, None]
+
+    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[m_up])
+    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[m_up])
+
+    # Full radial domain.
     r_tot = np.hstack((r1d, r_ext))
     phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
     dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
-        
-    # Find a new value for ROT
-    valid_z = r_tot > 0.5
-    valid_r = r_tot[valid_z]
-    phi1D_c, dphi1D_c = eval_phi_c(valid_r, 0.0, omega_n) / valid_r ** 3
-    dphi1D_c -= 3 * phi1D_c / valid_r
-    phi1D  =  phi2D_g[valid_z, eq] +  phi1D_c
-    dphi1D = dphi2D_g[valid_z, eq] + dphi1D_c
-    r_est = CubicHermiteSpline(x=phi1D, y=valid_r, dydx=dphi1D ** -1)(phi_eff[-1])
-    omega_n_new = omega_n * r_est**(-1.5)
-    
-    # Centrifugal potential
-    phi2D_c, dphi2D_c = np.moveaxis(np.array([
-        eval_phi_c(r_tot , ck, omega_n_new) for ck in t[up]
-    ]), (0, 1, 2), (2, 0, 1))
-    
-    # Total potential
-    phi2D  =  phi2D_g +  phi2D_c
+
+    # Find a rotation rate consistent with the equatorial radius.
+    n_safe = r_tot > 0.5
+    r_safe = r_tot[n_safe]
+
+    phi1D_c, dphi1D_c = eval_phi_c(r_safe, 0.0, omega) / r_safe**3
+    dphi1D_c -= 3.0 * phi1D_c / r_safe
+
+    phi1D  =  phi2D_g[n_safe, eq] + phi1D_c
+    dphi1D = dphi2D_g[n_safe, eq] + dphi1D_c
+
+    r_est = CubicHermiteSpline(x=phi1D, y=r_safe, dydx=dphi1D**-1)(phi_eff[-1])
+    omega_new = omega * r_est**-1.5
+
+    # Centrifugal potential.
+    phi2D_c, dphi2D_c = np.moveaxis(
+        np.array([
+            eval_phi_c(r_tot, ck, omega_new)
+            for ck in t[m_up]
+        ]),
+        (0, 1, 2),
+        (2, 0, 1),
+    )
+
+    # Total potential.
+    phi2D  =  phi2D_g + phi2D_c
     dphi2D = dphi2D_g + dphi2D_c
-    
-    # Finding the valid interpolation domain
+
     valid = valid_reciprocal_domain(r_tot, dphi2D)
-    
-    # Central domain
-    lim = 1e-1
-    center = np.max(np.argwhere(r_tot < lim)) + 1
-    r_cnt = np.linspace(0.0, 1.0, 5*center) ** 2 * lim
-    phi2D_g_cnt = np.array([CubicHermiteSpline(
-        x=r1d, y=phi2D_g_int[:, k], dydx=dphi2D_g_int[:, k]
-    )(r_cnt) for k in up]).T
-    phi2D_c_cnt = np.array([
-        eval_phi_c(r_cnt , ck, omega_n_new)[0] for ck in t[up]
+
+    # Refined central domain.
+    lim = 1.0e-1
+    lim_idx = np.max(np.argwhere(r_tot < lim)) + 1
+
+    r_cnt = lim * np.linspace(0.0, 1.0, 5 * lim_idx) ** 2
+
+    phi2D_g_cnt = np.array([
+        CubicHermiteSpline(
+            x=r1d,
+            y=phi2D_g_int[:, m],
+            dydx=dphi2D_g_int[:, m],
+        )(r_cnt)
+        for m in m_up
     ]).T
+
+    phi2D_c_cnt = np.array([
+        eval_phi_c(r_cnt, ck, omega_new)[0]
+        for ck in t[m_up]
+    ]).T
+
     phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
-    
-    # Estimate at target values
-    map_est = np.vstack((
-        np.zeros_like(up), 
-        np.array([
-            interpolate_func(x=pk, y=r_cnt, k=KSPL)(phi_eff[1:center]) 
-            for pk in phi2D_cnt.T
-        ]).T,
-        np.array([
-            interpolate_func(x=pk[vk], y=r_tot[vk], k=KSPL)(phi_eff[center:]) 
-            for pk, vk in zip(phi2D.T, valid.T)
-        ]).T
+
+    # Estimate the radius at each target equipotential.
+    r2d_up_origin = np.zeros_like(m_up)
+    r2d_up_center = np.array([
+        interpolate_func(x=pk, y=r_cnt, k=k)(phi_eff[1:lim_idx])
+        for pk in phi2D_cnt.T
+    ]).T
+    r2d_up_envelope = np.array([
+        interpolate_func(x=pk[vk], y=r_tot[vk], k=k)(phi_eff[lim_idx:])
+        for pk, vk in zip(phi2D.T, valid.T)
+    ]).T
+    r2d_up = np.vstack((
+        r2d_up_origin,
+        r2d_up_center,
+        r2d_up_envelope,
     ))
-            
-    # New mapping
-    map_n_new = np.hstack((map_est, np.flip(map_est, axis=1)[:, 1:]))
-        
-    return map_n_new, omega_n_new
+    r2d_dw = np.flip(r2d_up, axis=1)[:, 1:]
+
+    r2d_new = np.hstack((r2d_up, r2d_dw))
+
+    return r2d_new, omega_new
 
 
 def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) : 
@@ -413,16 +422,16 @@ def Virial_theorem(r2d, rho, omega_n, phi_eff, P, verbose=False) :
     volumic_potential_energy = lambda rk, ck, D : -(  
        rho[D] * (phi_eff[D]-eval_phi_c(rk[D], ck, omega_n)[0])
     )
-    potential_energy = integrate2D(r2d, volumic_potential_energy, k=KSPL)
+    potential_energy = integrate2D(r2d, volumic_potential_energy, k=k)
     
     # Kinetic energy
     volumic_kinetic_energy = lambda rk, ck, D : (  
        0.5 * rho[D] * (1 - ck**2) * rk[D]**2 * eval_omega(rk[D], ck, omega_n)**2
     )
-    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=KSPL)
+    kinetic_energy = integrate2D(r2d, volumic_kinetic_energy, k=k)
     
     # Internal energy
-    internal_energy = integrate2D(r2d, P, k=KSPL)
+    internal_energy = integrate2D(r2d, P, k=k)
     
     # Surface term
     _, weights = roots_legendre(M)
@@ -469,7 +478,7 @@ def find_gravitational_moments(r2d, t, rho, max_degree=14) :
     )
     for l in range(0, max_degree+1, 2):
         m_l = integrate2D(
-            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=KSPL
+            r2d, rho[:, None] * r2d ** l * eval_legendre(l, t), k=k
         )
         print("Moment n°{:2d} : {:+.10e}".format(l, m_l))
         
@@ -480,7 +489,7 @@ def radial_method(
     options: SolverOptions,
     output_options: OutputOptions,
 ) -> RadialResult:
-    global G, L, M, KSPL
+    global G, L, M, k
     global r1d, zeta
     global eval_phi_c, eval_omega
 
@@ -514,7 +523,7 @@ def radial_method(
     N = num.n_points
     L = num.max_degree
     M = num.angular_resolution
-    KSPL = num.spline_order
+    k = num.spline_order
 
     eval_phi_c, eval_omega = configure_rotation_profile(
         rotation.profile,
@@ -568,7 +577,8 @@ def radial_method(
             )
         
         # Current rotation rate
-        omega_n = min(rotation_target, ((iterations+1)/full_rate) * rotation_target)
+        rotation_cap = ((iterations+1)/full_rate) * rotation_target
+        omega = min(rotation_target, rotation_cap)
         
         # Effective potential computation
         phi_g_l, dphi_g_l, phi_eff = find_phi_eff(
@@ -580,11 +590,18 @@ def radial_method(
         )
 
         # Find a new estimate for the mapping
-        r2d, omega_n = find_new_mapping(t, omega_n, phi_g_l, dphi_g_l, phi_eff)
+        r2d, omega = find_new_mapping(
+            omega,
+            phi_g_l,
+            dphi_g_l,
+            phi_eff,
+            num,
+            eval_phi_c,
+        )
         
         # Renormalisation
         r_corr    = find_r_eq(r2d, L)
-        m_corr    = integrate2D(r2d, rho, k=KSPL)
+        m_corr    = integrate2D(r2d, rho, k=k)
         radius   *= r_corr
         mass     *= m_corr
         r2d      /=             r_corr
@@ -632,7 +649,7 @@ def radial_method(
         radius=radius,
 
         rotation_target=rotation_target,
-        rotation_rate=omega_n,
+        rotation_rate=omega,
 
         polar_radius_history=np.asarray(polar_radius_history),
         iterations=iterations,
@@ -644,7 +661,7 @@ def radial_method(
     
     # Virial test
     if output_options.diagnostics.virial_test : 
-        virial = Virial_theorem(r2d, rho, omega_n, phi_eff, p, verbose=True)   
+        virial = Virial_theorem(r2d, rho, omega, phi_eff, p, verbose=True)   
     
     # Plot model
     if output_options.plot.show_model :
@@ -694,7 +711,7 @@ def radial_method(
     if output_options.model.save :
         rota = eval_omega(r2d[:, (M-1)//2], 0.0, rotation_target)
         if output_options.model.dimensional : 
-            r2d    *=               radius
+            r2d      *=               radius
             rho      *=     mass    / radius**3
             phi_eff  *= G * mass    / radius   
             dphi_eff *= G * mass    / radius**2
@@ -772,7 +789,7 @@ def find_radiative_flux(
         z,
         t,
         max_degree=L,
-        spline_order=KSPL,
+        spline_order=k,
         domain_ranges=(slice(None),),
     )
     geo = compute_mapping_geometry(r, der, t)
