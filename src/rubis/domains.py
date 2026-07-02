@@ -14,12 +14,12 @@ __all__ = [
 
 FloatArray = NDArray[np.float64]
 IntArray = NDArray[np.int_]
-BoolArray = NDArray[np.bool_]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class DomainLayout:
-    """Index layout of a coordinate split into adjacent domains.
+    """
+    Index layout of a coordinate split into adjacent domains.
 
     A duplicated coordinate value represents an interface. The first
     copy ends the lower domain and the second copy starts the upper
@@ -32,17 +32,17 @@ class DomainLayout:
     interface_start_indices: IntArray
 
     unique_indices: IntArray
-    n_domains: int
 
+    n_domains: int
     domain_edges: IntArray
     domain_ranges: tuple[range, ...]
     domain_sizes: IntArray
     domain_index: IntArray
     domain_ids: IntArray
 
-    internal_mask: BoolArray
-    external_mask: BoolArray
-    unique_internal_indices: IntArray
+    @property
+    def n_points(self) -> int:
+        return self.domain_index.size
 
     @property
     def has_interfaces(self) -> bool:
@@ -52,7 +52,26 @@ class DomainLayout:
 def find_domains(coordinate) -> DomainLayout:
     """Identify domains separated by duplicated coordinate values."""
     coordinate = np.asarray(coordinate)
-    n_points = coordinate.size
+
+    if coordinate.ndim != 1:
+        raise ValueError(
+            "The domain coordinate must be one-dimensional."
+        )
+
+    if coordinate.size == 0:
+        raise ValueError(
+            "The domain coordinate must not be empty."
+        )
+
+    rounded = np.round(
+        coordinate,
+        15,
+    )
+
+    if np.any(np.diff(rounded) < 0.0):
+        raise ValueError(
+            "The domain coordinate must be non-decreasing."
+        )
 
     (
         unique_values,
@@ -60,61 +79,57 @@ def find_domains(coordinate) -> DomainLayout:
         unique_inverse,
         unique_counts,
     ) = np.unique(
-        np.round(coordinate, 15),
+        rounded,
         return_index=True,
         return_inverse=True,
         return_counts=True,
     )
 
-    repeated = unique_counts > 1
-    interface_values = unique_values[repeated]
+    if np.any(unique_counts > 2):
+        raise ValueError(
+            "Each domain interface must occur exactly twice."
+        )
 
-    repeated_value_indices = np.flatnonzero(repeated)
-    interface_mask = np.isin(
-        unique_inverse,
-        repeated_value_indices,
-    )
-    flat_interface_indices = np.flatnonzero(
-        interface_mask
+    repeated = unique_counts == 2
+    repeated_value_indices = np.flatnonzero(
+        repeated
     )
 
-    order = np.argsort(
-        unique_inverse[interface_mask]
+    interface_values = unique_values[
+        repeated
+    ]
+    interface_indices = tuple(
+        np.flatnonzero(
+            unique_inverse == value_index
+        )
+        for value_index
+        in repeated_value_indices
     )
 
-    if interface_values.size:
-        interface_indices = tuple(
-            np.split(
-                flat_interface_indices[order],
-                np.cumsum(unique_counts[repeated])[:-1],
-            )
-        )
+    interface_end_indices = np.array(
+        [
+            indices[0]
+            for indices in interface_indices
+        ],
+        dtype=int,
+    )
+    interface_start_indices = np.array(
+        [
+            indices[1]
+            for indices in interface_indices
+        ],
+        dtype=int,
+    )
 
-        interface_array = np.asarray(
-            interface_indices,
-            dtype=int,
-        )
-
-        interface_end_indices = interface_array[:, 0]
-        interface_start_indices = interface_array[:, 1]
-    else:
-        interface_indices = ()
-        interface_end_indices = np.empty(
-            0,
-            dtype=int,
-        )
-        interface_start_indices = np.empty(
-            0,
-            dtype=int,
-        )
-
-    n_domains = interface_values.size + 1
+    n_domains = (
+        interface_values.size + 1
+    )
 
     domain_edges = np.array(
         (
             0,
             *interface_start_indices,
-            n_points,
+            coordinate.size,
         ),
         dtype=int,
     )
@@ -127,8 +142,9 @@ def find_domains(coordinate) -> DomainLayout:
         )
     )
 
-    domain_sizes = np.diff(domain_edges)
-
+    domain_sizes = np.diff(
+        domain_edges
+    )
     domain_ids = np.arange(
         n_domains,
         dtype=int,
@@ -138,21 +154,15 @@ def find_domains(coordinate) -> DomainLayout:
         domain_sizes,
     )
 
-    external_mask = (
-        domain_index == domain_ids[-1]
-    )
-    internal_mask = ~external_mask
-
-    unique_internal_indices = np.unique(
-        coordinate[internal_mask],
-        return_index=True,
-    )[1]
-
     return DomainLayout(
         interface_values=interface_values,
         interface_indices=interface_indices,
-        interface_end_indices=interface_end_indices,
-        interface_start_indices=interface_start_indices,
+        interface_end_indices=(
+            interface_end_indices
+        ),
+        interface_start_indices=(
+            interface_start_indices
+        ),
         unique_indices=unique_indices,
         n_domains=n_domains,
         domain_edges=domain_edges,
@@ -160,7 +170,4 @@ def find_domains(coordinate) -> DomainLayout:
         domain_sizes=domain_sizes,
         domain_index=domain_index,
         domain_ids=domain_ids,
-        internal_mask=internal_mask,
-        external_mask=external_mask,
-        unique_internal_indices=unique_internal_indices,
     )

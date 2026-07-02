@@ -50,6 +50,7 @@ from ..results           import SolverInfo
 
 
 FloatArray = NDArray[np.float64]
+IntArray = NDArray[np.int_]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -79,12 +80,72 @@ class SpheroidalNumerics:
         return self.zeta.size
 
     @property
-    def n_internal_points(self) -> int:
-        return int(np.count_nonzero(self.domains.internal_mask))
+    def vacuum_domain_id(self) -> int:
+        """Index of the exterior vacuum domain."""
+        return self.domains.n_domains - 1
 
     @property
-    def n_external_points(self) -> int:
-        return int(np.count_nonzero(self.domains.external_mask))
+    def n_material_points(self) -> int:
+        """Number of points in the material domains."""
+        return int(
+            self.domains.domain_edges[-2]
+        )
+
+    @property
+    def n_vacuum_points(self) -> int:
+        """Number of points in the vacuum domain."""
+        return (
+            self.n_points
+            - self.n_material_points
+        )
+
+    @property
+    def material_slice(self) -> slice:
+        """Contiguous slice containing all material domains."""
+        return slice(
+            0,
+            self.n_material_points,
+        )
+
+    @property
+    def vacuum_slice(self) -> slice:
+        """Contiguous slice containing the vacuum domain."""
+        return slice(
+            self.n_material_points,
+            None,
+        )
+
+    @property
+    def material_ranges(
+        self,
+    ) -> tuple[range, ...]:
+        """Ranges of the material domains."""
+        return self.domains.domain_ranges[:-1]
+
+    @property
+    def vacuum_range(self) -> range:
+        """Range of the exterior vacuum domain."""
+        return self.domains.domain_ranges[-1]
+
+    @property
+    def material_interface_end_indices(
+        self,
+    ) -> IntArray:
+        """Lower copies of interfaces between material domains."""
+        return (
+            self.domains
+            .interface_end_indices[:-1]
+        )
+
+    @property
+    def material_interface_start_indices(
+        self,
+    ) -> IntArray:
+        """Upper copies of interfaces between material domains."""
+        return (
+            self.domains
+            .interface_start_indices[:-1]
+        )
 
     @property
     def angular_resolution(self) -> int:
@@ -189,8 +250,8 @@ def assemble_poisson_system(
         Lsp_broad = Lsp.data[::-1, :, None, None]
         Dsp_broad = Dsp.data[::-1, :, None, None]
 
-        # Matter source outside the exterior vacuum domain
-        if d < domains.n_domains - 1:
+        # Matter source in material domains
+        if d != num.vacuum_domain_id:
             b[beg_i:end_i:2] = (Lsp @ rhs_l[idx]).ravel()
 
         # Local differential operator
@@ -239,7 +300,7 @@ def assemble_poisson_system(
             ] = -identity
 
         # Vacuum decay or outer interface conditions
-        if d == domains.n_domains - 1:
+        if d == num.vacuum_domain_id:
             coefs[
                 ku - L_even + 1 : ku + 1,
                 -block_size + 0 :: 2,
@@ -356,7 +417,7 @@ def solve_gravitational_potential(
         t,
         max_degree=L,
         spline_order=num.spline_order,
-        domain_ranges=domains.domain_ranges[:-1],
+        domain_ranges=num.material_ranges,
     )
 
     # Matter source on the internal domains
@@ -368,7 +429,7 @@ def solve_gravitational_potential(
     rhs_l = 4 * np.pi * rho[:, None] * r2rz_l[:, ::2]
 
     # Extend the mapping into the exterior vacuum domain
-    zeta_ext = zeta[domains.external_mask]
+    zeta_ext = zeta[num.vacuum_slice]
 
     r2d_ext, der_ext = extend_mapping(
         r2d,
@@ -447,7 +508,7 @@ def update_mapping(
     an adaptive full-domain coordinate. Reciprocal interpolation at fixed
     effective potential then recovers the internal mapping r(zeta, t).
     """
-    I = num.n_internal_points
+    I = num.n_material_points
     J = num.angular_resolution
     L = num.max_degree
 
@@ -456,7 +517,7 @@ def update_mapping(
     domains = num.domains
     spl_order = num.spline_order
 
-    targets = phi_eff[domains.internal_mask].copy()
+    targets = phi_eff[num.material_slice].copy()
 
     # Extend the current mapping through the vacuum domain
     der = compute_mapping_derivatives(
@@ -465,9 +526,9 @@ def update_mapping(
         t,
         max_degree=L,
         spline_order=spl_order,
-        domain_ranges=domains.domain_ranges[:-1],
+        domain_ranges=num.material_ranges,
     )
-    zeta_ext = zeta[domains.external_mask]
+    zeta_ext = zeta[num.vacuum_slice]
     r2d_ext, der_ext = extend_mapping(r2d, der, zeta_ext)
 
     # Lower angular half-domain, including the equator
@@ -585,10 +646,10 @@ def update_mapping(
     ]).T
 
     # Restore duplicated internal interfaces
-    r2d_dw[domains.interface_start_indices[:-1]] = (
-        r2d_dw[domains.interface_end_indices[:-1]]
+    r2d_dw[num.material_interface_start_indices] = (
+        r2d_dw[num.material_interface_end_indices]
     )
-
+    
     r2d_up = np.flip(r2d_dw, axis=1)[:, 1:]
     r2d_new = np.hstack((r2d_dw, r2d_up))
 
@@ -658,14 +719,14 @@ def solve_spheroidal(
     )
     
     # Find pressure
-    internal = num.domains.internal_mask
+    material = num.material_slice
 
     p = integrate_pressure(
-        num.zeta[internal],
+        num.zeta[material],
         rho,
-        phi_eff_z[internal],
+        phi_eff_z[material],
         surface_pressure,
-        unique_indices=num.domains.unique_internal_indices,
+        unique_indices=model.domains.unique_indices,
         spline_order=num.spline_order,
     )
     
@@ -714,11 +775,7 @@ def solve_spheroidal(
 
         # Renormalisation
         r_corr = find_r_eq(r2d, L)
-        m_corr = integrate2D(
-            r2d,
-            rho,
-            domains=domains.domain_ranges[:-1],
-        )
+        m_corr = integrate2D(r2d, rho, domains=num.material_ranges)
 
         radius *= r_corr
         mass   *= m_corr
@@ -752,9 +809,9 @@ def solve_spheroidal(
         t,
         max_degree=L,
         spline_order=spl_order,
-        domain_ranges=domains.domain_ranges[:-1],
+        domain_ranges=num.material_ranges,
     )
-    z_ext = zeta[domains.external_mask]
+    z_ext = zeta[num.vacuum_slice]
     r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     
     # Compute final 2D potentials
@@ -772,8 +829,8 @@ def solve_spheroidal(
     phi_eff_vac = phi_g + phi_c
     phi_eff_z_vac = phi_g_z + phi_c_z
     
-    internal = domains.internal_mask
-    external = domains.external_mask
+    material = num.material_slice
+    vacuum_domain = num.vacuum_slice
     
     # 2D Model
     model2d = Model2D(
@@ -783,52 +840,60 @@ def solve_spheroidal(
         radius=radius,
         omega_eq=rot.omega_eq,
 
-        zeta=zeta[internal].copy(),
+        zeta=zeta[material].copy(),
         t=t.copy(),
         r2d=r2d.copy(),
 
         rho=rho.copy(),
         p=p.copy(),
         additional_variables=tuple(
-            var.copy() for var in additional_variables
+            var.copy()
+            for var in additional_variables
         ),
 
-        phi_eff=phi_eff[internal].copy(),
-        phi_eff_z=phi_eff_z[internal].copy(),
+        phi_eff=phi_eff[material].copy(),
+        phi_eff_z=phi_eff_z[material].copy(),
 
-        phi_g=phi_g[internal].copy(),
-        phi_g_z=phi_g_z[internal].copy(),
+        phi_g=phi_g[material].copy(),
+        phi_g_z=phi_g_z[material].copy(),
 
-        phi_c=phi_c[internal].copy(),
-        phi_c_z=phi_c_z[internal].copy(),
+        phi_c=phi_c[material].copy(),
+        phi_c_z=phi_c_z[material].copy(),
 
-        omega=omega[internal].copy(),
+        omega=omega[material].copy(),
         domains=model.domains,
     )
     
-    # Vaccum Model
+    # Vacuum Model
     vacuum = VacuumModel2D(
         G=G,
         mass=mass,
         radius=radius,
         omega_eq=rot.omega_eq,
 
-        zeta=zeta[external].copy(),
+        zeta=zeta[vacuum_domain].copy(),
         t=t.copy(),
-        r2d=r2d_ext[external].copy(),
+        r2d=r2d_ext[vacuum_domain].copy(),
 
-        phi_g=phi_g[external].copy(),
-        phi_g_z=phi_g_z[external].copy(),
+        phi_g=phi_g[vacuum_domain].copy(),
+        phi_g_z=phi_g_z[vacuum_domain].copy(),
 
-        phi_c=phi_c[external].copy(),
-        phi_c_z=phi_c_z[external].copy(),
+        phi_c=phi_c[vacuum_domain].copy(),
+        phi_c_z=phi_c_z[vacuum_domain].copy(),
 
-        phi_eff=phi_eff_vac[external].copy(),
-        phi_eff_z=phi_eff_z_vac[external].copy(),
+        phi_eff=(
+            phi_eff_vac[vacuum_domain]
+            .copy()
+        ),
+        phi_eff_z=(
+            phi_eff_z_vac[vacuum_domain]
+            .copy()
+        ),
 
-        omega=omega[external].copy(),
+        omega=omega[vacuum_domain].copy(),
+
         domains=find_domains(
-            zeta[external],
+            zeta[vacuum_domain]
         ),
     )
     

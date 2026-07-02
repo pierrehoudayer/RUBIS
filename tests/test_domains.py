@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from rubis.domains import DomainLayout, find_domains
@@ -13,6 +14,7 @@ def test_find_domains_for_continuous_coordinate():
     assert isinstance(domains, DomainLayout)
     assert not domains.has_interfaces
     assert domains.interface_indices == ()
+    assert domains.n_points == zeta.size
     
     np.testing.assert_array_equal(
         domains.interface_end_indices,
@@ -106,17 +108,11 @@ def test_find_domains_with_duplicated_interfaces():
         np.array([0, 1, 2, 4, 5, 7, 8]),
     )
 
+    assert domains.n_points == zeta.size
+
     np.testing.assert_array_equal(
-        domains.internal_mask,
-        np.array([
-            True, True, True,
-            True, True, True,
-            False, False, False,
-        ]),
-    )
-    np.testing.assert_array_equal(
-        domains.external_mask,
-        ~domains.internal_mask,
+        domains.domain_ids,
+        np.array([0, 1, 2]),
     )
         
         
@@ -174,3 +170,34 @@ def test_valid_reciprocal_domain_stops_at_each_turning_point():
     ])
 
     np.testing.assert_array_equal(valid, expected)
+    
+    
+def test_find_domains_rejects_nonmonotonic_coordinate():
+    zeta = np.array([
+        0.0,
+        0.5,
+        0.4,
+        1.0,
+    ])
+
+    with pytest.raises(
+        ValueError,
+        match="must be non-decreasing",
+    ):
+        find_domains(zeta)
+
+
+def test_find_domains_rejects_triplicated_interface():
+    zeta = np.array([
+        0.0,
+        0.5,
+        0.5,
+        0.5,
+        1.0,
+    ])
+
+    with pytest.raises(
+        ValueError,
+        match="must occur exactly twice",
+    ):
+        find_domains(zeta)

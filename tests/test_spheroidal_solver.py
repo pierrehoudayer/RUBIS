@@ -9,10 +9,83 @@ from rubis.config import (
 )
 from rubis.initialization import initialize_model_1d
 from rubis.legendre import pl_project_2D
+from rubis.mapping import initialize_mapping
 from rubis.models import Model2D, VacuumModel2D
 from rubis.results import SolverInfo
 from rubis.rotation_profiles import solid
 from rubis.solvers import solve_spheroidal
+from rubis.solvers.spheroidal import (
+    initialize_spheroidal_numerics,
+)
+
+
+def test_spheroidal_numerics_separates_material_and_vacuum():
+    r1d = np.array([
+        0.0,
+        0.25,
+        0.5,
+        0.5,
+        0.75,
+        1.0,
+    ])
+
+    _, t = initialize_mapping(
+        r1d,
+        5,
+    )
+
+    options = SolverOptions(
+        method="spheroidal",
+        max_degree=5,
+        angular_resolution=5,
+        spline_order=3,
+        lagrange_order=1,
+        external_domain_res=5,
+    )
+
+    num = initialize_spheroidal_numerics(
+        r1d,
+        t,
+        options,
+    )
+
+    assert num.n_material_points == r1d.size
+    assert num.n_vacuum_points == 5
+    assert num.vacuum_domain_id == 2
+
+    np.testing.assert_array_equal(
+        num.zeta[num.material_slice],
+        r1d,
+    )
+
+    np.testing.assert_allclose(
+        num.zeta[num.vacuum_slice][0],
+        1.0,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    assert (
+        num.material_ranges
+        == num.domains.domain_ranges[:-1]
+    )
+    assert (
+        num.vacuum_range
+        == num.domains.domain_ranges[-1]
+    )
+
+    np.testing.assert_array_equal(
+        num.material_interface_end_indices,
+        np.array([
+            2,
+        ]),
+    )
+    np.testing.assert_array_equal(
+        num.material_interface_start_indices,
+        np.array([
+            3,
+        ]),
+    )
 
 
 def test_spheroidal_solver_returns_normalised_state():
