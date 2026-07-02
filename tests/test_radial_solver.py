@@ -1,8 +1,6 @@
+import numpy as np
 import pytest
 
-import numpy as np
-
-from rubis.rotation_profiles import solid
 from rubis.config import (
     CompositePolytropeConfig,
     DiagnosticOptions,
@@ -12,8 +10,11 @@ from rubis.config import (
     SolverOptions,
 )
 from rubis.initialization import initialize_model_1d
+from rubis.legendre import pl_project_2D
+from rubis.models import Model2D
+from rubis.results import SolverInfo
+from rubis.rotation_profiles import solid
 from rubis.solvers import solve_radial
-from rubis.results import DeformationResult, RadialResult
 
 
 def test_radial_solver_returns_normalised_state():
@@ -30,7 +31,7 @@ def test_radial_solver_returns_normalised_state():
         )
     )
 
-    result = solve_radial(
+    model2d, vacuum, info = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -50,31 +51,53 @@ def test_radial_solver_returns_normalised_state():
         OutputOptions(),
     )
 
-    assert isinstance(result, RadialResult)
-    assert isinstance(result, DeformationResult)
-    assert result.mapping.shape == (
+    assert isinstance(model2d, Model2D)
+    assert vacuum is None
+    assert isinstance(info, SolverInfo)
+    assert info.method == "radial"
+
+    assert model2d.zeta.shape == (resolution,)
+    assert model2d.t.shape == (angular_resolution,)
+    assert model2d.r2d.shape == (
         resolution,
         angular_resolution,
     )
-    assert result.gravitational_potential_harmonics.shape == (
+
+    assert model2d.rho.shape == (resolution,)
+    assert model2d.p.shape == (resolution,)
+    assert model2d.phi_eff.shape == (resolution,)
+    assert model2d.phi_eff_z.shape == (resolution,)
+
+    for field in (
+        model2d.phi_g,
+        model2d.phi_g_z,
+        model2d.phi_c,
+        model2d.phi_c_z,
+        model2d.omega,
+    ):
+        assert field.shape == model2d.r2d.shape
+        assert np.isfinite(field).all()
+
+    phi_g_l = pl_project_2D(
+        model2d.phi_g,
+        max_degree,
+    )
+    assert phi_g_l.shape == (
         resolution,
         max_degree,
     )
-    assert result.cos_theta.shape == (
-        angular_resolution,
-    )
-    assert result.polar_radius_history.shape == (
-        result.iterations + 2,
-    )
 
-    assert np.isfinite(result.mapping).all()
-    assert np.isfinite(result.density).all()
-    assert np.isfinite(result.pressure).all()
-    assert np.isfinite(
-        result.gravitational_potential_harmonics
-    ).all()
+    assert np.isfinite(model2d.r2d).all()
+    assert np.isfinite(model2d.rho).all()
+    assert np.isfinite(model2d.p).all()
+    assert np.isfinite(model2d.phi_eff).all()
+    assert np.isfinite(model2d.phi_eff_z).all()
 
-    assert result.iterations >= 1
+    assert info.polar_radius_history.shape == (
+        info.iterations + 2,
+    )
+    assert info.iterations >= 1
+    assert info.error <= info.tolerance
     
     
 def test_radial_solver_rejects_multidomain_model():
@@ -123,7 +146,7 @@ def test_nonrotating_radial_model_remains_spherical():
         )
     )
 
-    result = solve_radial(
+    model2d, vacuum, info = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -143,13 +166,14 @@ def test_nonrotating_radial_model_remains_spherical():
         OutputOptions(),
     )
 
-    # Every material surface must have the same radius
-    # in all angular directions.
+    assert vacuum is None
+
+    # Every material surface has the same radius
+    # in all angular directions
     angular_spread = np.ptp(
-        result.mapping,
+        model2d.r2d,
         axis=1,
     )
-
     np.testing.assert_allclose(
         angular_spread,
         0.0,
@@ -157,64 +181,65 @@ def test_nonrotating_radial_model_remains_spherical():
         atol=1.0e-11,
     )
 
-    # That common radius must coincide with the original
-    # spherical material coordinate.
+    # The common radius coincides with the original
+    # spherical material coordinate
     radial_mapping = np.mean(
-        result.mapping,
+        model2d.r2d,
         axis=1,
     )
-
-    central = result.zeta < 0.1
+    central = model2d.zeta < 0.1
 
     # Outside the specially treated central region, the original
-    # spherical mapping should be recovered very accurately.
+    # spherical mapping is recovered very accurately
     np.testing.assert_allclose(
         radial_mapping[~central],
-        result.zeta[~central],
+        model2d.zeta[~central],
         rtol=1.0e-9,
         atol=1.0e-11,
     )
 
     # The central reciprocal interpolation introduces a small
-    # absolute error because Phi - Phi(0) scales as r**2.
+    # absolute error because Phi - Phi(0) scales as r**2
     assert np.max(
         np.abs(
             radial_mapping[central]
-            - result.zeta[central]
+            - model2d.zeta[central]
         )
     ) < 3.0e-6
 
-    # Only the monopole gravitational potential may remain.
+    # Only the monopole gravitational potential may remain
+    phi_g_l = pl_project_2D(
+        model2d.phi_g,
+        max_degree,
+    )
+
     monopole_scale = np.max(
-        np.abs(
-            result.gravitational_potential_harmonics[:, 0]
-        )
+        np.abs(phi_g_l[:, 0])
     )
     nonspherical_scale = np.max(
-        np.abs(
-            result.gravitational_potential_harmonics[:, 1:]
-        )
+        np.abs(phi_g_l[:, 1:])
     )
 
-    assert nonspherical_scale <= 1.0e-11 * monopole_scale
+    assert (
+        nonspherical_scale
+        <= 1.0e-11 * monopole_scale
+    )
 
-    # Req is normalised to unity by construction.
+    # Req is normalised to unity by construction
     np.testing.assert_allclose(
-        result.mapping[-1],
+        model2d.r2d[-1],
         np.ones(angular_resolution),
         rtol=0.0,
         atol=1.0e-10,
     )
-
     np.testing.assert_allclose(
-        result.polar_radius_history[-1],
+        info.polar_radius_history[-1],
         1.0,
         rtol=0.0,
         atol=1.0e-10,
     )
-
     np.testing.assert_allclose(
-        result.rotation_rate,
+        model2d.omega_eq,
         0.0,
         rtol=0.0,
         atol=0.0,
@@ -236,7 +261,7 @@ def test_uniform_rotation_produces_oblate_model():
         )
     )
 
-    result = solve_radial(
+    model2d, vacuum, info = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -247,7 +272,7 @@ def test_uniform_rotation_produces_oblate_model():
             max_degree=max_degree,
             angular_resolution=angular_resolution,
             full_rate=1,
-            mapping_precision=1.0e-10,
+            mapping_precision=mapping_precision,
             spline_order=3,
             lagrange_order=2,
             external_domain_res=21,
@@ -255,31 +280,33 @@ def test_uniform_rotation_produces_oblate_model():
         ),
         OutputOptions(),
     )
-    
+
+    assert vacuum is None
+
     equator = np.argmin(
-        np.abs(result.cos_theta)
+        np.abs(model2d.t)
     )
-    surface = result.mapping[-1]
+    surface = model2d.r2d[-1]
 
     # With an odd Gauss-Legendre resolution, cos(theta)=0
-    # is one of the angular nodes.
+    # is one of the angular nodes
     np.testing.assert_allclose(
-        result.cos_theta[equator],
+        model2d.t[equator],
         0.0,
         rtol=0.0,
         atol=1.0e-15,
     )
 
-    # The mapping must remain symmetric with respect to
-    # the equatorial plane.
+    # The mapping remains symmetric with respect to
+    # the equatorial plane
     np.testing.assert_allclose(
-        result.mapping,
-        result.mapping[:, ::-1],
+        model2d.r2d,
+        model2d.r2d[:, ::-1],
         rtol=0.0,
         atol=1.0e-14,
     )
 
-    # The equatorial radius is normalised to unity.
+    # The equatorial radius is normalised to unity
     np.testing.assert_allclose(
         surface[equator],
         1.0,
@@ -287,48 +314,42 @@ def test_uniform_rotation_produces_oblate_model():
         atol=1.0e-10,
     )
 
-    # Uniform rotation produces an oblate surface.
-    assert result.polar_radius_history[-1] < 1.0
+    # Uniform rotation produces an oblate surface
+    assert info.polar_radius_history[-1] < 1.0
     assert surface[equator] > surface[-1]
 
-    # Material surfaces must remain nested.
+    # Material surfaces remain nested
     radial_increments = np.diff(
-        result.mapping,
+        model2d.r2d,
         axis=0,
     )
-
     assert np.all(radial_increments > 0.0)
 
-    # The stopping criterion must be satisfied.
-    assert (
-        abs(
-            result.polar_radius_history[-1]
-            - result.polar_radius_history[-2]
-        )
-        <= mapping_precision
-    )
+    # The stopping criterion is satisfied
+    assert info.error <= mapping_precision
 
-    phi_l = (
-        result.gravitational_potential_harmonics
+    phi_g_l = pl_project_2D(
+        model2d.phi_g,
+        max_degree,
     )
 
     monopole_scale = np.max(
-        np.abs(phi_l[:, 0])
+        np.abs(phi_g_l[:, 0])
     )
     quadrupole_scale = np.max(
-        np.abs(phi_l[:, 2])
+        np.abs(phi_g_l[:, 2])
     )
     odd_scale = np.max(
-        np.abs(phi_l[:, 1::2])
+        np.abs(phi_g_l[:, 1::2])
     )
 
-    # Rotation generates a measurable quadrupole.
+    # Rotation generates a measurable quadrupole
     assert (
         quadrupole_scale
         > 1.0e-8 * monopole_scale
     )
 
-    # Equatorial symmetry suppresses odd harmonics.
+    # Equatorial symmetry suppresses odd harmonics
     assert (
         odd_scale
         <= 1.0e-14 * monopole_scale
@@ -386,7 +407,7 @@ def test_radial_solver_runs_virial_diagnostic(capsys):
         )
     )
 
-    result = solve_radial(
+    model2d, vacuum, info = solve_radial(
         model,
         RotationConfig(
             profile=solid,
@@ -412,5 +433,7 @@ def test_radial_solver_runs_virial_diagnostic(capsys):
 
     output = capsys.readouterr().out
 
-    assert isinstance(result, RadialResult)
+    assert isinstance(model2d, Model2D)
+    assert vacuum is None
+    assert isinstance(info, SolverInfo)
     assert "Virial theorem verified at" in output

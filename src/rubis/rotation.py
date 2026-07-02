@@ -30,12 +30,23 @@ class RotationState:
             self.omega_eq,
         )
         
+    def phi_c2d_with_derivative(self, r2d, t):
+        """
+        Evaluate the centrifugal potential and its radial derivative
+        on a two-dimensional mapping.
+        """
+        return np.moveaxis(
+            np.array([
+                self.phi_c(r_j, t_j)
+                for r_j, t_j in zip(r2d.T, t)
+            ]),
+            (0, 1, 2),
+            (2, 0, 1),
+        )
+
     def phi_c2d(self, r2d, t):
         """Evaluate the centrifugal potential on a two-dimensional mapping."""
-        return np.array([
-            self.phi_c(r_j, t_j)[0]
-            for r_j, t_j in zip(r2d.T, t)
-        ]).T
+        return self.phi_c2d_with_derivative(r2d, t)[0]
 
     def omega(self, r, t):
         """Evaluate the angular-velocity profile."""

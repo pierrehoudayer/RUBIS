@@ -26,7 +26,10 @@ from ..numerical         import (
     interpolate_func, 
     lagrange_matrix_P,
 )
-from ..models            import Model1D
+from ..models            import (
+    Model1D,
+    Model2D,
+)
 from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
@@ -39,7 +42,7 @@ from ..rotation          import (
     initialize_rotation_state,
 )
 from .convergence        import ConvergenceTracker
-from ..results           import RadialResult
+from ..results           import SolverInfo
 from ..diagnostics       import (
     compute_gravitational_moments,
     compute_virial_balance,
@@ -218,7 +221,7 @@ def solve_gravitational_potential(
     # Density distribution harmonics
     rho_l    = compute_density_harmonics(r2d, rho, num)
     phi_g_l  = np.zeros((I, L))
-    dphi_g_l = np.zeros((I, L))
+    phi_g_r_l = np.zeros((I, L))
     
     # Vector filling (vectorial)
     b_l = np.zeros((2*I, (L + 1) // 2))
@@ -246,24 +249,64 @@ def solve_gravitational_potential(
         
     # Poisson's equation solution
     phi_g_l[:, ::2]  = x[1::2]
-    dphi_g_l[:, ::2] = x[0::2] * (2*r1d)  # <- The equation is solved on r^2
+    phi_g_r_l[:, ::2] = x[0::2] * (2*r1d)  # <- The equation is solved on r^2
     
     if phi_eff is None :
         # First estimate of the effective potential and its derivative
         phi_eff  = pl_eval_2D( phi_g_l, 0.0)
-        dphi_eff = pl_eval_2D(dphi_g_l, 0.0)        
-        return phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors
+        phi_eff_r = pl_eval_2D(phi_g_r_l, 0.0)        
+        return phi_g_l, phi_g_r_l, phi_eff, phi_eff_r, poisson_factors
     
     # The effective potential is known up to an additive constant 
     phi_offset = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
     phi_eff += phi_offset
     
-    return phi_g_l, dphi_g_l, phi_eff
+    return phi_g_l, phi_g_r_l, phi_eff
+
+
+def evaluate_gravitational_fields(
+    r2d,
+    phi_g_l,
+    phi_g_r_l,
+    num: RadialNumerics,
+):
+    """
+    Evaluate the spherical Poisson solution on the material mapping.
+
+    Harmonic fields are first evaluated on the fixed spherical grid and
+    then interpolated radially onto r2d(zeta, t).
+    """
+    t = num.t
+    r = num.r1d
+
+    phi_g_grid = pl_eval_2D(phi_g_l, t)
+    phi_g_r_grid = pl_eval_2D(phi_g_r_l, t)
+
+    splines = [
+        CubicHermiteSpline(
+            x=r,
+            y=phi_g_grid[:, j],
+            dydx=phi_g_r_grid[:, j],
+        )
+        for j in range(t.size)
+    ]
+
+    phi_g = np.array([
+        spline(r2d[:, j])
+        for j, spline in enumerate(splines)
+    ]).T
+
+    phi_g_r = np.array([
+        spline(r2d[:, j], nu=1)
+        for j, spline in enumerate(splines)
+    ]).T
+
+    return phi_g, phi_g_r
 
 
 def update_mapping(
     phi_g_l,
-    dphi_g_l,
+    phi_g_r_l,
     phi_eff,
     num: RadialNumerics,
     rot: RotationState,
@@ -287,41 +330,43 @@ def update_mapping(
     j_dw = np.arange(j_eq + 1)
 
     # Interior gravitational potential
-    phi2D_g_int  = pl_eval_2D( phi_g_l, t[j_dw])
-    dphi2D_g_int = pl_eval_2D(dphi_g_l, t[j_dw])
+    phi_g_int   = pl_eval_2D(phi_g_l,   t[j_dw])
+    phi_g_r_int = pl_eval_2D(phi_g_r_l, t[j_dw])
 
     # Exterior gravitational potential
     l = np.arange(L)
     outside = 1.3
     r_ext = np.linspace(1.0, outside, 101)[1:]
 
-    phi_g_l_ext = phi_g_l[-1] * r_ext[:, None] ** -(l + 1)
-    dphi_g_l_ext = -(l + 1) * phi_g_l_ext / r_ext[:, None]
+    phi_g_l_ext  = phi_g_l[-1] * r_ext[:, None] ** -(l + 1)
+    phi_g_r_l_ext = -(l + 1) * phi_g_l_ext / r_ext[:, None]
 
-    phi2D_g_ext  = pl_eval_2D( phi_g_l_ext, t[j_dw])
-    dphi2D_g_ext = pl_eval_2D(dphi_g_l_ext, t[j_dw])
+    phi_g_ext   = pl_eval_2D(phi_g_l_ext,   t[j_dw])
+    phi_g_r_ext = pl_eval_2D(phi_g_r_l_ext, t[j_dw])
 
     # Full radial domain
     r_tot = np.hstack((r, r_ext))
-    phi2D_g  = np.vstack(( phi2D_g_int,  phi2D_g_ext))
-    dphi2D_g = np.vstack((dphi2D_g_int, dphi2D_g_ext))
+    phi_g   = np.vstack((phi_g_int, phi_g_ext))
+    phi_g_r = np.vstack((phi_g_r_int, phi_g_r_ext))
 
     # Find a rotation rate consistent with the equatorial radius
     safe = r_tot > 0.0
     r_safe = r_tot[safe]
 
-    phi1D_c, dphi1D_c = rot.phi_c(r_safe, 0.0) / r_safe**3
-    dphi1D_c -= 3.0 * phi1D_c / r_safe
+    phi_g_eq = phi_g[safe, j_eq]
+    phi_g_eq_r = phi_g_r[safe, j_eq]
+    phi_c_eq, phi_c_eq_r = rot.phi_c(r_safe, 0.0) / r_safe**3
+    phi_c_eq_r -= 3.0 * phi_c_eq / r_safe
 
-    phi1D  =  phi2D_g[safe, j_eq] + phi1D_c
-    dphi1D = dphi2D_g[safe, j_eq] + dphi1D_c
+    phi_eq   = phi_g_eq   + phi_c_eq
+    phi_eq_r = phi_g_eq_r + phi_c_eq_r
 
-    r_est = CubicHermiteSpline(x=phi1D, y=r_safe, dydx=dphi1D**-1)(phi_eff[-1])
-    omega_eq_new = rot.omega_eq * r_est**-1.5
+    r_eq_new = CubicHermiteSpline(x=phi_eq, y=r_safe, dydx=phi_eq_r**-1)(phi_eff[-1])
+    omega_eq_new = rot.omega_eq * r_eq_new**-1.5
     rot_new = rot.with_omega_eq(omega_eq_new)
 
     # Centrifugal potential
-    phi2D_c, dphi2D_c = np.moveaxis(
+    phi_c, phi_c_r = np.moveaxis(
         np.array([
             rot_new.phi_c(r_tot, t_j)
             for t_j in t[j_dw]
@@ -331,10 +376,10 @@ def update_mapping(
     )
 
     # Total potential
-    phi2D  =  phi2D_g + phi2D_c
-    dphi2D = dphi2D_g + dphi2D_c
+    phi   = phi_g   + phi_c
+    phi_r = phi_g_r + phi_c_r
 
-    valid = valid_reciprocal_domain(r_tot, dphi2D)
+    valid = valid_reciprocal_domain(r_tot, phi_r)
 
     # Refined central domain
     lim = 1.0e-1
@@ -342,31 +387,31 @@ def update_mapping(
 
     r_cnt = lim * np.linspace(0.0, 1.0, 5 * lim_idx) ** 2
 
-    phi2D_g_cnt = np.array([
+    phi_g_cnt = np.array([
         CubicHermiteSpline(
             x=r,
-            y=phi2D_g_int[:, j],
-            dydx=dphi2D_g_int[:, j],
+            y=phi_g_int[:, j],
+            dydx=phi_g_r_int[:, j],
         )(r_cnt)
         for j in j_dw
     ]).T
 
-    phi2D_c_cnt = np.array([
+    phi_c_cnt = np.array([
         rot_new.phi_c(r_cnt, t_j)[0]
         for t_j in t[j_dw]
     ]).T
 
-    phi2D_cnt = phi2D_g_cnt + phi2D_c_cnt
+    phi_cnt = phi_g_cnt + phi_c_cnt
 
     # Estimate the radius at each target equipotential
     r2d_dw_origin = np.zeros_like(j_dw)
     r2d_dw_center = np.array([
         interpolate_func(x=pk, y=r_cnt, k=k)(phi_eff[1:lim_idx])
-        for pk in phi2D_cnt.T
+        for pk in phi_cnt.T
     ]).T
     r2d_dw_envelope = np.array([
         interpolate_func(x=pk[vk], y=r_tot[vk], k=k)(phi_eff[lim_idx:])
-        for pk, vk in zip(phi2D.T, valid.T)
+        for pk, vk in zip(phi.T, valid.T)
     ]).T
     r2d_dw = np.vstack((
         r2d_dw_origin,
@@ -385,7 +430,7 @@ def solve_radial(
     rotation_config: RotationConfig,
     solver_options: SolverOptions,
     output_options: OutputOptions,
-) -> RadialResult:
+) -> tuple[Model2D, None, SolverInfo]:
     """
     Compute the rotational deformation using a spherical Poisson grid.
 
@@ -430,13 +475,13 @@ def solve_radial(
     max_iterations = solver_options.max_iterations
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff, poisson_factors = solve_gravitational_potential(r2d, rho, num)
+    phi_g_l, phi_g_r_l, phi_eff, phi_eff_r, poisson_factors = solve_gravitational_potential(r2d, rho, num)
     
     # Find pressure
     p = integrate_pressure(
         zeta,
         rho,
-        dphi_eff,
+        phi_eff_r,
         surface_pressure,
         spline_order=num.spline_order,
     )
@@ -463,7 +508,7 @@ def solve_radial(
         rot = rot.with_omega_eq(min(rotation_target, rotation_cap))
 
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = (
+        phi_g_l, phi_g_r_l, phi_eff = (
             solve_gravitational_potential(
                 r2d,
                 rho,
@@ -476,7 +521,7 @@ def solve_radial(
         # Find a new estimate for the mapping
         r2d, rot = update_mapping(
             phi_g_l,
-            dphi_g_l,
+            phi_g_r_l,
             phi_eff,
             num,
             rot,
@@ -489,11 +534,10 @@ def solve_radial(
         radius *= r_corr
         mass   *= m_corr
 
-        r2d      /= r_corr
-        rho      /= m_corr    / r_corr**3
-        phi_eff  /= m_corr    / r_corr
-        dphi_eff /= m_corr    / r_corr**2
-        p        /= m_corr**2 / r_corr**4
+        r2d       /= r_corr
+        rho       /= m_corr    / r_corr**3
+        phi_eff   /= m_corr    / r_corr
+        p         /= m_corr**2 / r_corr**4
 
         # Update convergence
         conv.update(find_r_pol(r2d, L))
@@ -512,37 +556,93 @@ def solve_radial(
     )
     print(f'Time taken: {round(finish-start, 2)} secs')  
     
-    
-    # Store the normalised solver state before any output
-    # operation can modify the arrays in place
-    result = RadialResult(
-        zeta=zeta.copy(),
-        radial_grid=r1d.copy(),
-        cos_theta=t.copy(),
-        mapping=r2d.copy(),
-
-        density=rho.copy(),
-        pressure=p.copy(),
-
-        effective_potential=phi_eff.copy(),
-        effective_potential_derivative=dphi_eff.copy(),
-
-        gravitational_potential_harmonics=phi_g_l.copy(),
-        gravitational_potential_derivative_harmonics=dphi_g_l.copy(),
-
-        mass=mass,
-        radius=radius,
-
-        rotation_target=rotation_target,
-        rotation_rate=rot.omega_eq,
-        
-        polar_radius_history=np.asarray(conv.history),
-        iterations=conv.iterations,
+    # Compute final 2D potentials
+    der = compute_mapping_derivatives(
+        r2d,
+        zeta,
+        t,
+        max_degree=L,
+        spline_order=spl_order,
+        domain_ranges=(slice(None),),
     )
 
-    # Gravitational-potential harmonics
-    if output_options.plot.show_harmonics : 
-        phi_g_harmonics(zeta, phi_g_l, radial=True)
+    phi_g, phi_g_r = evaluate_gravitational_fields(
+        r2d,
+        phi_g_l,
+        phi_g_r_l,
+        num,
+    )
+    phi_g_z = phi_g_r * der.r_z
+
+    phi_c, phi_c_r = rot.phi_c2d_with_derivative(
+        r2d,
+        t,
+    )
+    phi_c_z = phi_c_r * der.r_z
+
+    phi_eff_z = interpolate_func(
+        zeta,
+        phi_eff,
+        der=1,
+        k=spl_order,
+    )(zeta)
+
+    omega = rot.omega2d(r2d, t)
+    
+    # 2D Model
+    model2d = Model2D(
+        G=G,
+        surface_pressure=float(p[-1]),
+        mass=mass,
+        radius=radius,
+        omega_eq=rot.omega_eq,
+
+        zeta=zeta.copy(),
+        t=t.copy(),
+        r2d=r2d.copy(),
+
+        rho=rho.copy(),
+        p=p.copy(),
+        additional_variables=tuple(
+            var.copy() for var in additional_variables
+        ),
+
+        phi_eff=phi_eff.copy(),
+        phi_eff_z=phi_eff_z.copy(),
+
+        phi_g=phi_g.copy(),
+        phi_g_z=phi_g_z.copy(),
+
+        phi_c=phi_c.copy(),
+        phi_c_z=phi_c_z.copy(),
+
+        omega=omega.copy(),
+        domains=model.domains,
+    )
+
+    # Solver info
+    info = SolverInfo(
+        method="radial",
+        iterations=conv.iterations,
+        tolerance=conv.tolerance,
+        error=conv.error,
+        polar_radius_history=np.asarray(
+            conv.history,
+        ),
+        rotation_target=rotation_target,
+        elapsed_time=finish - start,
+    )
+    
+    # Gravitational moments
+    if output_options.diagnostics.gravitational_moments:
+        moments = compute_gravitational_moments(
+            r2d,
+            rho,
+            num.t,
+            spline_order=num.spline_order,
+        )
+
+        report_gravitational_moments(moments)
     
     # Virial test
     if output_options.diagnostics.virial_test:
@@ -552,11 +652,11 @@ def solve_radial(
         )
 
         balance = compute_virial_balance(
-            r2d,
-            rho,
-            p,
-            phi_g2d,
-            num.t,
+            model2d.r2d,
+            model2d.rho,
+            model2d.p,
+            model2d.phi_g,
+            model2d.t,
             rot,
             spline_order=num.spline_order,
         )
@@ -565,6 +665,10 @@ def solve_radial(
             balance,
             verbose=True,
         )
+        
+    # Gravitational-potential harmonics
+    if output_options.plot.show_harmonics : 
+        phi_g_harmonics(zeta, phi_g_l, radial=True)
     
     # Plot model
     if output_options.plot.show_model :
@@ -598,17 +702,6 @@ def solve_radial(
                 ),
             )
     
-    # Gravitational moments
-    if output_options.diagnostics.gravitational_moments:
-        moments = compute_gravitational_moments(
-            r2d,
-            rho,
-            num.t,
-            spline_order=num.spline_order,
-        )
-
-        report_gravitational_moments(moments)
-    
     # Model writing
     if output_options.model.save:
         j_eq = (num.angular_resolution - 1) // 2
@@ -630,7 +723,7 @@ def solve_radial(
             dimensional=output_options.model.dimensional,
         )
         
-    return result
+    return model2d, None, info
 
     
 #----------------------------------------------------------------#

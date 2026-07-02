@@ -6,7 +6,7 @@ from .config import (
 )
 from .initialization import initialize_model_1d
 from .models import Model1D
-from .results import DeformationResult
+from .results import SolverOutput
 from .solvers import solve_radial, solve_spheroidal
 
 
@@ -35,7 +35,9 @@ def _select_method(
     )
 
 
-def deform(config: DeformationConfig) -> DeformationResult:
+def deform(
+    config: DeformationConfig,
+) -> SolverOutput:
     """Compute the centrifugal deformation specified by config."""
     model = initialize_model_1d(config.model)
 

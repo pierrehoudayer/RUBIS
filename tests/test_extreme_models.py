@@ -9,9 +9,7 @@ from rubis.config import (
     RotationConfig, 
     SolverOptions,
 )
-from rubis.initialization import initialize_model_1d
 from rubis.rotation_profiles import lorentzian, solid
-from rubis.solvers import solve_radial, solve_spheroidal
 from rubis.api import deform
 
 @pytest.mark.slow
@@ -27,7 +25,7 @@ def test_readme_near_critical_n3_model_converges():
         n_points=1001,
     )
 
-    result = deform(
+    model2d, vacuum, info = deform(
         DeformationConfig(
             model=model,
             rotation=RotationConfig(
@@ -50,59 +48,56 @@ def test_readme_near_critical_n3_model_converges():
         )
     )
 
-    assert result.iterations < 150
+    assert vacuum is None
+    assert info.iterations < 150
 
-    assert np.isfinite(result.mapping).all()
-    assert np.isfinite(result.gravitational_potential_harmonics).all()
+    assert np.isfinite(model2d.r2d).all()
+    assert np.isfinite(model2d.phi_g).all()
+    assert np.isfinite(model2d.phi_g_z).all()
 
-    # Equatorial symmetry.
+    # Equatorial symmetry
     np.testing.assert_allclose(
-        result.mapping,
-        result.mapping[:, ::-1],
+        model2d.r2d,
+        model2d.r2d[:, ::-1],
         rtol=0.0,
         atol=1.0e-12,
     )
 
     equator = np.argmin(
-        np.abs(result.cos_theta)
+        np.abs(model2d.t)
     )
 
     np.testing.assert_allclose(
-        result.cos_theta[equator],
+        model2d.t[equator],
         0.0,
         rtol=0.0,
         atol=1.0e-15,
     )
+
     np.testing.assert_allclose(
-        result.mapping[-1, equator],
+        model2d.r2d[-1, equator],
         1.0,
         rtol=0.0,
         atol=1.0e-10,
     )
 
     polar_radius = (
-        result.polar_radius_history[-1]
+        info.polar_radius_history[-1]
     )
 
-    # Broad physical bounds rather than a stored reference.
+    # Broad physical bounds rather than a stored reference
     assert 0.60 < polar_radius < 0.75
 
-    # Material surfaces remain nested.
+    # Material surfaces remain nested
     assert np.min(
-        np.diff(result.mapping, axis=0)
+        np.diff(model2d.r2d, axis=0)
     ) >= -1.0e-11
 
-    # The actual historical stopping criterion is met.
-    assert (
-        abs(
-            result.polar_radius_history[-1]
-            - result.polar_radius_history[-2]
-        )
-        <= mapping_precision
-    )
+    # The actual historical stopping criterion is met
+    assert info.error <= mapping_precision
 
     np.testing.assert_allclose(
-        result.rotation_rate,
+        model2d.omega_eq,
         rotation_target,
         rtol=1.0e-8,
         atol=1.0e-10,
@@ -122,7 +117,7 @@ def test_readme_super_keplerian_n05_model_converges():
         n_points=3001,
     )
 
-    result = deform(
+    model2d, vacuum, info = deform(
         DeformationConfig(
             model=model,
             rotation=RotationConfig(
@@ -145,71 +140,65 @@ def test_readme_super_keplerian_n05_model_converges():
         )
     )
 
-    assert result.iterations < 150
+    assert vacuum is None
+    assert info.iterations < 150
 
-    assert np.isfinite(result.mapping).all()
-    assert np.isfinite(result.density).all()
-    assert np.isfinite(result.pressure).all()
-    assert np.isfinite(
-        result.gravitational_potential_harmonics
-    ).all()
+    assert np.isfinite(model2d.r2d).all()
+    assert np.isfinite(model2d.rho).all()
+    assert np.isfinite(model2d.p).all()
+    assert np.isfinite(model2d.phi_g).all()
+    assert np.isfinite(model2d.phi_g_z).all()
 
-    # Equatorial symmetry.
+    # Equatorial symmetry
     np.testing.assert_allclose(
-        result.mapping,
-        result.mapping[:, ::-1],
+        model2d.r2d,
+        model2d.r2d[:, ::-1],
         rtol=0.0,
         atol=1.0e-12,
     )
 
     equator = np.argmin(
-        np.abs(result.cos_theta)
+        np.abs(model2d.t)
     )
 
     np.testing.assert_allclose(
-        result.cos_theta[equator],
+        model2d.t[equator],
         0.0,
         rtol=0.0,
         atol=1.0e-15,
     )
 
-    # The equatorial radius remains the normalisation radius.
+    # The equatorial radius remains the normalisation radius
     np.testing.assert_allclose(
-        result.mapping[-1, equator],
+        model2d.r2d[-1, equator],
         1.0,
         rtol=0.0,
         atol=1.0e-10,
     )
 
     polar_radius = (
-        result.polar_radius_history[-1]
+        info.polar_radius_history[-1]
     )
 
     # This model must be considerably more deformed than
-    # the near-critical n=3 model.
+    # the near-critical n=3 model
     assert 0.43 < polar_radius < 0.46
 
-    # The model remains geometrically admissible.
+    # The model remains geometrically admissible
     radial_increments = np.diff(
-        result.mapping,
+        model2d.r2d,
         axis=0,
     )
 
     assert radial_increments.min() >= -1.0e-10
 
-    # The historical stopping criterion is satisfied.
-    assert (
-        abs(
-            result.polar_radius_history[-1]
-            - result.polar_radius_history[-2]
-        )
-        <= mapping_precision
-    )
+    # The historical stopping criterion is satisfied
+    assert info.error <= mapping_precision
 
     # The adaptive rate must have reached the requested
-    # super-Keplerian value.
+    # super-Keplerian value
     np.testing.assert_allclose(
-        result.rotation_rate,
+        model2d.omega_eq,
         rotation_target,
         rtol=1.0e-8,
         atol=1.0e-10,
@@ -230,7 +219,7 @@ def test_readme_extreme_lorentzian_model_converges():
         n_points=1001,
     )
 
-    result = deform(
+    model2d, vacuum, info = deform(
         DeformationConfig(
             model=model,
             rotation=RotationConfig(
@@ -254,67 +243,63 @@ def test_readme_extreme_lorentzian_model_converges():
         )
     )
 
-    assert result.iterations < 150
+    assert vacuum is None
+    assert info.iterations < 150
 
-    assert np.isfinite(result.mapping).all()
-    assert np.isfinite(result.density).all()
-    assert np.isfinite(result.pressure).all()
-    assert np.isfinite(
-        result.gravitational_potential_harmonics
-    ).all()
+    assert np.isfinite(model2d.r2d).all()
+    assert np.isfinite(model2d.rho).all()
+    assert np.isfinite(model2d.p).all()
+    assert np.isfinite(model2d.phi_g).all()
+    assert np.isfinite(model2d.phi_g_z).all()
+    assert np.isfinite(model2d.omega).all()
 
-    # Equatorial symmetry.
+    # Equatorial symmetry
     np.testing.assert_allclose(
-        result.mapping,
-        result.mapping[:, ::-1],
+        model2d.r2d,
+        model2d.r2d[:, ::-1],
         rtol=0.0,
         atol=1.0e-12,
     )
 
     equator = np.argmin(
-        np.abs(result.cos_theta)
+        np.abs(model2d.t)
     )
 
     np.testing.assert_allclose(
-        result.cos_theta[equator],
+        model2d.t[equator],
         0.0,
         rtol=0.0,
         atol=1.0e-15,
     )
+
     np.testing.assert_allclose(
-        result.mapping[-1, equator],
+        model2d.r2d[-1, equator],
         1.0,
         rtol=0.0,
         atol=1.0e-10,
     )
 
     polar_radius = (
-        result.polar_radius_history[-1]
+        info.polar_radius_history[-1]
     )
 
-    # Broad acceptance interval around the documented model.
+    # Broad acceptance interval around the documented model
     assert 0.24 < polar_radius < 0.28
 
-    # Material surfaces remain nested.
+    # Material surfaces remain nested
     radial_increments = np.diff(
-        result.mapping,
+        model2d.r2d,
         axis=0,
     )
 
     assert radial_increments.min() >= -1.0e-10
 
-    # The historical stopping criterion is satisfied.
-    assert (
-        abs(
-            result.polar_radius_history[-1]
-            - result.polar_radius_history[-2]
-        )
-        <= mapping_precision
-    )
+    # The historical stopping criterion is satisfied
+    assert info.error <= mapping_precision
 
-    # The adaptive equatorial rate reaches the requested value.
+    # The adaptive equatorial rate reaches the requested value
     np.testing.assert_allclose(
-        result.rotation_rate,
+        model2d.omega_eq,
         rotation_target,
         rtol=1.0e-8,
         atol=1.0e-10,
@@ -331,7 +316,7 @@ def test_readme_jupiter_model_converges():
         filename="Jupiter.txt",
     )
     
-    result = deform(
+    model2d, vacuum, info = deform(
         DeformationConfig(
             model=model,
             rotation=RotationConfig(
@@ -354,58 +339,69 @@ def test_readme_jupiter_model_converges():
         )
     )
 
-    assert result.iterations < 100
+    assert vacuum is not None
+    assert info.iterations < 100
 
-    assert np.isfinite(result.mapping).all()
-    assert np.isfinite(result.full_mapping).all()
-    assert np.isfinite(result.density).all()
-    assert np.isfinite(result.pressure).all()
-    assert np.isfinite(
-        result.gravitational_potential_harmonics
-    ).all()
+    full_mapping = np.vstack((
+        model2d.r2d,
+        vacuum.r2d,
+    ))
+
+    assert np.isfinite(model2d.r2d).all()
+    assert np.isfinite(vacuum.r2d).all()
+    assert np.isfinite(full_mapping).all()
+
+    assert np.isfinite(model2d.rho).all()
+    assert np.isfinite(model2d.p).all()
+
+    assert np.isfinite(model2d.phi_g).all()
+    assert np.isfinite(model2d.phi_g_z).all()
+    assert np.isfinite(vacuum.phi_g).all()
+    assert np.isfinite(vacuum.phi_g_z).all()
 
     equator = np.argmin(
-        np.abs(result.cos_theta)
+        np.abs(model2d.t)
     )
 
     np.testing.assert_allclose(
-        result.cos_theta[equator],
+        model2d.t[equator],
         0.0,
         rtol=0.0,
         atol=1.0e-15,
     )
 
-    # Equatorial symmetry.
+    # Equatorial symmetry
     np.testing.assert_allclose(
-        result.mapping,
-        result.mapping[:, ::-1],
-        rtol=0.0,
-        atol=1.0e-12,
-    )
-    np.testing.assert_allclose(
-        result.full_mapping,
-        result.full_mapping[:, ::-1],
+        model2d.r2d,
+        model2d.r2d[:, ::-1],
         rtol=0.0,
         atol=1.0e-12,
     )
 
-    # Equatorial normalisation and strong oblateness.
     np.testing.assert_allclose(
-        result.mapping[-1, equator],
+        full_mapping,
+        full_mapping[:, ::-1],
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+
+    # Equatorial normalisation and strong oblateness
+    np.testing.assert_allclose(
+        model2d.r2d[-1, equator],
         1.0,
         rtol=0.0,
         atol=1.0e-10,
     )
 
     polar_radius = (
-        result.polar_radius_history[-1]
+        info.polar_radius_history[-1]
     )
 
     assert 0.60 < polar_radius < 0.63
 
-    # Jupiter.txt contains two duplicated material interfaces.
+    # Jupiter.txt contains two duplicated material interfaces
     duplicated = np.flatnonzero(
-        np.diff(result.internal_zeta) == 0.0
+        np.diff(model2d.zeta) == 0.0
     )
 
     assert duplicated.size == 2
@@ -413,59 +409,53 @@ def test_readme_jupiter_model_converges():
     for lower in duplicated:
         upper = lower + 1
 
-        # Both sides occupy the same geometrical interface.
+        # Both sides occupy the same geometrical interface
         np.testing.assert_allclose(
-            result.mapping[lower],
-            result.mapping[upper],
+            model2d.r2d[lower],
+            model2d.r2d[upper],
             rtol=0.0,
             atol=1.0e-11,
         )
 
-        # Pressure remains continuous.
+        # Pressure remains continuous
         np.testing.assert_allclose(
-            result.pressure[lower],
-            result.pressure[upper],
+            model2d.p[lower],
+            model2d.p[upper],
             rtol=1.0e-9,
             atol=1.0e-13,
         )
 
-        # The interface represents a genuine density jump.
+        # The interface represents a genuine density jump
         assert not np.isclose(
-            result.density[lower],
-            result.density[upper],
+            model2d.rho[lower],
+            model2d.rho[upper],
             rtol=1.0e-3,
             atol=0.0,
         )
 
     # Surfaces remain ordered; zero increments are legitimate
-    # at duplicated interfaces.
+    # at duplicated interfaces
     radial_increments = np.diff(
-        result.mapping,
+        model2d.r2d,
         axis=0,
     )
 
     assert radial_increments.min() >= -1.0e-10
 
     # The numerical vacuum domain returns to a spherical
-    # outer boundary at r = 2.
+    # outer boundary at r = 2
     np.testing.assert_allclose(
-        result.full_mapping[-1],
+        vacuum.r2d[-1],
         2.0,
         rtol=0.0,
         atol=1.0e-12,
     )
 
-    # The historical convergence criterion is met.
-    assert (
-        abs(
-            result.polar_radius_history[-1]
-            - result.polar_radius_history[-2]
-        )
-        <= mapping_precision
-    )
+    # The historical convergence criterion is met
+    assert info.error <= mapping_precision
 
     np.testing.assert_allclose(
-        result.rotation_rate,
+        model2d.omega_eq,
         rotation_target,
         rtol=1.0e-8,
         atol=1.0e-10,

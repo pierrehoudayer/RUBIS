@@ -25,7 +25,11 @@ from ..config import (
     RotationConfig, 
     SolverOptions,
 )
-from ..models            import Model1D
+from ..models            import (
+    Model1D,
+    Model2D,
+    VacuumModel2D,
+)
 from ..domains           import (
     DomainLayout,
     find_domains,
@@ -43,7 +47,7 @@ from ..rotation          import (
     initialize_rotation_state,
 )
 from .convergence        import ConvergenceTracker
-from ..results           import SpheroidalResult
+from ..results           import SolverInfo
 from ..diagnostics       import (
     compute_gravitational_moments,
     compute_virial_balance,
@@ -416,35 +420,35 @@ def solve_gravitational_potential(
     x *= col_scale
 
     # Recover the even Legendre harmonics
-    phi_g_l  = np.zeros((I, L))
-    dphi_g_l = np.zeros((I, L))
+    phi_g_l   = np.zeros((I, L))
+    phi_g_z_l = np.zeros((I, L))
 
-    phi_g_l[:, ::2]  = x[1::2].reshape(I, L_even)
-    dphi_g_l[:, ::2] = x[0::2].reshape(I, L_even)
+    phi_g_l[:, ::2]   = x[1::2].reshape(I, L_even)
+    phi_g_z_l[:, ::2] = x[0::2].reshape(I, L_even)
 
     if phi_eff is None:
-        phi_eff  = pl_eval_2D( phi_g_l, 0.0)
-        dphi_eff = pl_eval_2D(dphi_g_l, 0.0)
+        phi_eff   = pl_eval_2D( phi_g_l, 0.0)
+        phi_eff_z = pl_eval_2D(phi_g_z_l, 0.0)
 
         return (
             phi_g_l,
-            dphi_g_l,
+            phi_g_z_l,
             phi_eff,
-            dphi_eff,
+            phi_eff_z,
         )
 
     phi_offset = pl_eval_2D(phi_g_l[0], 0.0) - phi_eff[0]
     phi_eff += phi_offset
 
-    return phi_g_l, dphi_g_l, phi_eff
+    return phi_g_l, phi_g_z_l, phi_eff
 
 
 def update_mapping(
     r2d,
     phi_g_l,
-    dphi_g_l,
+    phi_g_z_l,
     phi_eff,
-    dphi_eff,
+    phi_eff_z,
     num: SpheroidalNumerics,
     rot: RotationState,
 ):
@@ -482,29 +486,31 @@ def update_mapping(
     j_eq = (J - 1) // 2
     j_dw = np.arange(j_eq + 1)
 
-    phi2D_g = pl_eval_2D(phi_g_l, t[j_dw])
-    dphi2D_g_dz = pl_eval_2D(dphi_g_l, t[j_dw])
-    dphi2D_g = dphi2D_g_dz / der_ext.r_z[:, j_dw]
+    phi_g   = pl_eval_2D(phi_g_l,   t[j_dw])
+    phi_g_z = pl_eval_2D(phi_g_z_l, t[j_dw])
+    phi_g_r = phi_g_z / der_ext.r_z[:, j_dw]
 
     # Correct the equatorial rotation rate
     safe = zeta > 0.5
     r_safe = r2d_ext[safe, j_eq]
 
-    phi1D_c, dphi1D_c = rot.phi_c(r_safe, 0.0) / r_safe**3
-    dphi1D_c -= 3.0 * phi1D_c / r_safe
+    phi_g_eq = phi_g[safe, j_eq]
+    phi_g_eq_r = phi_g_r[safe, j_eq]
+    phi_c_eq, phi_c_eq_r = rot.phi_c(r_safe, 0.0) / r_safe**3
+    phi_c_eq_r -= 3.0 * phi_c_eq / r_safe
 
-    phi1D = phi2D_g[safe, j_eq] + phi1D_c
-    dphi1D = dphi2D_g[safe, j_eq] + dphi1D_c
+    phi_eq   = phi_g_eq   + phi_c_eq
+    phi_eq_r = phi_g_eq_r + phi_c_eq_r
 
     unique_r = find_domains(r_safe).unique_indices
-    r_est = CubicHermiteSpline(
-        x=phi1D[unique_r],
+    r_eq_new = CubicHermiteSpline(
+        x=phi_eq[unique_r],
         y=r_safe[unique_r],
-        dydx=dphi1D[unique_r]**-1,
+        dydx=phi_eq_r[unique_r]**-1,
     )(targets[-1])
 
     rot_new = rot.with_omega_eq(
-        rot.omega_eq * r_est**-1.5
+        rot.omega_eq * r_eq_new**-1.5
     )
 
     # Build an adaptive coordinate for reciprocal interpolation
@@ -512,7 +518,7 @@ def update_mapping(
 
     d2phi_eff = np.hstack((
         0.0,
-        np.abs(np.diff(dphi_eff[domains.unique_indices])),
+        np.abs(np.diff(phi_eff_z[domains.unique_indices])),
     ))
 
     zeta_new = interpolate_func(
@@ -539,20 +545,20 @@ def update_mapping(
     phi_splines = [
         CubicHermiteSpline(
             x=zeta[domains.unique_indices],
-            y=phi2D_g[domains.unique_indices, j],
-            dydx=dphi2D_g_dz[domains.unique_indices, j],
+            y=phi_g[domains.unique_indices, j],
+            dydx=phi_g_z[domains.unique_indices, j],
         )
         for j in j_dw
     ]
 
-    r_ipl, dr_ipl = [
+    r_itp, dr_itp = [
         np.array([
             spline(zeta_new, nu=nu)
             for spline in r_splines
         ]).T
         for nu in (0, 1)
     ]
-    phi_g_ipl, dphi_g_ipl = [
+    phi_g_itp, dphi_g_itp = [
         np.array([
             spline(zeta_new, nu=nu)
             for spline in phi_splines
@@ -560,20 +566,20 @@ def update_mapping(
         for nu in (0, 1)
     ]
 
-    phi_c_ipl, dphi_c_ipl = np.moveaxis(
+    phi_c_itp, dphi_c_itp = np.moveaxis(
         np.array([
             rot_new.phi_c(r_j, t_j)
-            for r_j, t_j in zip(r_ipl.T, t[j_dw])
+            for r_j, t_j in zip(r_itp.T, t[j_dw])
         ]),
         0,
         2,
     )
 
-    phi_ipl  =  phi_g_ipl +  phi_c_ipl
-    dphi_ipl = dphi_c_ipl + dphi_g_ipl / dr_ipl
+    phi_itp  =  phi_g_itp +  phi_c_itp
+    dphi_itp = dphi_c_itp + dphi_g_itp / dr_itp
 
     # Invert the total potential at the target values
-    valid = valid_reciprocal_domain(zeta_new, dphi_ipl)
+    valid = valid_reciprocal_domain(zeta_new, dphi_itp)
 
     r2d_dw = np.zeros_like(r2d[:, j_dw])
     r2d_dw[1:] = np.array([
@@ -583,9 +589,9 @@ def update_mapping(
             dydx=dphi_j[valid_j]**-1,
         )(targets[1:])
         for r_j, phi_j, dphi_j, valid_j in zip(
-            r_ipl.T,
-            phi_ipl.T,
-            dphi_ipl.T,
+            r_itp.T,
+            phi_itp.T,
+            dphi_itp.T,
             valid.T,
         )
     ]).T
@@ -606,7 +612,7 @@ def solve_spheroidal(
     rotation_config: RotationConfig,
     solver_options: SolverOptions,
     output_options: OutputOptions,
-) -> SpheroidalResult:
+) -> tuple[Model2D, VacuumModel2D, SolverInfo]:
     """
     Compute rotational deformation on a multidomain spheroidal grid.
 
@@ -655,7 +661,7 @@ def solve_spheroidal(
     max_iterations = solver_options.max_iterations
     
     # Initialisation for the effective potential
-    phi_g_l, dphi_g_l, phi_eff, dphi_eff = (
+    phi_g_l, phi_g_z_l, phi_eff, phi_eff_z = (
         solve_gravitational_potential(
             r2d,
             rho,
@@ -670,7 +676,7 @@ def solve_spheroidal(
     p = integrate_pressure(
         num.zeta[internal],
         rho,
-        dphi_eff[internal],
+        phi_eff_z[internal],
         surface_pressure,
         unique_indices=num.domains.unique_internal_indices,
         spline_order=num.spline_order,
@@ -698,7 +704,7 @@ def solve_spheroidal(
         rot = rot.with_omega_eq(min(rotation_target, rotation_cap))
 
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = (
+        phi_g_l, phi_g_z_l, phi_eff = (
             solve_gravitational_potential(
                 r2d,
                 rho,
@@ -712,9 +718,9 @@ def solve_spheroidal(
         r2d, rot = update_mapping(
             r2d,
             phi_g_l,
-            dphi_g_l,
+            phi_g_z_l,
             phi_eff,
-            dphi_eff,
+            phi_eff_z,
             num,
             rot,
         )
@@ -730,20 +736,15 @@ def solve_spheroidal(
         radius *= r_corr
         mass   *= m_corr
 
-        r2d      /= r_corr
-        rho      /= m_corr    / r_corr**3
-        phi_eff  /= m_corr    / r_corr
-        dphi_eff /= m_corr    / r_corr      # /!\ Derivative w.r.t. zeta !
-        p        /= m_corr**2 / r_corr**4
+        r2d       /= r_corr
+        rho       /= m_corr    / r_corr**3
+        phi_eff   /= m_corr    / r_corr
+        phi_eff_z /= m_corr    / r_corr
+        p         /= m_corr**2 / r_corr**4
 
         # Update convergence
-        conv.update(
-            find_r_pol(r2d, L)
-        )
-
-        n_decimals = int(
-            -np.log10(mapping_precision)
-        )
+        conv.update(find_r_pol(r2d, L))
+        n_decimals = int(-np.log10(mapping_precision))
         print(
             f"Iteration n°{conv.iterations:02d}:",
             f"R_pol = {round(conv.current, n_decimals)}",
@@ -769,43 +770,93 @@ def solve_spheroidal(
     z_ext = zeta[domains.external_mask]
     r2d_ext, der_ext = extend_mapping(r2d, der, z_ext)
     
-    # Store the normalised solver state before any output
-    # operation can modify the arrays in place.
-    result = SpheroidalResult(
-        zeta=zeta.copy(),
-        radial_grid=r1d.copy(),
-        cos_theta=t.copy(),
-        mapping=r2d.copy(),
+    # Compute final 2D potentials
+    phi_g = pl_eval_2D(phi_g_l, t)
+    phi_g_z = pl_eval_2D(phi_g_z_l, t)
 
-        density=rho.copy(),
-        pressure=p.copy(),
+    phi_c, phi_c_r = rot.phi_c2d_with_derivative(
+        r2d_ext,
+        t,
+    )
+    phi_c_z = phi_c_r * der_ext.r_z
 
-        effective_potential=phi_eff.copy(),
-        effective_potential_derivative=dphi_eff.copy(),
-
-        gravitational_potential_harmonics=phi_g_l.copy(),
-        gravitational_potential_derivative_harmonics=dphi_g_l.copy(),
-
+    omega = rot.omega2d(r2d_ext, t)
+    
+    phi_eff_vac = phi_g + phi_c
+    phi_eff_z_vac = phi_g_z + phi_c_z
+    
+    internal = domains.internal_mask
+    external = domains.external_mask
+    
+    # 2D Model
+    model2d = Model2D(
+        G=G,
+        surface_pressure=float(p[-1]),
         mass=mass,
         radius=radius,
+        omega_eq=rot.omega_eq,
 
-        rotation_target=rotation_target,
-        rotation_rate=rot.omega_eq,
+        zeta=zeta[internal].copy(),
+        t=t.copy(),
+        r2d=r2d.copy(),
 
-        polar_radius_history=np.asarray(conv.history),
-        iterations=conv.iterations,
+        rho=rho.copy(),
+        p=p.copy(),
+        additional_variables=tuple(
+            var.copy() for var in additional_variables
+        ),
 
-        internal_zeta=zeta[domains.internal_mask].copy(),
-        external_zeta=zeta[domains.external_mask].copy(),
-        full_mapping=r2d_ext.copy(),
+        phi_eff=phi_eff[internal].copy(),
+        phi_eff_z=phi_eff_z[internal].copy(),
 
-        internal_mask=domains.internal_mask.copy(),
-        external_mask=domains.external_mask.copy(),
+        phi_g=phi_g[internal].copy(),
+        phi_g_z=phi_g_z[internal].copy(),
+
+        phi_c=phi_c[internal].copy(),
+        phi_c_z=phi_c_z[internal].copy(),
+
+        omega=omega[internal].copy(),
+        domains=model.domains,
     )
     
+    # Vaccum Model
+    vacuum = VacuumModel2D(
+        G=G,
+        mass=mass,
+        radius=radius,
+        omega_eq=rot.omega_eq,
+
+        zeta=zeta[external].copy(),
+        t=t.copy(),
+        r2d=r2d_ext[external].copy(),
+
+        phi_g=phi_g[external].copy(),
+        phi_g_z=phi_g_z[external].copy(),
+
+        phi_c=phi_c[external].copy(),
+        phi_c_z=phi_c_z[external].copy(),
+
+        phi_eff=phi_eff_vac[external].copy(),
+        phi_eff_z=phi_eff_z_vac[external].copy(),
+
+        omega=omega[external].copy(),
+        domains=find_domains(
+            zeta[external],
+        ),
+    )
     
-    if output_options.plot.show_harmonics :
-        phi_g_harmonics(zeta, phi_g_l, radial=False)
+    # Solver Info
+    info = SolverInfo(
+        method="spheroidal",
+        iterations=conv.iterations,
+        tolerance=conv.tolerance,
+        error=conv.error,
+        polar_radius_history=np.asarray(
+            conv.history,
+        ),
+        rotation_target=rotation_target,
+        elapsed_time=finish - start,
+    )
     
     # Virial test
     if output_options.diagnostics.virial_test:
@@ -815,11 +866,11 @@ def solve_spheroidal(
         )
 
         balance = compute_virial_balance(
-            r2d,
-            rho,
-            p,
-            phi_g2d,
-            num.t,
+            model2d.r2d,
+            model2d.rho,
+            model2d.p,
+            model2d.phi_g,
+            model2d.t,
             rot,
             domains=num.domains.domain_ranges[:-1],
             spline_order=num.spline_order,
@@ -829,6 +880,21 @@ def solve_spheroidal(
             balance,
             verbose=True,
         )
+
+    # Gravitational moments
+    if output_options.diagnostics.gravitational_moments:
+        moments = compute_gravitational_moments(
+            r2d,
+            rho,
+            num.t,
+            domains=num.domains.domain_ranges[:-1],
+            spline_order=num.spline_order,
+        )
+
+        report_gravitational_moments(moments)
+        
+    if output_options.plot.show_harmonics :
+        phi_g_harmonics(zeta, phi_g_l, radial=False)
     
     # Plot model
     if output_options.plot.show_model :
@@ -841,18 +907,6 @@ def solve_spheroidal(
             disc=domains.interface_end_indices[:-1],
             label=r"$\log_{10} \left[\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}\right]$"
         )
-    
-    # Gravitational moments
-    if output_options.diagnostics.gravitational_moments:
-        moments = compute_gravitational_moments(
-            r2d,
-            rho,
-            num.t,
-            domains=num.domains.domain_ranges[:-1],
-            spline_order=num.spline_order,
-        )
-
-        report_gravitational_moments(moments)
     
     # Model writing
     if output_options.model.save:
@@ -877,7 +931,7 @@ def solve_spheroidal(
             dimensional=output_options.model.dimensional,
         )
     
-    return result
+    return model2d, vacuum, info
         
         
         

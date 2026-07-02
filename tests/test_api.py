@@ -1,9 +1,12 @@
 import numpy as np
 import pytest
+from types import SimpleNamespace
 
 import rubis.api as api
 from rubis.config import (
+    CompositePolytropeConfig,
     DeformationConfig,
+    OutputOptions,
     PolytropeConfig,
     RotationConfig,
     SolverOptions,
@@ -122,63 +125,53 @@ def test_explicit_method_overrides_domain_selection(
     
     
 def test_deform_forwards_configuration(monkeypatch):
-    model = make_model_1d()
+    model1d = object()
+    model2d = object()
+    info = object()
+    solver_output = (model2d, None, info)
+
     calls = {}
-    expected = object()
-
-    def fake_initialize(config):
-        calls["model_config"] = config
-        return model
-
-    def fake_solver(*args, **kwargs):
-        calls["args"] = args
-        calls["kwargs"] = kwargs
-        return expected
 
     monkeypatch.setattr(
         api,
         "initialize_model_1d",
-        fake_initialize,
+        lambda config: model1d,
     )
+
+    def fake_solve_radial(*args, **kwargs):
+        calls["args"] = args
+        calls["kwargs"] = kwargs
+        return solver_output
+
     monkeypatch.setattr(
         api,
         "solve_radial",
-        fake_solver,
+        fake_solve_radial,
     )
 
-    model_config = PolytropeConfig(index=1.0)
-
     config = DeformationConfig(
-        model=model_config,
+        model=PolytropeConfig(
+            index=1.0,
+        ),
         rotation=RotationConfig(
             profile=solid,
-            target=0.3,
-            central_diff_rate=0.2,
-            scale=0.7,
+            target=0.1,
         ),
         solver=SolverOptions(
             method="radial",
-            max_degree=9,
-            angular_resolution=11,
-            full_rate=2,
-            mapping_precision=1.0e-8,
-            spline_order=3,
-            lagrange_order=2,
-            external_domain_res=21,
-            rescale_ab=False,
-            max_iterations=17,
         ),
+        output=OutputOptions(),
     )
 
     result = api.deform(config)
 
-    assert result is expected
-    assert calls["model_config"] is model_config
-
-    assert calls["args"][0] is model
-    assert calls["args"][1] is config.rotation
-    assert calls["args"][2] is config.solver
-    assert calls["args"][3] is config.output
+    assert result is solver_output
+    assert calls["args"] == (
+        model1d,
+        config.rotation,
+        config.solver,
+        config.output,
+    )
     assert calls["kwargs"] == {}
     
     
@@ -203,3 +196,95 @@ def test_deform_rejects_unknown_method(monkeypatch):
         match="Unknown deformation method",
     ):
         api.deform(config)
+        
+        
+def test_deform_selects_solver_from_model_domains(
+    monkeypatch,
+):
+    radial_output = (
+        object(),
+        None,
+        object(),
+    )
+    spheroidal_output = (
+        object(),
+        object(),
+        object(),
+    )
+
+    calls = []
+
+    def fake_solve_radial(*args):
+        calls.append("radial")
+        return radial_output
+
+    def fake_solve_spheroidal(*args):
+        calls.append("spheroidal")
+        return spheroidal_output
+
+    monkeypatch.setattr(
+        api,
+        "solve_radial",
+        fake_solve_radial,
+    )
+    monkeypatch.setattr(
+        api,
+        "solve_spheroidal",
+        fake_solve_spheroidal,
+    )
+
+    radial_model = SimpleNamespace(
+        n_domains=1,
+    )
+    monkeypatch.setattr(
+        api,
+        "initialize_model_1d",
+        lambda config: radial_model,
+    )
+
+    radial_config = DeformationConfig(
+        model=PolytropeConfig(index=1.0),
+        rotation=RotationConfig(
+            profile=solid,
+        ),
+        solver=SolverOptions(
+            method="auto",
+        ),
+        output=OutputOptions(),
+    )
+
+    assert api.deform(radial_config) is radial_output
+    assert calls == ["radial"]
+
+    spheroidal_model = SimpleNamespace(
+        n_domains=2,
+    )
+    monkeypatch.setattr(
+        api,
+        "initialize_model_1d",
+        lambda config: spheroidal_model,
+    )
+
+    spheroidal_config = DeformationConfig(
+        model=CompositePolytropeConfig(
+            indices=(1.0, 1.0),
+            target_pressures=(-1.0, -np.inf),
+            density_jumps=(0.4,),
+        ),
+        rotation=RotationConfig(
+            profile=solid,
+        ),
+        solver=SolverOptions(
+            method="auto",
+        ),
+        output=OutputOptions(),
+    )
+
+    assert (
+        api.deform(spheroidal_config)
+        is spheroidal_output
+    )
+    assert calls == [
+        "radial",
+        "spheroidal",
+    ]
