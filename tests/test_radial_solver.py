@@ -3,7 +3,6 @@ import pytest
 
 from rubis.config import (
     CompositePolytropeConfig,
-    OutputOptions,
     PolytropeConfig,
     RotationConfig,
     SolverOptions,
@@ -47,7 +46,6 @@ def test_radial_solver_returns_normalised_state():
             external_domain_res=21,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     assert isinstance(model2d, Model2D)
@@ -127,7 +125,6 @@ def test_radial_solver_rejects_multidomain_model():
                 external_domain_res=21,
                 rescale_ab=True,
             ),
-            OutputOptions(),
         )
     
     
@@ -162,7 +159,6 @@ def test_nonrotating_radial_model_remains_spherical():
             external_domain_res=21,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     assert vacuum is None
@@ -277,7 +273,6 @@ def test_uniform_rotation_produces_oblate_model():
             external_domain_res=21,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     assert vacuum is None
@@ -392,5 +387,4 @@ def test_radial_solver_enforces_iteration_limit():
                 rescale_ab=True,
                 max_iterations=1,
             ),
-            OutputOptions(),
         )

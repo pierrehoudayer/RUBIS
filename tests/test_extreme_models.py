@@ -4,7 +4,6 @@ import pytest
 from rubis.config import (
     DeformationConfig,
     LegacyModelConfig,
-    OutputOptions,
     PolytropeConfig, 
     RotationConfig, 
     SolverOptions,
@@ -44,7 +43,6 @@ def test_readme_near_critical_n3_model_converges():
                 rescale_ab=True,
                 max_iterations=150,
             ),
-            output=OutputOptions(),
         )
     )
 
@@ -136,7 +134,6 @@ def test_readme_super_keplerian_n05_model_converges():
                 rescale_ab=True,
                 max_iterations=150,
             ),
-            output=OutputOptions(),
         )
     )
 
@@ -239,7 +236,6 @@ def test_readme_extreme_lorentzian_model_converges():
                 rescale_ab=True,
                 max_iterations=150,
             ),
-            output=OutputOptions(),
         )
     )
 
@@ -335,7 +331,6 @@ def test_readme_jupiter_model_converges():
                 rescale_ab=True,
                 max_iterations=100,
             ),
-            output=OutputOptions(),
         )
     )
 

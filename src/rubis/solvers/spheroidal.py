@@ -21,7 +21,6 @@ from ..numerical         import (
     lagrange_matrix_P,
 )
 from ..config import (
-    OutputOptions,
     RotationConfig, 
     SolverOptions,
 )
@@ -48,10 +47,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..plotting          import (
-    phi_g_harmonics,
-    plot_f_map,
-)
 
 
 FloatArray = NDArray[np.float64]
@@ -604,7 +599,6 @@ def solve_spheroidal(
     model: Model1D,
     rotation_config: RotationConfig,
     solver_options: SolverOptions,
-    output_options: OutputOptions,
 ) -> tuple[Model2D, VacuumModel2D, SolverInfo]:
     """
     Compute rotational deformation on a multidomain spheroidal grid.
@@ -850,22 +844,6 @@ def solve_spheroidal(
         rotation_target=rotation_target,
         elapsed_time=finish - start,
     )
-        
-    # Gravitational-potential harmonics
-    if output_options.plot.show_harmonics :
-        phi_g_harmonics(zeta, phi_g_l, radial=False)
-    
-    # Plot model
-    if output_options.plot.show_model :
-        plot_f_map(
-            r2d, np.log10(rho+rho.max()**-1), phi_eff, L, 
-            angular_res=output_options.plot.resolution,
-            cmap=output_options.plot.field_cmap,
-            show_surfaces=output_options.plot.surfaces,
-            cmap_lines=output_options.plot.surface_cmap,
-            disc=domains.interface_end_indices[:-1],
-            label=r"$\log_{10} \left[\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}\right]$"
-        )
     
     return model2d, vacuum, info
         

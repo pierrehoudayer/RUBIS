@@ -7,7 +7,6 @@ from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbtrf, dgbtrs
 
 from ..config            import (
-    OutputOptions,
     RotationConfig, 
     SolverOptions,
 )
@@ -38,10 +37,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..plotting          import (
-    phi_g_harmonics,
-    plot_f_map,
-)
 
 
 FloatArray = NDArray[np.float64]
@@ -415,7 +410,6 @@ def solve_radial(
     model: Model1D,
     rotation_config: RotationConfig,
     solver_options: SolverOptions,
-    output_options: OutputOptions,
 ) -> tuple[Model2D, None, SolverInfo]:
     """
     Compute the rotational deformation using a spherical Poisson grid.
@@ -560,10 +554,7 @@ def solve_radial(
     )
     phi_g_z = phi_g_r * der.r_z
 
-    phi_c, phi_c_r = rot.phi_c2d_with_derivative(
-        r2d,
-        t,
-    )
+    phi_c, phi_c_r = rot.phi_c2d_with_derivative(r2d, t)
     phi_c_z = phi_c_r * der.r_z
 
     phi_eff_z = interpolate_func(
@@ -618,29 +609,5 @@ def solve_radial(
         rotation_target=rotation_target,
         elapsed_time=finish - start,
     )
-    
-    # Gravitational-potential harmonics
-    if output_options.plot.show_harmonics : 
-        phi_g_harmonics(zeta, phi_g_l, radial=True)
-    
-    # Plot model
-    if output_options.plot.show_model:
-        f = rho
-        label = (
-            r"$\rho \times "
-            r"{\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-        )
-
-        plot_f_map(
-            r2d,
-            f,
-            phi_eff,
-            L,
-            angular_res=output_options.plot.resolution,
-            cmap=output_options.plot.field_cmap,
-            show_surfaces=output_options.plot.surfaces,
-            cmap_lines=output_options.plot.surface_cmap,
-            label=label,
-        )
         
     return model2d, None, info

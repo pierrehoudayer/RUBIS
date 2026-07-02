@@ -55,5 +55,4 @@ def deform(
         model,
         config.rotation,
         config.solver,
-        config.output,
     )

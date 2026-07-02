@@ -6,7 +6,6 @@ import rubis.api as api
 from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
-    OutputOptions,
     PolytropeConfig,
     RotationConfig,
     SolverOptions,
@@ -160,7 +159,6 @@ def test_deform_forwards_configuration(monkeypatch):
         solver=SolverOptions(
             method="radial",
         ),
-        output=OutputOptions(),
     )
 
     result = api.deform(config)
@@ -170,7 +168,6 @@ def test_deform_forwards_configuration(monkeypatch):
         model1d,
         config.rotation,
         config.solver,
-        config.output,
     )
     assert calls["kwargs"] == {}
     
@@ -250,7 +247,6 @@ def test_deform_selects_solver_from_model_domains(
         solver=SolverOptions(
             method="auto",
         ),
-        output=OutputOptions(),
     )
 
     assert api.deform(radial_config) is radial_output
@@ -277,7 +273,6 @@ def test_deform_selects_solver_from_model_domains(
         solver=SolverOptions(
             method="auto",
         ),
-        output=OutputOptions(),
     )
 
     assert (

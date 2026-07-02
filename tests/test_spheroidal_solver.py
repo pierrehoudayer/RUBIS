@@ -4,7 +4,6 @@ import numpy as np
 
 from rubis.config import (
     CompositePolytropeConfig,
-    OutputOptions,
     RotationConfig,
     SolverOptions,
 )
@@ -50,7 +49,6 @@ def test_spheroidal_solver_returns_normalised_state():
             external_domain_res=external_resolution,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     assert isinstance(model2d, Model2D)
@@ -179,7 +177,6 @@ def test_nonrotating_composite_model_remains_spherical():
             external_domain_res=external_resolution,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     # Every material surface is spherical
@@ -312,7 +309,6 @@ def test_uniform_rotation_deforms_composite_model():
             external_domain_res=external_resolution,
             rescale_ab=True,
         ),
-        OutputOptions(),
     )
 
     full_zeta = np.hstack((

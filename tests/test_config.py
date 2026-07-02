@@ -6,30 +6,12 @@ from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
     LegacyModelConfig,
-    OutputOptions,
-    PlotOptions,
     PolytropeConfig,
     RadiativeFluxOptions,
     RotationConfig,
     SolverOptions,
 )
 from rubis.rotation_profiles import solid
-
-
-def test_output_options_builds_plot_options():
-    options = OutputOptions()
-
-    assert isinstance(
-        options.plot,
-        PlotOptions,
-    )
-
-
-def test_output_options_defaults_disable_optional_plots():
-    options = OutputOptions()
-
-    assert not options.plot.show_harmonics
-    assert not options.plot.show_model
     
     
 def test_radiative_flux_options_are_independent():
@@ -92,7 +74,6 @@ def test_deformation_config_builds_default_subconfigs():
     assert config.model is model
     assert isinstance(config.rotation, RotationConfig)
     assert isinstance(config.solver, SolverOptions)
-    assert isinstance(config.output, OutputOptions)
 
     assert config.rotation.profile is solid
     assert config.rotation.target == 0.0

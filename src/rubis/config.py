@@ -17,8 +17,6 @@ __all__ = [
     "DeformationConfig",
     "LegacyModelConfig",
     "ModelConfig",
-    "OutputOptions",
-    "PlotOptions",
     "PolytropeConfig",
     "RadiativeFluxOptions",
     "RotationConfig",
@@ -146,19 +144,6 @@ class SolverOptions:
 
 
 @dataclass(kw_only=True)
-class PlotOptions:
-    """Model visualisation options."""
-
-    show_harmonics: bool = False
-    show_model: bool = False
-
-    resolution: int = 501
-    surfaces: bool = True
-    field_cmap: str = "Stellar_r"
-    surface_cmap: str = "Greys"
-
-
-@dataclass(kw_only=True)
 class RadiativeFluxOptions:
     """Numerical options for radiative-flux reconstruction."""
 
@@ -170,25 +155,14 @@ class RadiativeFluxOptions:
 
 
 @dataclass(kw_only=True)
-class OutputOptions:
-    """Diagnostics, plots, and files produced by a solver."""
-
-    plot: PlotOptions = field(
-        default_factory=PlotOptions
-    )
-
-
-@dataclass(kw_only=True)
 class DeformationConfig:
     """Complete configuration of a deformation calculation."""
 
     model: ModelConfig
+
     rotation: RotationConfig = field(
         default_factory=RotationConfig
     )
     solver: SolverOptions = field(
         default_factory=SolverOptions
-    )
-    output: OutputOptions = field(
-        default_factory=OutputOptions
     )
