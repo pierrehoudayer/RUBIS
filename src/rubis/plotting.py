@@ -6,8 +6,10 @@ from matplotlib             import rc, ticker
 from matplotlib.collections import LineCollection
 from pylab                  import cm
 
-from rubis.domains          import find_domains
-from rubis.legendre         import pl_eval_2D, pl_project_2D
+from rubis.domains  import find_domains
+from rubis.flux     import RadiativeFlux
+from rubis.legendre import pl_eval_2D, pl_project_2D
+from rubis.models   import Model2D
 
 
 def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) : 
@@ -65,7 +67,8 @@ def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) :
         [r"$10^{-20}$", r"$10^{-15}$", r"$10^{-10}$", r"$10^{-5}$", r"$1$"]
     )
     plt.show()
-    
+
+  
 def get_cmap_from_proplot(cmap_name, **kwargs) :
     """
     Get a colormap defined in the proplot extension. If proplot 
@@ -97,6 +100,7 @@ def get_cmap_from_proplot(cmap_name, **kwargs) :
         import proplot as pplt
         cmap = pplt.Colormap(cmap_name, **kwargs)
         return cmap
+    
     
 def hex_to_rgb(hex_value) :
     """
@@ -137,6 +141,7 @@ def rgb_to_dec(rgb_values) :
     dec_values = [v/256 for v in rgb_values]
     return dec_values
 
+
 def get_continuous_cmap(hex_list, float_list=None):
     """
     Creates and returns a color map that can be used in heat map figures.
@@ -172,6 +177,7 @@ def get_continuous_cmap(hex_list, float_list=None):
         cdict[col] = col_list
     cmap = mcl.LinearSegmentedColormap("my_cmap", segmentdata=cdict, N=256)
     return cmap
+
 
 def plot_flux_lines(r, t, **kwargs) : 
     """
@@ -219,6 +225,19 @@ def plot_flux_lines(r, t, **kwargs) :
         for sgn in [1, -1] : 
             ax.plot(sgn*rk*sk, rk*tk, lw=0.5, alpha=0.5, zorder=10, **kwargs)
     return (fig, ax)
+
+
+def plot_radiative_flux_lines(
+    flux: RadiativeFlux,
+    **kwargs,
+):
+    """Plot the characteristics of a radiative-flux solution."""
+    return plot_flux_lines(
+        flux.line_r,
+        flux.line_t,
+        **kwargs,
+    )
+    
 
 def set_axes_equal(ax) :
     """
@@ -327,6 +346,35 @@ def plot_3D_surface(surf_l, f_l, show_T_eff, res, cmap) :
     # Showing the figure
     fig.tight_layout()
     plt.show()
+    
+    
+def plot_radiative_flux_surface(
+    model: Model2D,
+    flux: RadiativeFlux,
+    *,
+    show_effective_temperature=True,
+    resolution=(200, 100),
+    cmap="magma_r",
+):
+    """Plot the radiative-flux distribution on the stellar surface."""
+    surface_l = pl_project_2D(
+        model.r2d[-1],
+        flux.max_degree,
+    )
+
+    if isinstance(cmap, str):
+        cmap = get_cmap_from_proplot(
+            cmap
+        )
+
+    return plot_3D_surface(
+        surface_l,
+        flux.surface_flux_l,
+        show_T_eff=show_effective_temperature,
+        res=resolution,
+        cmap=cmap,
+    )
+    
 
 def plot_f_map(
     map_n, f, phi_eff, max_degree,

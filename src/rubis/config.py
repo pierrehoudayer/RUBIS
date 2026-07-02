@@ -170,15 +170,13 @@ class PlotOptions:
 
 @dataclass(kw_only=True)
 class RadiativeFluxOptions:
-    """Radiative-flux computation and visualisation options."""
+    """Numerical options for radiative-flux reconstruction."""
 
-    enabled: bool = False
-    plot_lines: bool = True
     origin: float = 0.05
     n_lines: int = 15
-    show_effective_temperature: bool = True
-    resolution: tuple[int, int] = (200, 100)
-    cmap: str = "magma_r"
+
+    max_degree: int | None = None
+    spline_order: int = 5
 
 
 @dataclass(kw_only=True)
@@ -199,9 +197,6 @@ class OutputOptions:
     )
     plot: PlotOptions = field(
         default_factory=PlotOptions
-    )
-    flux: RadiativeFluxOptions = field(
-        default_factory=RadiativeFluxOptions
     )
     model: ModelOutputOptions = field(
         default_factory=ModelOutputOptions

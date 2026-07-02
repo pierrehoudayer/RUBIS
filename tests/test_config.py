@@ -23,7 +23,6 @@ def test_output_options_builds_all_suboptions():
 
     assert isinstance(options.diagnostics, DiagnosticOptions)
     assert isinstance(options.plot, PlotOptions)
-    assert isinstance(options.flux, RadiativeFluxOptions)
     assert isinstance(options.model, ModelOutputOptions)
 
 
@@ -34,8 +33,16 @@ def test_output_options_defaults_disable_optional_outputs():
     assert not options.diagnostics.gravitational_moments
     assert not options.plot.show_harmonics
     assert not options.plot.show_model
-    assert not options.flux.enabled
     assert not options.model.save
+    
+    
+def test_radiative_flux_options_are_independent():
+    options = RadiativeFluxOptions()
+
+    assert options.origin == 0.05
+    assert options.n_lines == 15
+    assert options.max_degree is None
+    assert options.spline_order == 5
     
 
 def test_polytrope_config_has_one_region():

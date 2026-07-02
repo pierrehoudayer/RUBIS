@@ -5,12 +5,9 @@ from dataclasses         import dataclass
 from numpy.typing        import NDArray
 from scipy.interpolate   import CubicHermiteSpline
 from scipy.linalg.lapack import dgbtrf, dgbtrs
-from scipy.special       import roots_legendre
-from scipy.integrate     import solve_ivp
 
 from ..config            import (
     OutputOptions,
-    RadiativeFluxOptions,
     RotationConfig, 
     SolverOptions,
 )
@@ -21,7 +18,6 @@ from ..legendre          import (
     pl_project_2D,
 )
 from ..numerical         import (
-    integrate, 
     integrate2D, 
     interpolate_func, 
     lagrange_matrix_P,
@@ -34,7 +30,6 @@ from ..mapping           import (
     initialize_mapping, 
     valid_reciprocal_domain,
     compute_mapping_derivatives,
-    compute_mapping_geometry,
 )
 from ..hydrostatics      import integrate_pressure
 from ..rotation          import (
@@ -52,9 +47,7 @@ from ..diagnostics       import (
 from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
-    plot_3D_surface,
     plot_f_map,
-    plot_flux_lines,
 )
 
 
@@ -671,36 +664,24 @@ def solve_radial(
         phi_g_harmonics(zeta, phi_g_l, radial=True)
     
     # Plot model
-    if output_options.plot.show_model :
-        
-        # Variable to plot
+    if output_options.plot.show_model:
         f = rho
-        label = r"$\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
-            
-        if output_options.flux.enabled:
-            Q_l, (fig, ax) = compute_radiative_flux(
-                r2d,
-                zeta,
-                num,
-                output_options.flux,
-            )
+        label = (
+            r"$\rho \times "
+            r"{\left(M/R_{\mathrm{eq}}^3\right)}^{-1}$"
+        )
 
-            plot_f_map(
-                r2d,
-                f,
-                phi_eff,
-                L,
-                angular_res=output_options.plot.resolution,
-                cmap=output_options.plot.field_cmap,
-                show_surfaces=output_options.plot.surfaces,
-                cmap_lines=output_options.plot.surface_cmap,
-                label=label,
-                add_to_fig=(
-                    (fig, ax)
-                    if output_options.flux.plot_lines
-                    else None
-                ),
-            )
+        plot_f_map(
+            r2d,
+            f,
+            phi_eff,
+            L,
+            angular_res=output_options.plot.resolution,
+            cmap=output_options.plot.field_cmap,
+            show_surfaces=output_options.plot.surfaces,
+            cmap_lines=output_options.plot.surface_cmap,
+            label=label,
+        )
     
     # Model writing
     if output_options.model.save:
@@ -724,184 +705,3 @@ def solve_radial(
         )
         
     return model2d, None, info
-
-    
-#----------------------------------------------------------------#
-#                   Radiative flux computation                   #
-#----------------------------------------------------------------#
-def compute_radiative_flux(
-    r2d,
-    zeta,
-    num: RadialNumerics,
-    options: RadiativeFluxOptions,
-):
-    """
-    Compute the surface radiative-flux distribution from flux lines.
-
-    Characteristics are integrated through the deformed mapping from
-    the surface to the chosen inner origin. Flux conservation along
-    these lines determines the normalized surface distribution, which
-    is returned as Legendre coefficients.
-    """
-    t_grid = num.t
-    L = num.max_degree
-    spl_order = num.spline_order
-
-    z0 = options.origin
-    j_lines = options.n_lines
-
-    # Initial angular positions of the downward characteristics
-    t_flux, weights_flux = roots_legendre(2 * j_lines)
-    t_dw = t_flux[:j_lines]
-    weights_dw = weights_flux[:j_lines]
-
-    # Restrict the mapping to the radiative-flux domain
-    flux_domain = zeta >= z0
-    z = zeta[flux_domain]
-    r2d_flux = r2d[flux_domain]
-
-    # Integration coordinate measured inward from the surface
-    depth = (1.0 - z)[::-1]
-
-    # Metric terms
-    der = compute_mapping_derivatives(
-        r2d_flux,
-        z,
-        t_grid,
-        max_degree=L,
-        spline_order=spl_order,
-        domain_ranges=(slice(None),),
-    )
-    geo = compute_mapping_geometry(
-        r2d_flux,
-        der,
-        t_grid,
-    )
-
-    r_l   = pl_project_2D(r2d_flux, L)
-    rhs_l = pl_project_2D(geo.gg, L, even=False)
-    jac_l = pl_project_2D(geo.jacobian, L)
-
-    # Characteristic equation dt / d(depth)
-    def flux_line_rhs(depth_eval, t_eval):
-        rhs_t = np.atleast_2d(
-            pl_eval_2D(
-                rhs_l,
-                t_eval.ravel(),
-            )
-        )
-
-        return np.array([
-            interpolate_func(
-                depth,
-                -rhs_tk[::-1],
-                k=3,
-            )(depth_eval)
-            for rhs_tk in rhs_t.T
-        ]).reshape(t_eval.shape)
-
-    def flux_line_jacobian(depth_eval, t_eval):
-        jac_t = np.atleast_2d(
-            pl_eval_2D(
-                jac_l,
-                t_eval.ravel(),
-            )
-        )
-
-        jacobian = np.diag([
-            interpolate_func(
-                depth,
-                -jac_tk[::-1],
-                k=3,
-            )(depth_eval)
-            for jac_tk in jac_t.T
-        ])
-
-        return jacobian.reshape(-1, *t_eval.shape)
-
-    # Solve the characteristics from the surface to z0
-    start = time.perf_counter()
-
-    solution = solve_ivp(
-        fun=flux_line_rhs,
-        t_span=(0.0, 1.0 - z0),
-        y0=t_dw,
-        method="LSODA",
-        dense_output=True,
-        rtol=1.0e-4,
-        atol=1.0e-4,
-        jac=flux_line_jacobian,
-        vectorized=True,
-    )
-
-    t_lines = solution.sol(depth).T[::-1]
-
-    finish = time.perf_counter()
-    print(
-        "\nFlux lines found in "
-        f"{finish - start:.2f} secs"
-    )
-
-    # Mapping and angular derivative along the characteristics
-    r_lines, r_t_lines = np.moveaxis(
-        np.array([
-            pl_eval_2D(r_l[i], t_i, der=1)
-            for i, t_i in enumerate(t_lines)
-        ]),
-        0,
-        1,
-    )
-
-    # Radial derivative and relative divergence along the lines
-    r_z_l = pl_project_2D(der.r_z, L)
-    divrel_z_l = pl_project_2D(geo.divrelz, L)
-
-    r_z_lines = np.array([
-        pl_eval_2D(r_z_l[i], t_i)
-        for i, t_i in enumerate(t_lines)
-    ])
-
-    divrel_z_lines = np.array([
-        pl_eval_2D(divrel_z_l[i], t_i)
-        for i, t_i in enumerate(t_lines)
-    ])
-
-    # Flux transport along each characteristic
-    Q_z = np.exp([
-        -integrate(z, divrel_z_i)
-        for divrel_z_i in divrel_z_lines.T
-    ])
-
-    surface_factor = (
-        r_lines[-1] ** 2
-        + (1.0 - t_dw**2)
-        * r_t_lines[-1] ** 2
-    ) / r_z_lines[-1]
-
-    Q0 = 1.0 / np.sum(Q_z * surface_factor * weights_dw)
-
-    gzz_surface_l = pl_project_2D(geo.gzz[-1], L)
-    gzz_surface = pl_eval_2D(gzz_surface_l, t_lines[-1])
-
-    Q_dw = Q0 * Q_z * np.sqrt(np.abs(gzz_surface))
-
-    # Restore the symmetric upper hemisphere
-    Q_l = pl_project_2D(np.hstack((Q_dw, Q_dw[::-1])), 2 * j_lines)
-
-    plot_3D_surface(
-        r_l[-1],
-        Q_l,
-        show_T_eff=options.show_effective_temperature,
-        res=options.resolution,
-        cmap=options.cmap,
-    )
-
-    if options.plot_lines:
-        r_lines = np.hstack((r_lines,  r_lines[:, ::-1]))
-        t_lines = np.hstack((t_lines, -t_lines[:, ::-1]))
-
-        fig, ax = plot_flux_lines(r_lines, t_lines, color="grey")
-    else:
-        fig, ax = None, None
-
-    return Q_l, (fig, ax)
