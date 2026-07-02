@@ -6,7 +6,6 @@ from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
     LegacyModelConfig,
-    ModelOutputOptions,
     OutputOptions,
     PlotOptions,
     PolytropeConfig,
@@ -17,25 +16,20 @@ from rubis.config import (
 from rubis.rotation_profiles import solid
 
 
-def test_output_options_builds_all_suboptions():
+def test_output_options_builds_plot_options():
     options = OutputOptions()
 
     assert isinstance(
         options.plot,
         PlotOptions,
     )
-    assert isinstance(
-        options.model,
-        ModelOutputOptions,
-    )
 
 
-def test_output_options_defaults_disable_optional_outputs():
+def test_output_options_defaults_disable_optional_plots():
     options = OutputOptions()
 
     assert not options.plot.show_harmonics
     assert not options.plot.show_model
-    assert not options.model.save
     
     
 def test_radiative_flux_options_are_independent():

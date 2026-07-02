@@ -4,7 +4,12 @@ from pathlib import Path
 
 import numpy as np
 
-from ..config import PolytropeConfig, CompositePolytropeConfig
+from ..config import (
+    CompositePolytropeConfig,
+    PolytropeConfig, 
+)
+from ..models import Model2D
+from ..results import SolverInfo
 
 
 __all__ = [
@@ -53,41 +58,67 @@ def write_model(filename, params, mapping, additional_variables, *variables):
     
 def write_deformed_model(
     filename,
+    model: Model2D,
+    info: SolverInfo,
     *,
-    r2d,
-    additional_variables,
-    zeta,
-    p,
-    rho,
-    phi_eff,
-    omega_equator,
-    mass,
-    radius,
-    rotation_target,
-    G,
     dimensional=False,
 ):
     """
-    Write a converged deformation model in the legacy RUBIS format.
+    Write a converged model in the historical RUBIS format.
 
     Dimensional output scales the computed mechanical fields while
-    preserving the material coordinate, rotation profile, and additional
-    variables in their existing conventions.
+    preserving the material coordinate, rotation profile, and
+    additional variables in their existing conventions.
     """
-    I, J = r2d.shape
+    I, J = model.r2d.shape
+
+    # The angular grid produced by RUBIS contains the equator
+    j_eq = np.argmin(
+        np.abs(model.t)
+    )
+    omega_equator = model.omega[:, j_eq]
+
+    r2d = model.r2d
+    rho = model.rho
+    p = model.p
+    phi_eff = model.phi_eff
 
     if dimensional:
-        r2d     = r2d     * (              radius   )
-        rho     = rho     * (    mass**1 / radius**3)
-        phi_eff = phi_eff * (G * mass**1 / radius**1)
-        p       = p       * (G * mass**2 / radius**4)
+        r2d = (
+            r2d
+            * model.radius
+        )
+        rho = (
+            rho
+            * model.mass
+            / model.radius**3
+        )
+        phi_eff = (
+            phi_eff
+            * model.G
+            * model.mass
+            / model.radius
+        )
+        p = (
+            p
+            * model.G
+            * model.mass**2
+            / model.radius**4
+        )
 
     write_model(
         filename,
-        (I, J, mass, radius, rotation_target, G),
+        (
+            I,
+            J,
+            model.mass,
+            model.radius,
+            info.rotation_target,
+            model.G,
+        ),
         r2d,
-        additional_variables,
-        zeta,
+        model.additional_variables,
+        model.zeta,
         p,
         rho,
         phi_eff,

@@ -38,7 +38,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
     plot_f_map,
@@ -642,27 +641,6 @@ def solve_radial(
             show_surfaces=output_options.plot.surfaces,
             cmap_lines=output_options.plot.surface_cmap,
             label=label,
-        )
-    
-    # Model writing
-    if output_options.model.save:
-        j_eq = (num.angular_resolution - 1) // 2
-        omega_equator = rot.omega(r2d[:, j_eq], 0.0)
-
-        write_deformed_model(
-            output_options.model.filename,
-            r2d=r2d,
-            additional_variables=additional_variables,
-            zeta=zeta,
-            p=p,
-            rho=rho,
-            phi_eff=phi_eff,
-            omega_equator=omega_equator,
-            mass=mass,
-            radius=radius,
-            rotation_target=rotation_target,
-            G=G,
-            dimensional=output_options.model.dimensional,
         )
         
     return model2d, None, info

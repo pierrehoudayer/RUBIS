@@ -4,11 +4,15 @@ from rubis.config import (
     CompositePolytropeConfig,
     PolytropeConfig,
 )
+from rubis.domains import find_domains
 from rubis.io.legacy import (
     make_output_filename,
     write_deformed_model,
     write_model,
 )
+from rubis.models import Model2D
+from rubis.results import SolverInfo
+
 
 def test_make_output_filename_from_model_file():
     filename = make_output_filename(
@@ -102,39 +106,140 @@ def test_write_deformed_model_applies_dimensional_scales(
         [0.4, 0.5, 0.4],
         [0.8, 1.0, 0.8],
     ])
-    zeta = np.array([0.0, 0.5, 1.0])
-    p = np.array([3.0, 2.0, 1.0])
-    rho = np.array([2.0, 1.5, 1.0])
-    phi_eff = np.array([-2.0, -1.5, -1.0])
-    omega_equator = np.array([0.2, 0.2, 0.2])
-    additional = (np.array([10.0, 20.0, 30.0]),)
+    zeta = np.array([
+        0.0,
+        0.5,
+        1.0,
+    ])
+    t = np.array([
+        -0.5,
+        0.0,
+        0.5,
+    ])
+
+    p = np.array([
+        3.0,
+        2.0,
+        1.0,
+    ])
+    rho = np.array([
+        2.0,
+        1.5,
+        1.0,
+    ])
+    phi_eff = np.array([
+        -2.0,
+        -1.5,
+        -1.0,
+    ])
+    omega_equator = np.array([
+        0.2,
+        0.3,
+        0.4,
+    ])
+
+    # Non-equatorial columns deliberately differ so that
+    # the selected profile is tested explicitly
+    omega = np.column_stack((
+        omega_equator + 1.0,
+        omega_equator,
+        omega_equator + 1.0,
+    ))
+
+    additional = (
+        np.array([
+            10.0,
+            20.0,
+            30.0,
+        ]),
+    )
 
     mass = 2.0
     radius = 4.0
     G = 5.0
+    rotation_target = 0.3
+
+    zeros_1d = np.zeros_like(zeta)
+    zeros_2d = np.zeros_like(r2d)
+
+    model = Model2D(
+        G=G,
+        surface_pressure=float(p[-1]),
+        mass=mass,
+        radius=radius,
+        omega_eq=omega_equator[-1],
+
+        zeta=zeta,
+        t=t,
+        r2d=r2d,
+
+        rho=rho,
+        p=p,
+        additional_variables=additional,
+
+        phi_eff=phi_eff,
+        phi_eff_z=zeros_1d,
+
+        phi_g=zeros_2d,
+        phi_g_z=zeros_2d,
+
+        phi_c=zeros_2d,
+        phi_c_z=zeros_2d,
+
+        omega=omega,
+        domains=find_domains(zeta),
+    )
+
+    info = SolverInfo(
+        method="radial",
+        iterations=2,
+        tolerance=1.0e-10,
+        error=1.0e-11,
+        polar_radius_history=np.array([
+            0.0,
+            1.0,
+            0.9,
+            0.9,
+        ]),
+        rotation_target=rotation_target,
+        elapsed_time=1.0,
+    )
 
     write_deformed_model(
         "model.txt",
-        r2d=r2d,
-        additional_variables=additional,
-        zeta=zeta,
-        p=p,
-        rho=rho,
-        phi_eff=phi_eff,
-        omega_equator=omega_equator,
-        mass=mass,
-        radius=radius,
-        rotation_target=0.3,
-        G=G,
+        model,
+        info,
         dimensional=True,
     )
 
+    path = (
+        tmp_path
+        / "Models"
+        / "model.txt"
+    )
+
+    first_line = path.read_text().splitlines()[0]
+
+    expected_header = (
+        model.n_points,
+        model.angular_resolution,
+        mass,
+        radius,
+        rotation_target,
+        G,
+    )
+
+    assert first_line == " ".join(
+        str(value)
+        for value in expected_header
+    )
+
     data = np.loadtxt(
-        tmp_path / "Models" / "model.txt",
+        path,
         skiprows=1,
     )
 
-    J = r2d.shape[1]
+    J = model.angular_resolution
 
     np.testing.assert_allclose(
         data[:, :J],

@@ -48,7 +48,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
     plot_f_map,
@@ -866,29 +865,6 @@ def solve_spheroidal(
             cmap_lines=output_options.plot.surface_cmap,
             disc=domains.interface_end_indices[:-1],
             label=r"$\log_{10} \left[\rho \times {\left(M/R_{\mathrm{eq}}^3\right)}^{-1}\right]$"
-        )
-    
-    # Model writing
-    if output_options.model.save:
-        internal = num.domains.internal_mask
-        
-        j_eq = (num.angular_resolution - 1) // 2
-        omega_equator = rot.omega(r2d[:, j_eq], 0.0)
-
-        write_deformed_model(
-            output_options.model.filename,
-            r2d=r2d,
-            additional_variables=additional_variables,
-            zeta=zeta[internal],
-            p=p,
-            rho=rho,
-            phi_eff=phi_eff[internal],
-            omega_equator=omega_equator,
-            mass=mass,
-            radius=radius,
-            rotation_target=rotation_target,
-            G=G,
-            dimensional=output_options.model.dimensional,
         )
     
     return model2d, vacuum, info

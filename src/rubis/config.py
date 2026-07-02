@@ -17,7 +17,6 @@ __all__ = [
     "DeformationConfig",
     "LegacyModelConfig",
     "ModelConfig",
-    "ModelOutputOptions",
     "OutputOptions",
     "PlotOptions",
     "PolytropeConfig",
@@ -171,23 +170,11 @@ class RadiativeFluxOptions:
 
 
 @dataclass(kw_only=True)
-class ModelOutputOptions:
-    """Model-file output options."""
-
-    save: bool = False
-    filename: str | None = None
-    dimensional: bool = False
-
-
-@dataclass(kw_only=True)
 class OutputOptions:
     """Diagnostics, plots, and files produced by a solver."""
 
     plot: PlotOptions = field(
         default_factory=PlotOptions
-    )
-    model: ModelOutputOptions = field(
-        default_factory=ModelOutputOptions
     )
 
 
