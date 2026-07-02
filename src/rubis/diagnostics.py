@@ -4,8 +4,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.special import eval_legendre, roots_legendre
 
+from .models import Model2D
 from .numerical import integrate2D
-from .rotation import RotationState
 
 
 FloatArray = NDArray[np.float64]
@@ -58,58 +58,54 @@ class GravitationalMoments:
     
     
 def compute_virial_balance(
-    r2d,
-    rho,
-    p,
-    phi_g2d,
-    t,
-    rot: RotationState,
+    model: Model2D,
     *,
-    domains=None,
     spline_order=3,
 ) -> VirialBalance:
     """
-    Compute the scalar virial contributions of a deformed model.
+    Compute the scalar virial contributions of a material model.
 
-    The gravitational potential must be evaluated on the material
-    mapping before calling this representation-independent routine.
+    Every integral is evaluated independently in each material domain,
+    so discontinuous density profiles require no additional information
+    from the solver.
     """
-    rho2d = rho[:, None]
-    omega2d = rot.omega2d(r2d, t)
+    domains = model.domains.domain_ranges
+    rho2d = model.rho[:, None]
 
     potential_work = integrate2D(
-        r2d,
-        -rho2d * phi_g2d,
+        model.r2d,
+        -rho2d * model.phi_g,
         domains=domains,
         k=spline_order,
     )
 
     kinetic_energy = integrate2D(
-        r2d,
+        model.r2d,
         (
             0.5
             * rho2d
-            * (1.0 - t[None, :]**2)
-            * r2d**2
-            * omega2d**2
+            * (1.0 - model.t[None, :]**2)
+            * model.r2d**2
+            * model.omega**2
         ),
         domains=domains,
         k=spline_order,
     )
 
     thermodynamic_work = -integrate2D(
-        r2d,
-        p,
+        model.r2d,
+        model.p,
         domains=domains,
         k=spline_order,
     )
 
-    _, weights = roots_legendre(t.size)
+    _, weights = roots_legendre(model.angular_resolution)
+
     surface_work = (
         2.0
         * np.pi
-        * (r2d[-1]**3 @ weights)
-        * p[-1]
+        * (model.r2d[-1]**3 @ weights)
+        * model.surface_pressure
     )
 
     return VirialBalance(
@@ -118,34 +114,31 @@ def compute_virial_balance(
         thermodynamic_work=thermodynamic_work,
         surface_work=surface_work,
     )
-    
-    
+
+
 def compute_gravitational_moments(
-    r2d,
-    rho,
-    t,
+    model: Model2D,
     *,
     max_degree=14,
-    domains=None,
     spline_order=3,
 ) -> GravitationalMoments:
     """
     Compute the even gravitational mass moments.
 
-    Multidomain integration may be requested when the material profile
-    contains discontinuities.
+    Material interfaces are integrated domain by domain according to
+    the layout stored by the model.
     """
     degrees = np.arange(0, max_degree + 1, 2)
 
     values = np.array([
         integrate2D(
-            r2d,
+            model.r2d,
             (
-                rho[:, None]
-                * r2d**l
-                * eval_legendre(l, t)
+                model.rho[:, None]
+                * model.r2d**l
+                * eval_legendre(l, model.t)
             ),
-            domains=domains,
+            domains=model.domains.domain_ranges,
             k=spline_order,
         )
         for l in degrees

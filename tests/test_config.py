@@ -5,7 +5,6 @@ import numpy as np
 from rubis.config import (
     CompositePolytropeConfig,
     DeformationConfig,
-    DiagnosticOptions,
     LegacyModelConfig,
     ModelOutputOptions,
     OutputOptions,
@@ -21,16 +20,19 @@ from rubis.rotation_profiles import solid
 def test_output_options_builds_all_suboptions():
     options = OutputOptions()
 
-    assert isinstance(options.diagnostics, DiagnosticOptions)
-    assert isinstance(options.plot, PlotOptions)
-    assert isinstance(options.model, ModelOutputOptions)
+    assert isinstance(
+        options.plot,
+        PlotOptions,
+    )
+    assert isinstance(
+        options.model,
+        ModelOutputOptions,
+    )
 
 
 def test_output_options_defaults_disable_optional_outputs():
     options = OutputOptions()
 
-    assert not options.diagnostics.virial_test
-    assert not options.diagnostics.gravitational_moments
     assert not options.plot.show_harmonics
     assert not options.plot.show_model
     assert not options.model.save

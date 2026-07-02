@@ -15,7 +15,6 @@ from .rotation_profiles import solid
 __all__ = [
     "CompositePolytropeConfig",
     "DeformationConfig",
-    "DiagnosticOptions",
     "LegacyModelConfig",
     "ModelConfig",
     "ModelOutputOptions",
@@ -145,14 +144,6 @@ class SolverOptions:
     external_domain_res: int = 201
     rescale_ab: bool = True
     max_iterations: int = 200
-    
-    
-@dataclass(kw_only=True)
-class DiagnosticOptions:
-    """Optional numerical diagnostics."""
-
-    virial_test: bool = False
-    gravitational_moments: bool = False
 
 
 @dataclass(kw_only=True)
@@ -192,9 +183,6 @@ class ModelOutputOptions:
 class OutputOptions:
     """Diagnostics, plots, and files produced by a solver."""
 
-    diagnostics: DiagnosticOptions = field(
-        default_factory=DiagnosticOptions
-    )
     plot: PlotOptions = field(
         default_factory=PlotOptions
     )

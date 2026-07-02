@@ -48,12 +48,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..diagnostics       import (
-    compute_gravitational_moments,
-    compute_virial_balance,
-    report_gravitational_moments,
-    report_virial_balance,
-)
 from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
@@ -857,42 +851,8 @@ def solve_spheroidal(
         rotation_target=rotation_target,
         elapsed_time=finish - start,
     )
-    
-    # Virial test
-    if output_options.diagnostics.virial_test:
-        phi_g2d = pl_eval_2D(
-            phi_g_l[num.domains.internal_mask],
-            num.t,
-        )
-
-        balance = compute_virial_balance(
-            model2d.r2d,
-            model2d.rho,
-            model2d.p,
-            model2d.phi_g,
-            model2d.t,
-            rot,
-            domains=num.domains.domain_ranges[:-1],
-            spline_order=num.spline_order,
-        )
-
-        report_virial_balance(
-            balance,
-            verbose=True,
-        )
-
-    # Gravitational moments
-    if output_options.diagnostics.gravitational_moments:
-        moments = compute_gravitational_moments(
-            r2d,
-            rho,
-            num.t,
-            domains=num.domains.domain_ranges[:-1],
-            spline_order=num.spline_order,
-        )
-
-        report_gravitational_moments(moments)
         
+    # Gravitational-potential harmonics
     if output_options.plot.show_harmonics :
         phi_g_harmonics(zeta, phi_g_l, radial=False)
     

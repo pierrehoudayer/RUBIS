@@ -38,12 +38,6 @@ from ..rotation          import (
 )
 from .convergence        import ConvergenceTracker
 from ..results           import SolverInfo
-from ..diagnostics       import (
-    compute_gravitational_moments,
-    compute_virial_balance,
-    report_gravitational_moments,
-    report_virial_balance,
-)
 from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
@@ -140,16 +134,16 @@ def compute_density_harmonics(
 
     r = num.r1d
     log_rho = np.log(rho + safety_constant)
-    rho2D = np.zeros_like(r2d)
+    rho2d = np.zeros_like(r2d)
 
     for j in j_dw:
         inside = r < r2d[-1, j]
-        rho2D[inside, j] = interpolate_func(x=r2d[:, j], y=log_rho, k=spl_order)(r[inside])
-        rho2D[inside, j] = np.exp(rho2D[inside, j]) - safety_constant
+        rho2d[inside, j] = interpolate_func(x=r2d[:, j], y=log_rho, k=spl_order)(r[inside])
+        rho2d[inside, j] = np.exp(rho2d[inside, j]) - safety_constant
 
-    rho2D[:, j_up] = rho2D[:, j_dw]
+    rho2d[:, j_up] = rho2d[:, j_dw]
 
-    return pl_project_2D(rho2D, L)
+    return pl_project_2D(rho2d, L)
     
     
 def fill_poisson_band_matrix(
@@ -626,39 +620,6 @@ def solve_radial(
         elapsed_time=finish - start,
     )
     
-    # Gravitational moments
-    if output_options.diagnostics.gravitational_moments:
-        moments = compute_gravitational_moments(
-            r2d,
-            rho,
-            num.t,
-            spline_order=num.spline_order,
-        )
-
-        report_gravitational_moments(moments)
-    
-    # Virial test
-    if output_options.diagnostics.virial_test:
-        phi_g2d = (
-            phi_eff[:, None]
-            - rot.phi_c2d(r2d, num.t)
-        )
-
-        balance = compute_virial_balance(
-            model2d.r2d,
-            model2d.rho,
-            model2d.p,
-            model2d.phi_g,
-            model2d.t,
-            rot,
-            spline_order=num.spline_order,
-        )
-
-        report_virial_balance(
-            balance,
-            verbose=True,
-        )
-        
     # Gravitational-potential harmonics
     if output_options.plot.show_harmonics : 
         phi_g_harmonics(zeta, phi_g_l, radial=True)

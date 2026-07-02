@@ -3,7 +3,6 @@ import pytest
 
 from rubis.config import (
     CompositePolytropeConfig,
-    DiagnosticOptions,
     OutputOptions,
     PolytropeConfig,
     RotationConfig,
@@ -395,45 +394,3 @@ def test_radial_solver_enforces_iteration_limit():
             ),
             OutputOptions(),
         )
-        
-        
-def test_radial_solver_runs_virial_diagnostic(capsys):
-    model = initialize_model_1d(
-        PolytropeConfig(
-            index=1.0,
-            radius=1.0,
-            mass=1.0,
-            n_points=65,
-        )
-    )
-
-    model2d, vacuum, info = solve_radial(
-        model,
-        RotationConfig(
-            profile=solid,
-            target=0.0,
-        ),
-        SolverOptions(
-            method="radial",
-            max_degree=9,
-            angular_resolution=9,
-            full_rate=1,
-            mapping_precision=1.0e-10,
-            spline_order=3,
-            lagrange_order=2,
-            external_domain_res=21,
-            rescale_ab=True,
-        ),
-        OutputOptions(
-            diagnostics=DiagnosticOptions(
-                virial_test=True,
-            )
-        ),
-    )
-
-    output = capsys.readouterr().out
-
-    assert isinstance(model2d, Model2D)
-    assert vacuum is None
-    assert isinstance(info, SolverInfo)
-    assert "Virial theorem verified at" in output
