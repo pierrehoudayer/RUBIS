@@ -38,6 +38,7 @@ from ..rotation          import (
     RotationState,
     initialize_rotation_state,
 )
+from .convergence        import ConvergenceTracker
 from ..results           import RadialResult
 from ..diagnostics       import (
     compute_gravitational_moments,
@@ -441,50 +442,35 @@ def solve_radial(
     )
     
     # Iterative centrifugal deformation
-    polar_radius_history = [0.0, find_r_pol(r2d, L)]
-    iterations = 0
+    conv = ConvergenceTracker.start(
+        find_r_pol(r2d, L),
+        solver_name="Radial",
+        tolerance=mapping_precision,
+        max_iterations=max_iterations,
+    )
+    
     print(
         "\n+---------------------+",
         "\n| Deformation started |", 
         "\n+---------------------+\n"
-    )    
+    )
     
-    if max_iterations < 1:
-        raise ValueError(
-            "max_iterations must be a positive integer."
-        )
-    
-    while abs(polar_radius_history[-1] - polar_radius_history[-2]) > mapping_precision:
-        if iterations >= max_iterations:
-            delta_polar = abs(
-                polar_radius_history[-1] - polar_radius_history[-2]
-            )
+    while not conv.converged:
+        conv.check_iteration_limit()
 
-            recent_radii = np.asarray(
-                polar_radius_history[-4:]
-            )
-
-            raise RuntimeError(
-                "Radial deformation did not converge after "
-                f"{max_iterations} iterations. "
-                f"Last |delta R_pol| = "
-                f"{delta_polar:.3e}, "
-                f"target = {mapping_precision:.3e}. "
-                f"Recent polar radii: "
-                f"{recent_radii!r}"
-            )
-        
         # Current rotation rate
-        rotation_cap = ((iterations+1)/full_rate) * rotation_target
+        rotation_cap = (conv.iterations + 1) / full_rate * rotation_target
         rot = rot.with_omega_eq(min(rotation_target, rotation_cap))
-        
+
         # Effective potential computation
-        phi_g_l, dphi_g_l, phi_eff = solve_gravitational_potential(
-            r2d,
-            rho,
-            num,
-            phi_eff=phi_eff,
-            poisson_factors=poisson_factors,
+        phi_g_l, dphi_g_l, phi_eff = (
+            solve_gravitational_potential(
+                r2d,
+                rho,
+                num,
+                phi_eff=phi_eff,
+                poisson_factors=poisson_factors,
+            )
         )
 
         # Find a new estimate for the mapping
@@ -495,27 +481,26 @@ def solve_radial(
             num,
             rot,
         )
-        
+
         # Renormalisation
-        r_corr    = find_r_eq(r2d, L)
-        m_corr    = integrate2D(r2d, rho, k=spl_order)
-        radius   *= r_corr
-        mass     *= m_corr
-        r2d      /=             r_corr
+        r_corr = find_r_eq(r2d, L)
+        m_corr = integrate2D(r2d, rho, k=spl_order)
+
+        radius *= r_corr
+        mass   *= m_corr
+
+        r2d      /= r_corr
         rho      /= m_corr    / r_corr**3
         phi_eff  /= m_corr    / r_corr
         dphi_eff /= m_corr    / r_corr**2
         p        /= m_corr**2 / r_corr**4
-        
-        # Update the polar radius
-        polar_radius_history.append(find_r_pol(r2d, L))
-        
-        # Iteration count
-        iterations += 1
+
+        # Update convergence
+        conv.update(find_r_pol(r2d, L))
         n_decimals = int(-np.log10(mapping_precision))
         print(
-            f"Iteration n°{iterations:02d}:",
-            f"R_pol = {polar_radius_history[-1].round(n_decimals)}"
+            f"Iteration n°{conv.iterations:02d}:",
+            f"R_pol = {round(conv.current, n_decimals)}",
         )
     
     # Deformation summary
@@ -550,9 +535,9 @@ def solve_radial(
 
         rotation_target=rotation_target,
         rotation_rate=rot.omega_eq,
-
-        polar_radius_history=np.asarray(polar_radius_history),
-        iterations=iterations,
+        
+        polar_radius_history=np.asarray(conv.history),
+        iterations=conv.iterations,
     )
 
     # Gravitational-potential harmonics
