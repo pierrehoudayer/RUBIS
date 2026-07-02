@@ -49,7 +49,7 @@ from ..diagnostics       import (
     report_gravitational_moments,
     report_virial_balance,
 )
-from ..io.legacy         import write_model
+from ..io.legacy         import write_deformed_model
 from ..plotting          import (
     phi_g_harmonics,
     plot_f_map,
@@ -639,8 +639,6 @@ def solve_spheroidal(
     )
 
     # Modern local dimension names
-    I = num.n_internal_points
-    J = num.angular_resolution
     L = num.max_degree
     spl_order = num.spline_order
 
@@ -863,40 +861,25 @@ def solve_spheroidal(
     
     # Model writing
     if output_options.model.save:
-        j_eq = (J - 1) // 2
-        omega_equator = rot.omega(
-            r2d[:, j_eq],
-            0.0,
-        )
+        internal = num.domains.internal_mask
+        
+        j_eq = (num.angular_resolution - 1) // 2
+        omega_equator = rot.omega(r2d[:, j_eq], 0.0)
 
-        if output_options.model.dimensional:
-            r2d_out     = r2d     * (              radius   )
-            rho_out     = rho     * (    mass**1 / radius**3)
-            phi_eff_out = phi_eff * (G * mass**1 / radius**1)
-            p_out       = p       * (G * mass**2 / radius**4)
-        else:
-            r2d_out     = r2d
-            rho_out     = rho
-            phi_eff_out = phi_eff
-            p_out       = p
-
-        write_model(
+        write_deformed_model(
             output_options.model.filename,
-            (
-                I,
-                J,
-                mass,
-                radius,
-                rotation_target,
-                G,
-            ),
-            r2d_out,
-            additional_variables,
-            zeta,
-            p_out,
-            rho_out,
-            phi_eff_out,
-            omega_equator,
+            r2d=r2d,
+            additional_variables=additional_variables,
+            zeta=zeta[internal],
+            p=p,
+            rho=rho,
+            phi_eff=phi_eff[internal],
+            omega_equator=omega_equator,
+            mass=mass,
+            radius=radius,
+            rotation_target=rotation_target,
+            G=G,
+            dimensional=output_options.model.dimensional,
         )
     
     return result

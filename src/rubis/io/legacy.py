@@ -9,6 +9,7 @@ from ..config import PolytropeConfig, CompositePolytropeConfig
 
 __all__ = [
     "make_output_filename",
+    "write_deformed_model",
     "write_model",
 ]
 
@@ -47,4 +48,48 @@ def write_model(filename, params, mapping, additional_variables, *variables):
         data,
         header=header,
         comments="",
+    )
+    
+    
+def write_deformed_model(
+    filename,
+    *,
+    r2d,
+    additional_variables,
+    zeta,
+    p,
+    rho,
+    phi_eff,
+    omega_equator,
+    mass,
+    radius,
+    rotation_target,
+    G,
+    dimensional=False,
+):
+    """
+    Write a converged deformation model in the legacy RUBIS format.
+
+    Dimensional output scales the computed mechanical fields while
+    preserving the material coordinate, rotation profile, and additional
+    variables in their existing conventions.
+    """
+    I, J = r2d.shape
+
+    if dimensional:
+        r2d     = r2d     * (              radius   )
+        rho     = rho     * (    mass**1 / radius**3)
+        phi_eff = phi_eff * (G * mass**1 / radius**1)
+        p       = p       * (G * mass**2 / radius**4)
+
+    write_model(
+        filename,
+        (I, J, mass, radius, rotation_target, G),
+        r2d,
+        additional_variables,
+        zeta,
+        p,
+        rho,
+        phi_eff,
+        omega_equator,
     )
