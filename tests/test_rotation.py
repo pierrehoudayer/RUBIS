@@ -11,16 +11,27 @@ from rubis.rotation_profiles import (
 
 
 @pytest.mark.parametrize(
-    ("profile", "profile_args"),
+    ("profile", "profile_parameters"),
     [
-        (solid, ()),
-        (lorentzian, (0.4,)),
-        (plateau, (0.4, 0.25)),
+        (solid, {}),
+        (
+            lorentzian,
+            {
+                "alpha": 0.4,
+            },
+        ),
+        (
+            plateau,
+            {
+                "alpha": 0.4,
+                "scale": 0.25,
+            },
+        ),
     ],
 )
 def test_rotation_state_binds_profile_parameters(
     profile,
-    profile_args,
+    profile_parameters,
 ):
     r = np.linspace(0.0, 1.0, 11)
     t = 0.37
@@ -29,26 +40,25 @@ def test_rotation_state_binds_profile_parameters(
     rot = initialize_rotation_state(
         RotationConfig(
             profile=profile,
-            central_diff_rate=0.4,
-            scale=0.25,
+            profile_parameters=profile_parameters,
         ),
         omega_eq=omega_eq,
     )
 
-    phi_c, dphi_c = rot.phi_c(r, t)
+    phi_c, phi_c_r = rot.phi_c(r, t)
     omega = rot.omega(r, t)
 
-    expected_phi_c, expected_dphi_c = profile(
+    expected_phi_c, expected_phi_c_r = profile(
         r,
         t,
         omega_eq,
-        *profile_args,
+        **profile_parameters,
     )
     expected_omega = profile(
         r,
         t,
         omega_eq,
-        *profile_args,
+        **profile_parameters,
         return_profile=True,
     )
 
@@ -57,8 +67,8 @@ def test_rotation_state_binds_profile_parameters(
         expected_phi_c,
     )
     np.testing.assert_array_equal(
-        dphi_c,
-        expected_dphi_c,
+        phi_c_r,
+        expected_phi_c_r,
     )
     np.testing.assert_array_equal(
         omega,
@@ -100,3 +110,50 @@ def test_rotation_state_evaluates_mapping_fields():
             omega2d[:, j],
             expected_omega,
         )
+        
+        
+def test_rotation_state_evaluates_two_dimensional_mapping():
+    r = np.linspace(0.0, 1.0, 7)
+    t = np.linspace(-1.0, 1.0, 9)
+    r2d = r[:, None] * (
+        1.0 - 0.1*(1 - t**2)
+    )
+
+    rot = initialize_rotation_state(
+        RotationConfig(
+            profile=lorentzian,
+            profile_parameters={
+                "alpha": 0.4,
+            },
+        ),
+        omega_eq=0.63,
+    )
+
+    phi_c, phi_c_r = rot.phi_c2d_with_derivative(r2d, t)
+
+    expected = [
+        rot.phi_c(r2d[:, j], t[j])
+        for j in range(t.size)
+    ]
+    expected_phi_c, expected_phi_c_r = np.moveaxis(
+        np.asarray(expected),
+        (0, 1, 2),
+        (2, 0, 1),
+    )
+
+    np.testing.assert_allclose(
+        phi_c,
+        expected_phi_c,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        phi_c_r,
+        expected_phi_c_r,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_array_equal(
+        rot.phi_c2d(r2d, t),
+        phi_c,
+    )

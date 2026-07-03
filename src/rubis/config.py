@@ -123,8 +123,9 @@ class RotationConfig:
 
     profile: RotationProfile = solid
     target: float = 0.0
-    central_diff_rate: float = 0.0
-    scale: float = 1.0
+    profile_parameters: dict[str, object] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(kw_only=True)

@@ -221,8 +221,10 @@ def test_readme_extreme_lorentzian_model_converges():
             model=model,
             rotation=RotationConfig(
                 profile=lorentzian,
+                profile_parameters={
+                    "alpha": central_diff_rate,
+                },
                 target=rotation_target,
-                central_diff_rate=central_diff_rate,
             ),
             solver=SolverOptions(
                 method="radial",

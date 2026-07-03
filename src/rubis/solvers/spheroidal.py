@@ -600,47 +600,45 @@ def update_mapping(
         for j in j_dw
     ]
 
-    r_itp, dr_itp = [
+    r_itp, r_z_itp = [
         np.array([
             spline(zeta_new, nu=nu)
             for spline in r_splines
         ]).T
         for nu in (0, 1)
     ]
-    phi_g_itp, dphi_g_itp = [
+    
+    # Gravitational potential
+    phi_g_itp, phi_g_itp_z = [
         np.array([
             spline(zeta_new, nu=nu)
             for spline in phi_splines
         ]).T
         for nu in (0, 1)
     ]
+    phi_g_itp_r = phi_g_itp_z / r_z_itp
 
-    phi_c_itp, dphi_c_itp = np.moveaxis(
-        np.array([
-            rot_new.phi_c(r_j, t_j)
-            for r_j, t_j in zip(r_itp.T, t[j_dw])
-        ]),
-        0,
-        2,
-    )
+    # Centrifugal potential
+    phi_c_itp, phi_c_itp_r = rot_new.phi_c2d_with_derivative(r_itp, t[j_dw])
 
-    phi_itp  =  phi_g_itp +  phi_c_itp
-    dphi_itp = dphi_c_itp + dphi_g_itp / dr_itp
+    # Total potential
+    phi_itp   = phi_g_itp   + phi_c_itp
+    phi_itp_r = phi_g_itp_r + phi_c_itp_r
 
     # Invert the total potential at the target values
-    valid = valid_reciprocal_domain(zeta_new, dphi_itp)
+    valid = valid_reciprocal_domain(zeta_new, phi_itp_r)
 
     r2d_dw = np.zeros_like(r2d[:, j_dw])
     r2d_dw[1:] = np.array([
         CubicHermiteSpline(
             x=phi_j[valid_j],
             y=r_j[valid_j],
-            dydx=dphi_j[valid_j]**-1,
+            dydx=phi_j_r[valid_j]**-1,
         )(targets[1:])
-        for r_j, phi_j, dphi_j, valid_j in zip(
+        for r_j, phi_j, phi_j_r, valid_j in zip(
             r_itp.T,
             phi_itp.T,
-            dphi_itp.T,
+            phi_itp_r.T,
             valid.T,
         )
     ]).T

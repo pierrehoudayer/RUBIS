@@ -347,14 +347,7 @@ def update_mapping(
     rot_new = rot.with_omega_eq(omega_eq_new)
 
     # Centrifugal potential
-    phi_c, phi_c_r = np.moveaxis(
-        np.array([
-            rot_new.phi_c(r_tot, t_j)
-            for t_j in t[j_dw]
-        ]),
-        (0, 1, 2),
-        (2, 0, 1),
-    )
+    phi_c, phi_c_r = rot_new.phi_c2d_with_derivative(r_tot[:, None], t[j_dw])
 
     # Total potential
     phi   = phi_g   + phi_c

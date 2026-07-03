@@ -4,6 +4,7 @@ from rubis.rotation_profiles import (
     lorentzian, 
     plateau, 
     solid,
+    tabulated,
 )
 
 
@@ -312,5 +313,101 @@ def test_plateau_potential_derivative_matches_finite_difference():
         derivative,
         numerical_derivative,
         rtol=1.0e-8,
+        atol=1.0e-10,
+    )
+    
+    
+def test_tabulated_rotation_profile(tmp_path):
+    s = np.linspace(0.0, 1.0, 11)
+    omega_data = 1.2 - 0.2*s**2
+
+    path = tmp_path / "rotation.txt"
+    np.savetxt(
+        path,
+        np.column_stack((
+            s,
+            omega_data,
+        )),
+    )
+
+    omega_eq = 0.63
+    rotation_law = tabulated(path)
+
+    omega, domega_ds = rotation_law(
+        s,
+        0.0,
+        omega_eq,
+        return_profile=True,
+        return_dprofile=True,
+    )
+
+    norm = omega_eq / omega_data[-1]
+
+    np.testing.assert_allclose(
+        omega,
+        omega_data * norm,
+        rtol=1.0e-13,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        domega_ds,
+        -0.4*s * norm,
+        rtol=1.0e-12,
+        atol=1.0e-12,
+    )
+    np.testing.assert_allclose(
+        omega[-1],
+        omega_eq,
+        rtol=1.0e-14,
+        atol=1.0e-15,
+    )
+
+
+def test_tabulated_potential_derivative_matches_finite_difference(
+    tmp_path,
+):
+    s = np.linspace(0.0, 1.0, 21)
+    omega_data = 1.2 - 0.2*s**2
+
+    path = tmp_path / "rotation.txt"
+    np.savetxt(
+        path,
+        np.column_stack((
+            s,
+            omega_data,
+        )),
+    )
+
+    rotation_law = tabulated(path)
+
+    r = np.array([0.1, 0.4, 0.8])
+    t = 0.37
+    omega_eq = 0.63
+    step = 1.0e-6
+
+    potential_plus, _ = rotation_law(
+        r + step,
+        t,
+        omega_eq,
+    )
+    potential_minus, _ = rotation_law(
+        r - step,
+        t,
+        omega_eq,
+    )
+    _, derivative = rotation_law(
+        r,
+        t,
+        omega_eq,
+    )
+
+    numerical_derivative = (
+        potential_plus - potential_minus
+    ) / (2*step)
+
+    np.testing.assert_allclose(
+        derivative,
+        numerical_derivative,
+        rtol=1.0e-9,
         atol=1.0e-10,
     )
