@@ -734,14 +734,10 @@ def solve_spheroidal(
     conv = ConvergenceTracker.start(
         find_r_pol(r2d, L),
         solver_name="Spheroidal",
+        quantity_name="R_pol",
         tolerance=mapping_precision,
         max_iterations=max_iterations,
-    )
-    
-    print(
-        "\n+---------------------+",
-        "\n| Deformation started |", 
-        "\n+---------------------+\n"
+        verbose=solver_options.verbose,
     )
     
     while not conv.converged:
@@ -788,19 +784,7 @@ def solve_spheroidal(
 
         # Update convergence
         conv.update(find_r_pol(r2d, L))
-        n_decimals = int(-np.log10(mapping_precision))
-        print(
-            f"Iteration n°{conv.iterations:02d}:",
-            f"R_pol = {round(conv.current, n_decimals)}",
-        )
         
-    finish = time.perf_counter()
-    print(
-        "\n+------------------+",
-        "\n| Deformation done |", 
-        "\n+------------------+\n"
-    )
-    print(f'Time taken: {round(finish-start, 2)} secs')  
     
     # Extend the converged mapping through the vacuum domain
     der = compute_mapping_derivatives(
@@ -898,16 +882,17 @@ def solve_spheroidal(
     )
     
     # Solver Info
+    elapsed_time = time.perf_counter() - start
+    conv.report_convergence(elapsed_time=elapsed_time)
+    
     info = SolverInfo(
         method="spheroidal",
         iterations=conv.iterations,
         tolerance=conv.tolerance,
         error=conv.error,
-        polar_radius_history=np.asarray(
-            conv.history,
-        ),
+        polar_radius_history=np.asarray(conv.history),
         rotation_target=rotation_target,
-        elapsed_time=finish - start,
+        elapsed_time=elapsed_time,
     )
     
     return model2d, vacuum, info

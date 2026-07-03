@@ -132,6 +132,7 @@ class SolverOptions:
 
     max_degree: int = 101
     angular_resolution: int = 101
+
     full_rate: int = 3
     mapping_precision: float = 1.0e-10
 
@@ -140,7 +141,9 @@ class SolverOptions:
 
     external_domain_res: int = 201
     rescale_ab: bool = True
+
     max_iterations: int = 200
+    verbose: bool = False
 
 
 @dataclass(kw_only=True)

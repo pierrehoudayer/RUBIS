@@ -210,7 +210,7 @@ def test_spheroidal_solver_returns_normalised_state():
 
     assert info.polar_radius_history.ndim == 1
     assert info.polar_radius_history.shape == (
-        info.iterations + 2,
+        info.iterations + 1,
     )
     assert info.iterations >= 1
     assert info.error <= info.tolerance

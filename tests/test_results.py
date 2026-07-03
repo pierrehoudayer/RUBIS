@@ -4,7 +4,7 @@ from rubis.results import SolverInfo
 
 
 def test_solver_info_stores_convergence_state():
-    history = np.array([0.0, 1.0, 0.9, 0.9001])
+    history = np.array([1.0, 0.9, 0.9001])
 
     info = SolverInfo(
         method="radial",

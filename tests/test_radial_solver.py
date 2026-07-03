@@ -15,7 +15,7 @@ from rubis.rotation_profiles import solid
 from rubis.solvers import solve_radial
 
 
-def test_radial_solver_returns_normalised_state():
+def test_radial_solver_returns_normalised_state(capsys):
     resolution = 65
     angular_resolution = 9
     max_degree = 9
@@ -48,6 +48,7 @@ def test_radial_solver_returns_normalised_state():
         ),
     )
 
+    assert capsys.readouterr().out == ""
     assert isinstance(model2d, Model2D)
     assert vacuum is None
     assert isinstance(info, SolverInfo)
@@ -91,7 +92,7 @@ def test_radial_solver_returns_normalised_state():
     assert np.isfinite(model2d.phi_eff_z).all()
 
     assert info.polar_radius_history.shape == (
-        info.iterations + 2,
+        info.iterations + 1,
     )
     assert info.iterations >= 1
     assert info.error <= info.tolerance
@@ -367,7 +368,7 @@ def test_radial_solver_enforces_iteration_limit():
 
     with pytest.raises(
         RuntimeError,
-        match="did not converge after 1 iterations",
+        match=r"did not converge after 1 iteration\b",    
     ):
         solve_radial(
             model,

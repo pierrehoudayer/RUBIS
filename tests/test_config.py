@@ -78,3 +78,4 @@ def test_deformation_config_builds_default_subconfigs():
     assert config.rotation.profile is solid
     assert config.rotation.target == 0.0
     assert config.solver.method == "auto"
+    assert not config.solver.verbose

@@ -470,14 +470,10 @@ def solve_radial(
     conv = ConvergenceTracker.start(
         find_r_pol(r2d, L),
         solver_name="Radial",
+        quantity_name="polar_radius",
         tolerance=mapping_precision,
         max_iterations=max_iterations,
-    )
-    
-    print(
-        "\n+---------------------+",
-        "\n| Deformation started |", 
-        "\n+---------------------+\n"
+        verbose=solver_options.verbose,
     )
     
     while not conv.converged:
@@ -521,20 +517,7 @@ def solve_radial(
 
         # Update convergence
         conv.update(find_r_pol(r2d, L))
-        n_decimals = int(-np.log10(mapping_precision))
-        print(
-            f"Iteration n°{conv.iterations:02d}:",
-            f"R_pol = {round(conv.current, n_decimals)}",
-        )
-    
-    # Deformation summary
-    finish = time.perf_counter()
-    print(
-        "\n+------------------+",
-        "\n| Deformation done |", 
-        "\n+------------------+\n"
-    )
-    print(f'Time taken: {round(finish-start, 2)} secs')  
+        
     
     # Compute final 2D potentials
     der = compute_mapping_derivatives(
@@ -598,16 +581,17 @@ def solve_radial(
     )
 
     # Solver info
+    elapsed_time = time.perf_counter() - start
+    conv.report_convergence(elapsed_time=elapsed_time)
+    
     info = SolverInfo(
         method="radial",
         iterations=conv.iterations,
         tolerance=conv.tolerance,
         error=conv.error,
-        polar_radius_history=np.asarray(
-            conv.history,
-        ),
+        polar_radius_history=np.asarray(conv.history),
         rotation_target=rotation_target,
-        elapsed_time=finish - start,
+        elapsed_time=elapsed_time,
     )
         
     return model2d, None, info

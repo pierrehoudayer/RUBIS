@@ -196,7 +196,6 @@ def test_write_deformed_model_applies_dimensional_scales(
         tolerance=1.0e-10,
         error=1.0e-11,
         polar_radius_history=np.array([
-            0.0,
             1.0,
             0.9,
             0.9,

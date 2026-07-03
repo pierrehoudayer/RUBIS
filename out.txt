@@ -1,0 +1,133 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.7, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/phoudayer/code/RUBIS
+configfile: pytest.ini
+testpaths: tests
+collected 95 items / 4 deselected / 91 selected
+
+tests/test_api.py ......                                                 [  6%]
+tests/test_config.py ......                                              [ 13%]
+tests/test_convergence.py ......                                         [ 19%]
+tests/test_diagnostics.py ....                                           [ 24%]
+tests/test_domains.py ......                                             [ 30%]
+tests/test_hydrostatics.py ..                                            [ 32%]
+tests/test_initialization.py ...                                         [ 36%]
+tests/test_legacy_io.py .....                                            [ 41%]
+tests/test_legendre.py ...                                               [ 45%]
+tests/test_models.py .....                                               [ 50%]
+tests/test_numerical.py ...                                              [ 53%]
+tests/test_polytrope.py ................                                 [ 71%]
+tests/test_radial_solver.py ....F                                        [ 76%]
+tests/test_radiative_flux.py .                                           [ 78%]
+tests/test_results.py .                                                  [ 79%]
+tests/test_rotation.py ....                                              [ 83%]
+tests/test_rotation_profiles.py .........                                [ 93%]
+tests/test_smoke.py ..                                                   [ 95%]
+tests/test_spheroidal_solver.py ....                                     [100%]
+
+=================================== FAILURES ===================================
+_________________ test_radial_solver_enforces_iteration_limit __________________
+
+    def test_radial_solver_enforces_iteration_limit():
+        resolution = 65
+        angular_resolution = 9
+        max_degree = 9
+        mapping_precision = 1.0e-10
+    
+        model = initialize_model_1d(
+            PolytropeConfig(
+                index=1.0,
+                radius=1.0,
+                mass=1.0,
+                n_points=resolution,
+            )
+        )
+    
+        with pytest.raises(
+            RuntimeError,
+            match="did not converge after 1 iterations",
+        ):
+>           solve_radial(
+                model,
+                RotationConfig(
+                    profile=solid,
+                    target=0.3,
+                ),
+                SolverOptions(
+                    method="radial",
+                    max_degree=max_degree,
+                    angular_resolution=angular_resolution,
+                    full_rate=1,
+                    mapping_precision=1.0e-10,
+                    spline_order=3,
+                    lagrange_order=2,
+                    external_domain_res=21,
+                    rescale_ab=True,
+                    max_iterations=1,
+                ),
+            )
+
+tests/test_radial_solver.py:373: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/rubis/solvers/radial.py:480: in solve_radial
+    conv.check_iteration_limit()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ConvergenceTracker(solver_name='Radial', quantity_name='polar_radius', tolerance=1e-10, max_iterations=1, verbose=False, history=[0.999999999999995, 0.9569383115701079])
+
+    def check_iteration_limit(self):
+        """Raise when no additional iteration is allowed."""
+        if self.iterations < self.max_iterations:
+            return
+    
+        recent_values = np.asarray(
+            self.history[-4:]
+        )
+    
+        iteration_word = (
+            "iteration"
+            if self.max_iterations == 1
+            else "iterations"
+        )
+    
+>       raise RuntimeError(
+            f"{self.solver_name} deformation did not converge "
+            f"after {self.max_iterations} {iteration_word}. "
+            f"Last {self.quantity_name} change = "
+            f"{self.error:.3e}, "
+            f"target = {self.tolerance:.3e}. "
+            f"Recent values: {recent_values!r}"
+        )
+E       RuntimeError: Radial deformation did not converge after 1 iteration. Last polar_radius change = 4.306e-02, target = 1.000e-10. Recent values: array([1.        , 0.95693831])
+
+src/rubis/solvers/convergence.py:109: RuntimeError
+
+During handling of the above exception, another exception occurred:
+
+    def test_radial_solver_enforces_iteration_limit():
+        resolution = 65
+        angular_resolution = 9
+        max_degree = 9
+        mapping_precision = 1.0e-10
+    
+        model = initialize_model_1d(
+            PolytropeConfig(
+                index=1.0,
+                radius=1.0,
+                mass=1.0,
+                n_points=resolution,
+            )
+        )
+    
+>       with pytest.raises(
+            RuntimeError,
+            match="did not converge after 1 iterations",
+        ):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'did not converge after 1 iterations'
+E         Actual message: 'Radial deformation did not converge after 1 iteration. Last polar_radius change = 4.306e-02, target = 1.000e-10. Recent values: array([1.        , 0.95693831])'
+
+tests/test_radial_solver.py:369: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_radial_solver.py::test_radial_solver_enforces_iteration_limit
+================== 1 failed, 90 passed, 4 deselected in 1.49s ==================
