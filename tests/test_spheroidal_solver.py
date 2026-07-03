@@ -541,25 +541,33 @@ def test_uniform_rotation_deforms_composite_model():
     with np.load(reference_path) as reference:
         reference_internal = reference["internal_mask"]
 
-        eps = np.finfo(np.float64).eps
+        # The numerically generated grid may differ by a few ulps
+        # between NumPy/SciPy versions.
+        roundoff = 16.0 * np.finfo(full_zeta.dtype).eps
 
         np.testing.assert_allclose(
             full_zeta,
             reference["zeta"],
-            rtol=16.0 * eps,
-            atol=16.0 * eps,
+            rtol=roundoff,
+            atol=roundoff,
         )
-        np.testing.assert_array_equal(
+        np.testing.assert_allclose(
             model2d.zeta,
             reference["internal_zeta"],
+            rtol=roundoff,
+            atol=roundoff,
         )
-        np.testing.assert_array_equal(
+        np.testing.assert_allclose(
             vacuum.zeta,
             reference["external_zeta"],
+            rtol=roundoff,
+            atol=roundoff,
         )
-        np.testing.assert_array_equal(
+        np.testing.assert_allclose(
             model2d.t,
             reference["cos_theta"],
+            rtol=roundoff,
+            atol=roundoff,
         )
         np.testing.assert_array_equal(
             internal_mask,
