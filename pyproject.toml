@@ -1,27 +1,55 @@
 [build-system]
 requires = [
-    "setuptools>=68",
+    "setuptools>=77",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "rubis"
-version = "1.1.0"
-description = "Compute rotating barotropic stellar models"
+version = "2.0.0"
+description = "Compute rotating barotropic stellar and planetary models"
 readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Pierre S. Houdayer"},
+]
+license = "GPL-3.0-only"
+license-files = ["LICENSE.md"]
+keywords = [
+    "astrophysics",
+    "barotropic models",
+    "rotation",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 dependencies = [
     "numpy",
     "scipy",
 ]
+
+[project.urls]
+Repository = "https://github.com/pierrehoudayer/RUBIS"
+Issues = "https://github.com/pierrehoudayer/RUBIS/issues"
 
 [project.optional-dependencies]
 plot = [
     "matplotlib",
 ]
 dev = [
+    "build",
     "matplotlib",
     "pytest>=8",
+]
+
+[tool.setuptools.package-data]
+rubis = [
+    "data/*.txt",
 ]
 
 [tool.pytest.ini_options]

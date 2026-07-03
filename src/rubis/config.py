@@ -96,11 +96,14 @@ class LegacyModelConfig:
     """Configuration of a model stored in the legacy RUBIS format."""
 
     filename: str
-    directory: Path = Path("models")
+    directory: Path | None = None
 
     @property
     def path(self) -> Path:
-        return self.directory / self.filename
+        directory = self.directory
+        if directory is None:
+            directory = Path(__file__).with_name("data")
+        return directory / self.filename
 
     @property
     def filename_stem(self) -> str:

@@ -67,6 +67,14 @@ def test_legacy_model_config_builds_path(tmp_path):
     assert config.filename_stem == "model"
 
 
+def test_legacy_model_config_uses_included_model():
+    config = LegacyModelConfig(filename="Jupiter.txt")
+
+    assert config.path.name == "Jupiter.txt"
+    assert config.path.parent.name == "data"
+    assert config.path.is_file()
+
+
 def test_deformation_config_builds_default_subconfigs():
     model = PolytropeConfig(index=1.0)
     config = DeformationConfig(model=model)

@@ -39,12 +39,12 @@ python -m pip install -e ".[dev]"
 ## Quick start
 
 ```python
-from rubis.api import deform
-from rubis.config import (
+from rubis import (
     DeformationConfig,
     PolytropeConfig,
     RotationConfig,
     SolverOptions,
+    deform,
 )
 from rubis.rotation_profiles import solid
 
@@ -76,8 +76,17 @@ and plotting in [`examples/`](examples/).
 
 ## Included model
 
-[`models/Jupiter.txt`](Models/Jupiter.txt) is a discontinuous Jupiter
-model used by the full-scale acceptance tests.
+RUBIS distributes a discontinuous Jupiter model as package data.
+It can be selected without referring to the repository layout:
+
+```python
+from rubis import LegacyModelConfig
+
+model = LegacyModelConfig(filename="Jupiter.txt")
+```
+
+The source file is available at
+[`src/rubis/data/Jupiter.txt`](src/rubis/data/Jupiter.txt).
 
 ## Reference
 
