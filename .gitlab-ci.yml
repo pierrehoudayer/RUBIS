@@ -11,8 +11,9 @@ cache:
   paths:
     - .cache/pip/
 
-.test:
+"test:python3.11":
   stage: test
+  image: "src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.11-slim"
   before_script:
     - python --version
     - python -m pip install --upgrade pip
@@ -24,17 +25,23 @@ cache:
     reports:
       junit: report.xml
 
-test:python3.11:
+"test:python3.12":
   stage: test
-  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.11-slim
-
-test:python3.12:
-  stage: test
-  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.12-slim
+  image: "src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.12-slim"
+  before_script:
+    - python --version
+    - python -m pip install --upgrade pip
+    - python -m pip install -e ".[dev]"
+  script:
+    - python -m pytest -m "not slow and not acceptance" --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
 
 package:
   stage: package
-  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.12-slim
+  image: "src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.11-slim"
   before_script:
     - python --version
     - python -m pip install --upgrade pip build
