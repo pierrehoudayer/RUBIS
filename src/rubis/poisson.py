@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from .legendre import Legendre_coupling
+from .legendre import legendre_coupling
 from .mapping import ExtendedMappingDerivatives
 
 
@@ -58,19 +58,19 @@ def compute_poisson_couplings(
     q = 1 - t**2
     l = np.arange(0, max_degree, 2)
 
-    zz = Legendre_coupling(
+    zz = legendre_coupling(
         (r2d**2 + q * der.r_t**2) / der.r_z,
         max_degree,
         der=(0, 0),
     )
 
     zt = (
-        Legendre_coupling(
+        legendre_coupling(
             q * der.r_tt - 2 * t * der.r_t,
             max_degree,
             der=(0, 0),
         )
-        + alpha * Legendre_coupling(
+        + alpha * legendre_coupling(
             q * der.r_t,
             max_degree,
             der=(0, 1),
@@ -78,7 +78,7 @@ def compute_poisson_couplings(
     )
 
     tt = (
-        Legendre_coupling(
+        legendre_coupling(
             der.r_z,
             max_degree,
             der=(0, 0),
@@ -86,7 +86,7 @@ def compute_poisson_couplings(
         * l * (l + 1)
     )
 
-    boundary = Legendre_coupling(
+    boundary = legendre_coupling(
         1 / der.r_z,
         max_degree,
         der=(0, 0),
