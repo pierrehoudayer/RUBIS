@@ -1,0 +1,65 @@
+stages:
+  - test
+  - package
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+cache:
+  key: "pip-$CI_COMMIT_REF_SLUG"
+  paths:
+    - .cache/pip/
+
+.test:
+  stage: test
+  before_script:
+    - python --version
+    - python -m pip install --upgrade pip
+    - python -m pip install -e ".[dev]"
+  script:
+    - python -m pytest -m "not slow and not acceptance" --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
+test:python3.11:
+  extends: .test
+  image: python:3.11-slim
+
+test:python3.12:
+  extends: .test
+  image: python:3.12-slim
+
+package:
+  stage: package
+  image: python:3.11-slim
+  before_script:
+    - python --version
+    - python -m pip install --upgrade pip build
+  script:
+    - python -m build
+    - python -m pip install dist/*.whl
+    - |
+      export EXPECTED_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+      cd /tmp
+      python - <<'PY'
+      import os
+
+      import rubis
+      from rubis import LegacyModelConfig
+
+      assert rubis.__version__ == os.environ["EXPECTED_VERSION"]
+
+      jupiter = LegacyModelConfig(filename="Jupiter.txt").path
+      assert jupiter.is_file()
+      assert jupiter.stat().st_size > 0
+
+      print(f"RUBIS {rubis.__version__}")
+      print(f"Jupiter model: {jupiter}")
+      PY
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
