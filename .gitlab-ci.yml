@@ -25,16 +25,16 @@ cache:
       junit: report.xml
 
 test:python3.11:
-  extends: .test
-  image: python:3.11-slim
+  stage: test
+  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.11-slim
 
 test:python3.12:
-  extends: .test
-  image: python:3.12-slim
+  stage: test
+  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.12-slim
 
 package:
   stage: package
-  image: python:3.11-slim
+  image: src.koda.cnrs.fr:443/dsi/dependency_proxy/containers/python:3.12-slim
   before_script:
     - python --version
     - python -m pip install --upgrade pip build
