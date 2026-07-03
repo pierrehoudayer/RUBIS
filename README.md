@@ -76,7 +76,7 @@ and plotting in [`examples/`](examples/).
 
 ## Included model
 
-[`Models/Jupiter.txt`](Models/Jupiter.txt) is a discontinuous Jupiter
+[`models/Jupiter.txt`](Models/Jupiter.txt) is a discontinuous Jupiter
 model used by the full-scale acceptance tests.
 
 ## Reference

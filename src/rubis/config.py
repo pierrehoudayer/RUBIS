@@ -96,7 +96,7 @@ class LegacyModelConfig:
     """Configuration of a model stored in the legacy RUBIS format."""
 
     filename: str
-    directory: Path = Path("Models")
+    directory: Path = Path("models")
 
     @property
     def path(self) -> Path:
