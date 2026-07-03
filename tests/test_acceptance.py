@@ -12,7 +12,7 @@ from rubis.rotation_profiles import lorentzian, solid
 from rubis.api import deform
 
 @pytest.mark.slow
-@pytest.mark.readme
+@pytest.mark.acceptance
 def test_readme_near_critical_n3_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 0.9999
@@ -103,7 +103,7 @@ def test_readme_near_critical_n3_model_converges():
     
     
 @pytest.mark.slow
-@pytest.mark.readme
+@pytest.mark.acceptance
 def test_readme_super_keplerian_n05_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 1.105
@@ -203,7 +203,7 @@ def test_readme_super_keplerian_n05_model_converges():
     
     
 @pytest.mark.slow
-@pytest.mark.readme
+@pytest.mark.acceptance
 def test_readme_extreme_lorentzian_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 0.97
@@ -303,7 +303,7 @@ def test_readme_extreme_lorentzian_model_converges():
     
     
 @pytest.mark.slow
-@pytest.mark.readme
+@pytest.mark.acceptance
 def test_readme_jupiter_model_converges():
     mapping_precision = 1.0e-10
     rotation_target = 0.9

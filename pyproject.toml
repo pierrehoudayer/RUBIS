@@ -23,3 +23,13 @@ dev = [
     "matplotlib",
     "pytest>=8",
 ]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+addopts = "-ra"
+markers = [
+    "slow: computationally expensive convergence tests",
+    "acceptance: full-scale physical acceptance tests",
+]
