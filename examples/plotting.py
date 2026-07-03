@@ -69,12 +69,15 @@ def main():
         ),
     )
 
-    plot_radiative_flux_lines(flux)
+    plot_radiative_flux_lines(
+        flux, 
+        color="lightgrey"
+    )
 
     plot_radiative_flux_surface(
         model,
         flux,
-        cmap="stellar_r",
+        cmap="stellar",
     )
 
     plt.show()
