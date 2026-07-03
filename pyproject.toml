@@ -21,11 +21,6 @@ dev = [
     "pytest>=8",
 ]
 
-[tool.setuptools]
-py-modules = [
-    "RUBIS",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["rubis*"]
