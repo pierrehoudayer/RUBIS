@@ -1,351 +1,403 @@
-import matplotlib        as mpl
+"""Visualisation utilities for RUBIS models."""
+
+import matplotlib as mpl
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcl
-import numpy             as np
-from matplotlib             import rc, ticker
+import numpy as np
+
+from matplotlib import ticker
+from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
-from pylab                  import cm
+from matplotlib.figure import Figure
 
-from rubis.domains  import find_domains
-from rubis.flux     import RadiativeFlux
-from rubis.legendre import pl_eval_2D, pl_project_2D
-from rubis.models   import Model2D
+from .domains import find_domains
+from .flux import RadiativeFlux
+from .legendre import (
+    pl_eval_2D,
+    pl_project_2D,
+)
+from .models import Model2D
 
 
-def phi_g_harmonics(zeta, phi_g_l, cmap=cm.viridis, radial=True) : 
+ColormapLike = str | mcolors.Colormap | None
+
+
+_STELLAR_COLORS = (
+    "#1d1d1d",
+    "#6a1707",
+    "#bd7a37",
+    "#f6cf77",
+    "#fffffe",
+)
+
+STELLAR_CMAP = (
+    mcolors.LinearSegmentedColormap.from_list(
+        "stellar",
+        _STELLAR_COLORS,
+    )
+)
+
+STELLAR_CMAP_R = STELLAR_CMAP.reversed(
+    name="stellar_r"
+)
+
+
+def _resolve_colormap(
+    cmap: ColormapLike,
+) -> mcolors.Colormap:
+    """Resolve a Matplotlib or RUBIS colormap."""
+    if cmap is None:
+        return STELLAR_CMAP
+
+    if isinstance(cmap, mcolors.Colormap):
+        return cmap
+
+    if cmap == "stellar":
+        return STELLAR_CMAP
+
+    if cmap == "stellar_r":
+        return STELLAR_CMAP_R
+
+    try:
+        return mpl.colormaps[cmap]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown colormap {cmap!r}."
+        ) from exc
+
+
+def phi_g_harmonics(
+    zeta,
+    phi_g_l,
+    cmap: ColormapLike = "viridis",
+    radial=True,
+    *,
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
     """
-    Displays the gravitational potential harmonics and gives an 
-    estimate of the error on Poisoon's equation induced by this 
-    decomposition.
-    
-    Parameters
-    ----------
-    zeta : array_like, shape (N, )
-        Variable labelling the isopotentials
-    phi_g_l : array_like, shape (N, L)
-        Gravitational potential harmonics.
-    cmap : ColorMap instance, optional
-        Colormap used to display the harmonics (as a function
-        of their degrees). Default is cm.viridis.
-    radial : boolean, optional
-        True if the harmonics come from the radial method routine
-        and false otherwise. Default is True.
+    Plot gravitational-potential harmonics.
+
+    This legacy interface is retained temporarily. The harmonics will
+    later be reconstructed directly from Model2D and VacuumModel2D.
     """
     z_max = 1.3
     L = phi_g_l.shape[1]
-    if radial :
+
+    if radial:
         # External domain
         z_ext = np.linspace(1.0, z_max, 101)
         zeta = np.concatenate((zeta, z_ext))
-    
-        # Definition of all harmonics
+
+        # Analytic vacuum continuation
         phi_g_l = np.vstack((
             phi_g_l,
-            phi_g_l[-1] * (z_ext[:, None])**-(np.arange(L)+1)
+            phi_g_l[-1] * z_ext[:, None] ** -(np.arange(L) + 1)
         ))
-    else : 
-        phi_g_l = phi_g_l[zeta < z_max]
-        zeta = zeta[zeta < z_max]
-        
-    # Error on Poisson's equation
-    Poisson_error = np.abs(phi_g_l[:, -1]/phi_g_l[:, 0]).max()
-    print(f"Estimated error on Poisson's equation: {round(Poisson_error, 16)}")
-    
-    # Plot
-    ylims = (1e-22, 1e2)
-    for l in range(0, L, 2):
-        c = cmap(l/L)
-        plt.plot(zeta, np.abs(phi_g_l[:, l]), color=c, lw=1.0, alpha=0.3)
-    plt.vlines(
-        find_domains(zeta).interface_values, 
-        ymin=ylims[0],  ymax=ylims[1], colors="grey", linestyles="--", linewidth=1.0
-    )
-    plt.yscale("log")
-    plt.ylim(*ylims)
-    plt.yticks(
-        [1e-20, 1e-15, 1e-10, 1e-5, 1], 
-        [r"$10^{-20}$", r"$10^{-15}$", r"$10^{-10}$", r"$10^{-5}$", r"$1$"]
-    )
-    plt.show()
 
-  
-def get_cmap_from_proplot(cmap_name, **kwargs) :
-    """
-    Get a colormap defined in the proplot extension. If proplot 
-    isn't installed, then return a matplotlib colormap corresponding
-    to cmap_name.
-    
-    Parameters
-    ----------
-    cmap_name: string
-        String corresponding to the colormap name in proplot.
-        
-    Returns
-    -------
-    cmap: Colormap instance
-        Corresponding colormap.
-    """
-    from importlib.util import find_spec
-    spec = find_spec("proplot")
-    
-    if spec is None :  # proplot is not installed
-        try : 
-            cmap = cm.get_cmap(cmap_name)
-        except : 
-            stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
-            # fire_list    = ["#fffdfb", "#f7be7a", "#d96644", "#8f3050", "#401631"][::-1]
-            cmap = get_continuous_cmap(stellar_list)
-        return cmap
-    else :             # proplot is installed
-        import proplot as pplt
-        cmap = pplt.Colormap(cmap_name, **kwargs)
-        return cmap
-    
-    
-def hex_to_rgb(hex_value) :
-    """
-    Converts hex to rgb colours
-    
-    Parameters
-    ----------
-    hex_value: string
-        String of 6 characters representing a hex colour
-        
-    Returns
-    -------
-    rgb_values: tuple
-        Lenght 3 list of RGB values
-    """
-    hex_value = hex_value.strip("#") # removes hash symbol if present
-    lv = len(hex_value)
-    rgb_values = tuple(
-        int(hex_value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3)
-    )
-    return rgb_values
-
-
-def rgb_to_dec(rgb_values) :
-    """
-    Converts rgb to decimal colours (i.e. divides each value by 256)
-    
-    Parameters
-    ----------
-    rgb_values: tuple of integers
-        Lenght 3 tuple with RGB values
-        
-    Returns
-    -------
-    dec_values: tuple of floats
-        Lenght 3 tuple with decimal values
-    """
-    dec_values = [v/256 for v in rgb_values]
-    return dec_values
-
-
-def get_continuous_cmap(hex_list, float_list=None):
-    """
-    Creates and returns a color map that can be used in heat map figures.
-    If float_list is not provided, colour map graduates 
-    linearly between each color in hex_list. If float_list is provided, 
-    each color in hex_list is mapped to the respective location in float_list. 
-    
-    Parameters
-    ----------
-    hex_list: list of strings
-        List of hex code strings
-    float_list: list of floats
-        List of floats between 0 and 1, same length as hex_list.
-        Must start with 0 and end with 1.
-        
-    Returns
-    -------
-    cmap: Colormap instance
-        Colormap
-    """
-    rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
-    if float_list:
-        pass
     else:
-        float_list = list(np.linspace(0,1,len(rgb_list)))
-        
-    cdict = dict()
-    for num, col in enumerate(["red", "green", "blue"]):
-        col_list = [
-            [float_list[i], rgb_list[i][num], rgb_list[i][num]] 
-            for i in range(len(float_list))
-        ]
-        cdict[col] = col_list
-    cmap = mcl.LinearSegmentedColormap("my_cmap", segmentdata=cdict, N=256)
-    return cmap
+        inside = zeta < z_max
+        phi_g_l = phi_g_l[inside]
+        zeta = zeta[inside]
+
+    poisson_error = np.max(
+        np.abs(phi_g_l[:, -1] / phi_g_l[:, 0])
+    )
+
+    print(f"Estimated error on Poisson's equation: {poisson_error:.3e}")
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    cmap = _resolve_colormap(cmap)
+    y_limits = (1.0e-22, 1.0e2)
+
+    denominator = max(L - 1, 1)
+
+    for l in range(0, L, 2):
+        ax.plot(
+            zeta,
+            np.abs(phi_g_l[:, l]),
+            color=cmap(l / denominator),
+            linewidth=1.0,
+            alpha=0.3,
+        )
+
+    ax.vlines(
+        find_domains(zeta).interface_values,
+        ymin=y_limits[0],
+        ymax=y_limits[1],
+        colors="grey",
+        linestyles="--",
+        linewidth=1.0,
+    )
+
+    ax.set_yscale("log")
+    ax.set_ylim(*y_limits)
+    ax.set_yticks([
+        1.0e-20,
+        1.0e-15,
+        1.0e-10,
+        1.0e-5,
+        1.0,
+    ])
+
+    fig.tight_layout()
+
+    return fig, ax
 
 
-def plot_flux_lines(r, t, **kwargs) : 
-    """
-    Return the fig and axes with the flux lines plotted upon.
+def plot_flux_lines(
+    r,
+    t,
+    *,
+    ax: Axes | None = None,
+    font_size=16,
+    **line_options,
+) -> tuple[Figure, Axes]:
+    """Plot radiative-flux characteristics."""
+    r = np.asarray(r)
+    t = np.clip(np.asarray(t), -1.0, 1.0)
 
-    Parameters
-    ----------
-    r : array_like, shape (N, M)
-        Radius values for each line.
-    f_l : array_like, shape (N, M)
-        Angular (cos theta) values along the radius for each line.
-    kwargs : 
-        keyboard arguments to be passed to plt.plot()
+    # Define the limiting surfaces
+    r0 = r[0]
+    t0 = t[0]
+    r1 = r[-1]
+    t1 = t[-1]
 
-    Returns
-    -------
-    None.
+    s0 = np.sqrt(1.0 - t0**2)
+    s1 = np.sqrt(1.0 - t1**2)
 
-    """
-    # Define the limit angles
-    r0, t0 = r[0] , t[0]
-    r1, t1 = r[-1], t[-1]
-    s0, s1 = (1-t0**2)**0.5, (1-t1**2)**0.5
-    
-    # Initialise the figure
-    size = 20
-    rc("text", usetex=True)
-    rc("xtick", labelsize=size)
-    rc("ytick", labelsize=size)
-    margin, cbar_width = 0.05, 0.1
-    x_scale = 2 * margin + np.abs(r1 * s1).max() + 2 * cbar_width
-    y_scale = 2 * margin + np.abs(r1 * t1).max()
-    factor = min(18/x_scale, 9.5/y_scale)
-    fig, ax = plt.subplots(figsize=(x_scale * factor, y_scale * factor), frameon=False)
-    
-    # Plot the constant flux surface
-    x0_long = np.hstack(((r0*s0)[::-1], -r0*s0, (r0*s0)[-1]))
-    y0_long = np.hstack(((r0*t0)[::-1],  r0*t0, (r0*t0)[-1]))
-    ax.plot(x0_long, y0_long, lw=1.0, **kwargs)
-    
-    # Plot the characteristics
-    for rk, tk in zip(r.T, t.T) :
-        tk = np.where(tk > 1.0, 1.0, tk)
-        sk = (1-tk**2)**0.5
-        for sgn in [1, -1] : 
-            ax.plot(sgn*rk*sk, rk*tk, lw=0.5, alpha=0.5, zorder=10, **kwargs)
-    return (fig, ax)
+    if ax is None:
+        margin = 0.05
+        colorbar_width = 0.1
+
+        x_scale = (
+              2.0 * margin 
+            + 2.0 * colorbar_width
+            + np.abs(r1 * s1).max()
+        )
+        y_scale = (
+            2.0 * margin
+            + np.abs(r1 * t1).max()
+        )
+
+        factor = min(18.0 / x_scale, 9.5 / y_scale)
+
+        fig, ax = plt.subplots(
+            figsize=(
+                x_scale * factor,
+                y_scale * factor,
+            ),
+            frameon=False,
+        )
+    else:
+        fig = ax.figure
+
+    # Constant-flux inner surface
+    x0 = np.hstack((
+        (r0 * s0)[::-1],
+        -r0 * s0,
+        (r0 * s0)[-1],
+    ))
+    y0 = np.hstack((
+        (r0 * t0)[::-1],
+        r0 * t0,
+        (r0 * t0)[-1],
+    ))
+
+    ax.plot(
+        x0,
+        y0,
+        linewidth=1.0,
+        **line_options,
+    )
+
+    # Characteristics
+    for r_line, t_line in zip(r.T, t.T):
+        s_line = np.sqrt(1.0 - t_line**2)
+
+        for sign in (-1.0, 1.0):
+            ax.plot(
+                sign
+                * r_line
+                * s_line,
+                r_line * t_line,
+                linewidth=0.5,
+                alpha=0.5,
+                zorder=10,
+                **line_options,
+            )
+
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel(r"$s/R_{\rm eq}$", fontsize=font_size)
+    ax.set_ylabel(r"$z/R_{\rm eq}$", fontsize=font_size)
+    ax.tick_params(labelsize=font_size)
+
+    fig.tight_layout()
+
+    return fig, ax
 
 
 def plot_radiative_flux_lines(
     flux: RadiativeFlux,
-    **kwargs,
-):
+    *,
+    ax: Axes | None = None,
+    font_size=16,
+    **line_options,
+) -> tuple[Figure, Axes]:
     """Plot the characteristics of a radiative-flux solution."""
     return plot_flux_lines(
         flux.line_r,
         flux.line_t,
-        **kwargs,
+        ax=ax,
+        font_size=font_size,
+        **line_options,
     )
     
 
-def set_axes_equal(ax) :
-    """
-    Make axes of 3D plot have equal scale so that spheres appear as spheres,
-    cubes as cubes, etc.
+def set_axes_equal(ax: Axes) -> None:
+    """Give all three axes the same displayed extent."""
+    limits = np.array([
+        ax.get_xlim3d(),
+        ax.get_ylim3d(),
+        ax.get_zlim3d(),
+    ])
 
-    Parameters
-    ----------
-      ax: matplotlib axis, e.g., as output from plt.gca().
-    """
+    centers = limits.mean(axis=1)
+    radius = np.ptp(limits, axis=1).max() / 2.0
 
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-
-    x_range = abs(x_limits[1] - x_limits[0])
-    x_middle = np.mean(x_limits)
-    y_range = abs(y_limits[1] - y_limits[0])
-    y_middle = np.mean(y_limits)
-    z_range = abs(z_limits[1] - z_limits[0])
-    z_middle = np.mean(z_limits)
-
-    # The plot bounding box is a sphere in the sense of the infinity
-    # norm, hence I call half the max range the plot radius.
-    plot_radius = max([x_range, y_range, z_range]) / 3
-
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+    ax.set_xlim3d(
+        centers[0] - radius,
+        centers[0] + radius,
+    )
+    ax.set_ylim3d(
+        centers[1] - radius,
+        centers[1] + radius,
+    )
+    ax.set_zlim3d(
+        centers[2] - radius,
+        centers[2] + radius,
+    )
     
-def plot_3D_surface(surf_l, f_l, show_T_eff, res, cmap) : 
-    """
-    Create a 3D plot of the star's surface, colored by the values 
-    of f.
-
-    Parameters
-    ----------
-    surf_l : array_like, shape (L, )
-        Surface mapping harmonics.
-    f_l : array_like, shape (L, )
-        Function values harmonics on the surface.
-    show_T_eff : boolean, optional
-        Whether to map the effective T_eff instead of the radiative flux
-        amplitude on the surface.       
-    res : tuple of floats (res_t, res_p)
-        Gives the resolution of the 3D surface in theta and phi coordinates 
-        respectively.
-    cmap : ColorMap instance, optional
-        Colormap used to display the f values on the surface.
-
-    Returns
-    -------
-    None.
-
-    """
-    # 1D variables
+    
+def plot_3D_surface(
+    surf_l,
+    f_l,
+    show_T_eff,
+    res,
+    cmap: ColormapLike,
+    *,
+    ax: Axes | None = None,
+    font_size=16,
+) -> tuple[Figure, Axes]:
+    """Plot an axisymmetric surface coloured by a scalar field."""
     res_t, res_p = res
-    t = np.linspace(-1, 1, res_t)
+
+    t = np.linspace(-1.0, 1.0, res_t)
     r = pl_eval_2D(surf_l, t)
-    if show_T_eff : 
+
+    if show_T_eff:
         f = np.abs(pl_eval_2D(f_l, t)) ** 0.25
+
         title = (
-              r"$\displaystyle T_\mathrm{eff} \times "
-            + r"\left[\frac{L}{4\pi \sigma {R_\mathrm{eq}}^2}\right]^{-1/4}$"
+            r"$T_{\rm eff}\,"
+            r"\left["
+            r"\frac{L}"
+            r"{4\pi\sigma R_{\rm eq}^2}"
+            r"\right]^{-1/4}$"
         )
-    else : 
+
+    else:
         f = pl_eval_2D(f_l, t)
-        title = r"$\displaystyle Q \times \left[\frac{L}{4\pi {R_\mathrm{eq}}^2}\right]^{-1}$"
-    s, z = r * (1-t**2)**0.5, r * t
-    p = np.linspace(0, 2*np.pi, res_p)
 
-    # 2D variables
-    X = s[:, None] * np.cos(p) 
-    Y = s[:, None] * np.sin(p)
-    Z = np.tile(z, (res_p, 1)).T
-    F = np.tile(f, (res_p, 1)).T
-    
-    # Colormap
-    stellar_list = ["#fffffe", "#f6cf77", "#bd7a37", "#6a1707", "#1d1d1d"][::-1]
-    if cmap is None : cmap = get_continuous_cmap(stellar_list)
+        title = (
+            r"$Q\,"
+            r"\left["
+            r"\frac{L}"
+            r"{4\pi R_{\rm eq}^2}"
+            r"\right]^{-1}$"
+        )
 
-    # 3D Plot
-    fig = plt.figure(figsize=(10.0, 10.0))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.set_box_aspect([1.0, 1.0, 1.0])
-    ax_surf = ax.plot_surface(
-        X, Y, Z, facecolors=cmap(F/f.max()), shade=False, 
-        rcount=max(res_p, res_t), ccount=max(res_p, res_t)
+    s = r * np.sqrt(1.0 - t**2)
+    z = r * t
+
+    p = np.linspace(0.0, 2.0 * np.pi, res_p)
+
+    x = s[:, None] * np.cos(p)
+    y = s[:, None] * np.sin(p)
+    z2d = np.broadcast_to(z[:, None], x.shape)
+    f2d = np.broadcast_to(f[:, None], x.shape)
+
+    if ax is None:
+        fig = plt.figure(
+            figsize=(10.0, 10.0)
+        )
+        ax = fig.add_subplot(
+            111,
+            projection="3d",
+        )
+    else:
+        fig = ax.figure
+
+    cmap = _resolve_colormap(cmap)
+    vmax = float(np.nanmax(f))
+
+    if not np.isfinite(vmax):
+        raise ValueError(
+            "The surface field contains no finite maximum."
+        )
+
+    if vmax <= 0.0:
+        raise ValueError(
+            "The surface field must contain positive values."
+        )
+
+    norm = mcolors.Normalize(vmin=0.0, vmax=vmax)
+
+    surface = ax.plot_surface(
+        x,
+        y,
+        z2d,
+        facecolors=cmap(norm(f2d)),
+        shade=False,
+        rcount=max(res_p, res_t),
+        ccount=max(res_p, res_t),
     )
-    ax_surf.set_edgecolor((1.0, 1.0, 1.0, 0.1))
-    ax_surf.set_linewidth(0.1)
+    surface.set_edgecolor((1.0, 1.0, 1.0, 0.1))
+    surface.set_linewidth(0.1)
+
+    ax.set_box_aspect((1.0, 1.0, 1.0))
     ax.set_axis_off()
     set_axes_equal(ax)
-    ax.view_init(-150, 0)
-    
-    # Colorbar
-    rc("text", usetex=True)
-    cbar_width, size, ticks = 0.1, 20, [0, 10**int(np.log10(f.max()))]
-    cbr = fig.colorbar(
-        mpl.cm.ScalarMappable(norm=mcl.Normalize(vmax=f.max(), vmin=0.0), cmap=cmap), 
-        ticks=ticks, pad=0.0, fraction=cbar_width, shrink=0.6, aspect=25, extend="max"
+    ax.view_init(elev=-150, azim=0)
+
+    scalar_map = mpl.cm.ScalarMappable(
+        norm=norm,
+        cmap=cmap,
     )
-    cbr.ax.set_title(title, y=1.07, fontsize=size)
-    cbr.ax.tick_params(labelsize=size)
-    
-    # Showing the figure
+    scalar_map.set_array([])
+
+    colorbar = fig.colorbar(
+        scalar_map,
+        ax=ax,
+        pad=0.0,
+        fraction=0.1,
+        shrink=0.6,
+        aspect=25,
+    )
+
+    colorbar.ax.set_title(
+        title,
+        y=1.07,
+        fontsize=font_size,
+    )
+    colorbar.ax.tick_params(labelsize=font_size)
+
     fig.tight_layout()
-    plt.show()
+
+    return fig, ax
     
     
 def plot_radiative_flux_surface(
@@ -353,19 +405,16 @@ def plot_radiative_flux_surface(
     flux: RadiativeFlux,
     *,
     show_effective_temperature=True,
-    resolution=(200, 100),
-    cmap="magma_r",
-):
+    resolution=(
+        200,
+        100,
+    ),
+    cmap: ColormapLike = "magma_r",
+    ax: Axes | None = None,
+    font_size=16,
+) -> tuple[Figure, Axes]:
     """Plot the radiative-flux distribution on the stellar surface."""
-    surface_l = pl_project_2D(
-        model.r2d[-1],
-        flux.max_degree,
-    )
-
-    if isinstance(cmap, str):
-        cmap = get_cmap_from_proplot(
-            cmap
-        )
+    surface_l = pl_project_2D(model.r2d[-1], flux.max_degree)
 
     return plot_3D_surface(
         surface_l,
@@ -373,16 +422,33 @@ def plot_radiative_flux_surface(
         show_T_eff=show_effective_temperature,
         res=resolution,
         cmap=cmap,
+        ax=ax,
+        font_size=font_size,
     )
     
 
 def plot_f_map(
-    map_n, f, phi_eff, max_degree,
-    angular_res=501, t_deriv=0, levels=100, cmap=cm.Blues, size=16, label=r"$f$",
-    show_surfaces=False, n_lines=30, cmap_lines=cm.BuPu, lw=0.5,
-    disc=None, disc_color="white", map_ext=None, n_lines_ext=20,
-    add_to_fig=None, background_color="white",
-) :
+    map_n,
+    f,
+    phi_eff,
+    max_degree,
+    angular_res=501,
+    t_deriv=0,
+    levels=100,
+    cmap: ColormapLike = "Blues",
+    size=16,
+    label=r"$f$",
+    show_surfaces=False,
+    n_lines=30,
+    cmap_lines: ColormapLike = "BuPu",
+    lw=0.5,
+    disc=None,
+    disc_color="white",
+    map_ext=None,
+    n_lines_ext=20,
+    add_to_fig=None,
+    background_color="white",
+):
     """
     Shows the value of f in the 2D model.
 
@@ -454,10 +520,12 @@ def plot_f_map(
     Nf = f2D.shape[0]
         
     # Text formating 
-    rc("text", usetex=True)
-    rc("xtick", labelsize=size)
-    rc("ytick", labelsize=size)
-    rc("axes", facecolor=background_color)
+    cmap = _resolve_colormap(cmap)
+    cmap_lines = _resolve_colormap(cmap_lines)
+    norm = None
+    midpoint = np.asarray(cmap(0.5)[:3])
+    if np.sum((1.0 - midpoint) ** 2) < 1.0e-2:
+        norm = mcolors.CenteredNorm()
     
     # Init figure
     norm = None
@@ -472,6 +540,8 @@ def plot_f_map(
         fig, ax = plt.subplots(figsize=(x_scale * factor, y_scale * factor), frameon=False)
     else : 
         fig, ax = add_to_fig
+    ax.set_facecolor(background_color)
+    ax.tick_params(labelsize=size)
     
     # Right side
     csr = ax.contourf(
@@ -482,8 +552,8 @@ def plot_f_map(
         c.set_edgecolor("face")
     if disc is not None :
         for i in disc :
-            plt.plot(map_res[i]*sth_res, map_res[i]*cth_res, color=disc_color, lw=lw)
-    plt.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
+            ax.plot(map_res[i]*sth_res, map_res[i]*cth_res, color=disc_color, lw=lw)
+    ax.plot(map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
     cbr = fig.colorbar(csr, pad=0.7*cbar_width, fraction=cbar_width, shrink=0.85, aspect=25)
     tick_locator = ticker.MaxNLocator(nbins=5)
     cbr.locator = tick_locator
@@ -520,8 +590,8 @@ def plot_f_map(
             c.set_edgecolor("face")
         if disc is not None :
             for i in disc :
-                plt.plot(-map_res[i]*sth_res, map_res[i]*cth_res, "w-", lw=lw)
-        plt.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
+                ax.plot(-map_res[i]*sth_res, map_res[i]*cth_res, "w-", lw=lw)
+        ax.plot(-map_res[-1]*sth_res, map_res[-1]*cth_res, "k-", lw=lw)
         
     # External mapping
     if map_ext is not None : 
@@ -529,13 +599,14 @@ def plot_f_map(
         map_ext_l   = pl_project_2D(map_ext, max_degree)
         map_ext_res = pl_eval_2D(map_ext_l, np.linspace(-1, 1, angular_res))
         for ri in map_ext_res[::-Ne//n_lines_ext] : 
-            plt.plot( ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
-            plt.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
+            ax.plot( ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
+            ax.plot(-ri*sth_res, ri*cth_res, lw=lw/2, ls="-", color="grey")
     
-    # Show figure
-    plt.axis("equal")
-    plt.xlabel(r"$s/R_\mathrm{eq}$", fontsize=size+3)
-    plt.ylabel(r"$z/R_\mathrm{eq}$", fontsize=size+3)
-    plt.xlim((-1.0, 1.0))
+    # Adjust figure
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel(r"$s/R_{\rm eq}$", fontsize=size + 3)
+    ax.set_ylabel(r"$z/R_{\rm eq}$", fontsize=size + 3)
+    ax.set_xlim(-1.0, 1.0)
     fig.tight_layout()
-    plt.show()
+
+    return fig, ax
