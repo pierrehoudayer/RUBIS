@@ -91,7 +91,7 @@ def main():
     )
 
     # Historical RUBIS text output
-    Path("Models").mkdir(
+    Path("models").mkdir(
         exist_ok=True
     )
 
