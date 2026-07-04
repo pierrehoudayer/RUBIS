@@ -22,9 +22,12 @@ keywords = [
     "rotation",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -34,8 +37,9 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/pierrehoudayer/RUBIS"
-Issues = "https://github.com/pierrehoudayer/RUBIS/issues"
+Repository = "https://src.koda.cnrs.fr/pierrehoudayer/RUBIS"
+Issues = "https://src.koda.cnrs.fr/pierrehoudayer/RUBIS/-/issues"
+Mirror = "https://github.com/pierrehoudayer/RUBIS"
 
 [project.optional-dependencies]
 plot = [

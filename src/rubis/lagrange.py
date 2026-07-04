@@ -7,7 +7,7 @@ from numpy.polynomial.polynomial import Polynomial
 
 
 __all__ = [
-    "lagrange_matrix_P",
+    "build_lagrange_operators",
 ]
 
 
@@ -110,7 +110,7 @@ def _polynomial_coefficients(
     )
 
 
-def lagrange_matrix_P(
+def build_lagrange_operators(
     x,
     order: int = 2,
 ):
@@ -118,7 +118,7 @@ def lagrange_matrix_P(
     x = np.asarray(x)
     n_points = x.size
 
-    matrix = np.zeros((
+    operators = np.zeros((
         n_points - 1,
         n_points,
         2,
@@ -219,9 +219,9 @@ def lagrange_matrix_P(
             axis=1,
         )
 
-        matrix[i, mask_i, 0] = lagrange
-        matrix[i, mask_i, 1] = derivative
+        operators[i, mask_i, 0] = lagrange
+        operators[i, mask_i, 1] = derivative
 
-    matrix[..., 1] /= scales[:, None]
+    operators[..., 1] /= scales[:, None]
 
-    return matrix
+    return operators

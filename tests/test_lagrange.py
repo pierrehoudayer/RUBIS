@@ -1,14 +1,14 @@
 import numpy as np
 
-from rubis.lagrange import lagrange_matrix_P
+from rubis.lagrange import build_lagrange_operators
 
 
-def test_lagrange_matrix_reproduces_polynomials():
+def test_lagrange_operators_reproduces_polynomials():
     x = np.linspace(0.0, 1.0, 9)**2
-    matrix = lagrange_matrix_P(x, order=2)
+    operators = build_lagrange_operators(x, order=2)
 
-    interpolation = matrix[..., 0]
-    derivative = matrix[..., 1]
+    interpolation = operators[..., 0]
+    derivative = operators[..., 1]
 
     # The evaluation points are not returned explicitly.
     # Linear interpolation reconstructs them exactly.
@@ -62,12 +62,12 @@ def test_lagrange_matrix_reproduces_polynomials():
     )
     
     
-def test_higher_order_lagrange_matrix_reproduces_polynomials():
+def test_higher_order_lagrange_operators_reproduces_polynomials():
     x = np.linspace(0.0, 1.0, 13)**2
-    matrix = lagrange_matrix_P(x, order=3)
+    operators = build_lagrange_operators(x, order=3)
 
-    interpolation = matrix[..., 0]
-    derivative = matrix[..., 1]
+    interpolation = operators[..., 0]
+    derivative = operators[..., 1]
     x_eval = interpolation @ x
 
     # All rows contain enough nodes to reproduce cubics.

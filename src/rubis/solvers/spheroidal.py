@@ -15,7 +15,7 @@ from ..legendre          import (
     pl_project_2D,
 )
 from ..interpolation     import interpolate_func
-from ..lagrange          import lagrange_matrix_P
+from ..lagrange          import build_lagrange_operators
 from ..quadrature        import (
     integrate,
     integrate_axisymmetric,
@@ -179,7 +179,7 @@ def initialize_spheroidal_numerics(
     for i_dom in domains.domain_ids:
         idx = domains.domain_ranges[i_dom]
 
-        lag_mat = lagrange_matrix_P(
+        lag_mat = build_lagrange_operators(
             zeta[idx],
             order=options.lagrange_order,
         )
