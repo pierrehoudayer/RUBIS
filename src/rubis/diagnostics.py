@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from scipy.special import eval_legendre, roots_legendre
 
 from .models import Model2D
-from .numerical import integrate2D
+from .quadrature import integrate_axisymmetric
 
 
 FloatArray = NDArray[np.float64]
@@ -72,14 +72,13 @@ def compute_virial_balance(
     domains = model.domains.domain_ranges
     rho2d = model.rho[:, None]
 
-    potential_work = integrate2D(
+    potential_work = integrate_axisymmetric(
         model.r2d,
         -rho2d * model.phi_g,
         domains=domains,
-        k=spline_order,
     )
 
-    kinetic_energy = integrate2D(
+    kinetic_energy = integrate_axisymmetric(
         model.r2d,
         (
             0.5
@@ -89,14 +88,12 @@ def compute_virial_balance(
             * model.omega**2
         ),
         domains=domains,
-        k=spline_order,
     )
 
-    thermodynamic_work = -integrate2D(
+    thermodynamic_work = -integrate_axisymmetric(
         model.r2d,
         model.p,
         domains=domains,
-        k=spline_order,
     )
 
     _, weights = roots_legendre(model.angular_resolution)
@@ -131,7 +128,7 @@ def compute_gravitational_moments(
     degrees = np.arange(0, max_degree + 1, 2)
 
     values = np.array([
-        integrate2D(
+        integrate_axisymmetric(
             model.r2d,
             (
                 model.rho[:, None]
@@ -139,7 +136,6 @@ def compute_gravitational_moments(
                 * eval_legendre(l, model.t)
             ),
             domains=model.domains.domain_ranges,
-            k=spline_order,
         )
         for l in degrees
     ])

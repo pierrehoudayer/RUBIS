@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .numerical import expI, expinv, interpolate_func
+from .interpolation import interpolate_func
+from .special import expI, expinv
 
 
 __all__ = [

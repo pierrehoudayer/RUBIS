@@ -16,11 +16,9 @@ from ..legendre          import (
     pl_eval_2D, 
     pl_project_2D,
 )
-from ..numerical         import (
-    integrate2D, 
-    interpolate_func, 
-    lagrange_matrix_P,
-)
+from ..interpolation     import interpolate_func
+from ..lagrange          import lagrange_matrix_P
+from ..quadrature        import integrate_axisymmetric
 from ..models            import (
     Model1D,
     Model2D,
@@ -498,7 +496,7 @@ def solve_radial(
 
         # Renormalisation
         r_corr = find_r_eq(r2d, L)
-        m_corr = integrate2D(r2d, rho, k=spl_order)
+        m_corr = integrate_axisymmetric(r2d, rho)
 
         radius *= r_corr
         mass   *= m_corr

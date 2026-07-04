@@ -12,7 +12,7 @@ from .config import (
 )
 from .domains import find_domains
 from .models import Model1D
-from .numerical import integrate
+from .quadrature import integrate
 from .polytrope import build_polytrope
 
 

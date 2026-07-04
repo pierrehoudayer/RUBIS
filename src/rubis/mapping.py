@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from scipy.special import roots_legendre
 
 from .legendre import pl_eval_2D, pl_project_2D
-from .numerical import interpolate_func
+from .interpolation import interpolate_func
 
 
 __all__ = [

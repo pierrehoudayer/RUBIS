@@ -14,13 +14,13 @@ from ..legendre          import (
     pl_eval_2D, 
     pl_project_2D,
 )
-from ..numerical         import (
-    integrate, 
-    integrate2D, 
-    interpolate_func, 
-    lagrange_matrix_P,
+from ..interpolation     import interpolate_func
+from ..lagrange          import lagrange_matrix_P
+from ..quadrature        import (
+    integrate,
+    integrate_axisymmetric,
 )
-from ..config import (
+from ..config            import (
     RotationConfig, 
     SolverOptions,
 )
@@ -769,7 +769,7 @@ def solve_spheroidal(
 
         # Renormalisation
         r_corr = find_r_eq(r2d, L)
-        m_corr = integrate2D(r2d, rho, domains=num.material_ranges)
+        m_corr = integrate_axisymmetric(r2d, rho, domains=num.material_ranges)
 
         radius *= r_corr
         mass   *= m_corr

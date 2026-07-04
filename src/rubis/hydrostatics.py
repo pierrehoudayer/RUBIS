@@ -1,4 +1,4 @@
-from .numerical import interpolate_func
+from .interpolation import interpolate_func
 
 
 def integrate_pressure(

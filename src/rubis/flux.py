@@ -17,10 +17,8 @@ from .mapping import (
     compute_mapping_geometry,
 )
 from .models import Model2D
-from .numerical import (
-    integrate,
-    interpolate_func,
-)
+from .interpolation import interpolate_func
+from .quadrature import integrate
 
 
 FloatArray = NDArray[np.float64]
