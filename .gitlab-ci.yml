@@ -39,6 +39,27 @@ cache:
     reports:
       junit: report.xml
 
+full-tests:
+  stage: test
+  image: bin.koda.cnrs.fr/docker-ci/python:3.12-slim
+
+  script:
+    - python -m pip install -e ".[dev]"
+    - python -m pytest --junitxml=full-report.xml
+
+  artifacts:
+    when: always
+    reports:
+      junit: full-report.xml
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+      allow_failure: false
+
+    - when: manual
+      allow_failure: true
+
 package:
   stage: package
   image: "bin.koda.cnrs.fr/docker-ci/python:3.11-slim"
