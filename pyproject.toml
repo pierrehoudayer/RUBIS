@@ -33,6 +33,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "scipy",
+    "h5py",
 ]
 
 [project.urls]
