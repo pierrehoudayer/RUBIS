@@ -6,13 +6,21 @@ from pathlib import Path
 
 import h5py
 
+from ..config import SolverOptions
+from ..diagnostics import (
+    GravitationalMoments,
+    ModelDiagnostics,
+    VirialBalance,
+)
 from ..domains import find_domains
 from ..models import Model2D, VacuumModel2D
 from ..results import SolverInfo, SolverOutput
 
 
 __all__ = [
+    "load_diagnostics",
     "load_result",
+    "load_solver_options",
     "save_result",
 ]
 
@@ -70,6 +78,27 @@ _INFO_SCALARS = (
     "elapsed_time",
 )
 
+_SOLVER_OPTION_FIELDS = (
+    "method",
+    "max_degree",
+    "angular_resolution",
+    "full_rate",
+    "mapping_precision",
+    "spline_order",
+    "lagrange_order",
+    "external_domain_res",
+    "rescale_ab",
+    "max_iterations",
+    "verbose",
+)
+
+_VIRIAL_FIELDS = (
+    "kinetic_energy",
+    "potential_work",
+    "thermodynamic_work",
+    "surface_work",
+)
+
 
 def _rubis_version() -> str:
     """Return the installed RUBIS version."""
@@ -90,6 +119,14 @@ def _dataset_options(
         "compression": compression,
         "shuffle": True,
     }
+
+
+def _decode_string(value):
+    """Decode a string stored as bytes by HDF5."""
+    if isinstance(value, bytes):
+        return value.decode()
+
+    return value
 
 
 def _write_fields(
@@ -263,13 +300,9 @@ def _read_solver_info(
 ) -> SolverInfo:
     """Read convergence information."""
     group = file["solver"]
-    method = group.attrs["method"]
-
-    if isinstance(method, bytes):
-        method = method.decode()
 
     return SolverInfo(
-        method=method,
+        method=_decode_string(group.attrs["method"]),
         iterations=int(group.attrs["iterations"]),
         tolerance=float(group.attrs["tolerance"]),
         error=float(group.attrs["error"]),
@@ -279,12 +312,129 @@ def _read_solver_info(
     )
 
 
+def _write_solver_options(
+    file: h5py.File,
+    options: SolverOptions | None,
+):
+    """Write the requested solver options when available."""
+    if options is None:
+        return
+
+    group = file["solver"].create_group("options")
+
+    for name in _SOLVER_OPTION_FIELDS:
+        group.attrs[name] = getattr(options, name)
+
+
+def _read_solver_options(
+    file: h5py.File,
+) -> SolverOptions | None:
+    """Read the requested solver options when available."""
+    if "options" not in file["solver"]:
+        return None
+
+    attrs = file["solver/options"].attrs
+
+    return SolverOptions(
+        method=_decode_string(attrs["method"]),
+        max_degree=int(attrs["max_degree"]),
+        angular_resolution=int(attrs["angular_resolution"]),
+        full_rate=int(attrs["full_rate"]),
+        mapping_precision=float(attrs["mapping_precision"]),
+        spline_order=int(attrs["spline_order"]),
+        lagrange_order=int(attrs["lagrange_order"]),
+        external_domain_res=int(attrs["external_domain_res"]),
+        rescale_ab=bool(attrs["rescale_ab"]),
+        max_iterations=int(attrs["max_iterations"]),
+        verbose=bool(attrs["verbose"]),
+    )
+
+
+def _write_diagnostics(
+    file: h5py.File,
+    diagnostics: ModelDiagnostics | None,
+    *,
+    compression: str | None,
+):
+    """Write diagnostics that were explicitly provided."""
+    if diagnostics is None:
+        return
+
+    virial = diagnostics.virial_balance
+    moments = diagnostics.gravitational_moments
+
+    if virial is None and moments is None:
+        return
+
+    group = file.create_group("diagnostics")
+
+    if virial is not None:
+        virial_group = group.create_group("virial_balance")
+
+        for name in _VIRIAL_FIELDS:
+            virial_group.attrs[name] = getattr(virial, name)
+
+    if moments is not None:
+        moments_group = group.create_group(
+            "gravitational_moments"
+        )
+        options = _dataset_options(compression)
+
+        moments_group.create_dataset(
+            "degrees",
+            data=moments.degrees,
+            **options,
+        )
+        moments_group.create_dataset(
+            "values",
+            data=moments.values,
+            **options,
+        )
+
+
+def _read_diagnostics(
+    file: h5py.File,
+) -> ModelDiagnostics | None:
+    """Read stored diagnostics when available."""
+    if "diagnostics" not in file:
+        return None
+
+    group = file["diagnostics"]
+    virial = None
+    moments = None
+
+    if "virial_balance" in group:
+        attrs = group["virial_balance"].attrs
+        virial = VirialBalance(
+            **{
+                name: float(attrs[name])
+                for name in _VIRIAL_FIELDS
+            },
+        )
+
+    if "gravitational_moments" in group:
+        moments_group = group["gravitational_moments"]
+        moments = GravitationalMoments(
+            degrees=moments_group["degrees"][...],
+            values=moments_group["values"][...],
+        )
+
+    return ModelDiagnostics(
+        virial_balance=virial,
+        gravitational_moments=moments,
+    )
+
+
 def _validate_file(
     file: h5py.File,
 ):
     """Validate the RUBIS result format."""
-    format_name = file.attrs.get("format_name")
-    format_version = file.attrs.get("format_version")
+    format_name = _decode_string(
+        file.attrs.get("format_name")
+    )
+    format_version = _decode_string(
+        file.attrs.get("format_version")
+    )
 
     if format_name != _FORMAT_NAME:
         raise ValueError(
@@ -304,6 +454,8 @@ def save_result(
     vacuum: VacuumModel2D | None,
     info: SolverInfo,
     *,
+    solver_options: SolverOptions | None = None,
+    diagnostics: ModelDiagnostics | None = None,
     overwrite: bool = False,
     compression: str | None = "gzip",
 ):
@@ -333,6 +485,15 @@ def save_result(
             info,
             compression=compression,
         )
+        _write_solver_options(
+            file,
+            solver_options,
+        )
+        _write_diagnostics(
+            file,
+            diagnostics,
+            compression=compression,
+        )
 
 
 def load_result(
@@ -347,3 +508,23 @@ def load_result(
         info   = _read_solver_info(file)
 
     return model, vacuum, info
+
+
+def load_solver_options(
+    filename: str | Path,
+) -> SolverOptions | None:
+    """Load stored solver options when available."""
+    with h5py.File(filename, "r") as file:
+        _validate_file(file)
+
+        return _read_solver_options(file)
+
+
+def load_diagnostics(
+    filename: str | Path,
+) -> ModelDiagnostics | None:
+    """Load stored diagnostics when available."""
+    with h5py.File(filename, "r") as file:
+        _validate_file(file)
+
+        return _read_diagnostics(file)

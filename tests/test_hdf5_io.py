@@ -2,8 +2,19 @@ import h5py
 import numpy as np
 import pytest
 
+from rubis.config import SolverOptions
+from rubis.diagnostics import (
+    GravitationalMoments,
+    ModelDiagnostics,
+    VirialBalance,
+)
 from rubis.domains import find_domains
-from rubis.io import load_result, save_result
+from rubis.io import (
+    load_diagnostics,
+    load_result,
+    load_solver_options,
+    save_result,
+)
 from rubis.models import Model2D, VacuumModel2D
 from rubis.results import SolverInfo
 
@@ -303,3 +314,177 @@ def test_hdf5_result_can_be_overwritten_explicitly(tmp_path):
     _, vacuum, _ = load_result(path)
 
     assert vacuum is not None
+
+
+def make_solver_options():
+    return SolverOptions(
+        method="spheroidal",
+        max_degree=31,
+        angular_resolution=29,
+        full_rate=2,
+        mapping_precision=2.0e-11,
+        spline_order=3,
+        lagrange_order=2,
+        external_domain_res=41,
+        rescale_ab=False,
+        max_iterations=73,
+        verbose=True,
+    )
+
+
+def make_virial_balance():
+    return VirialBalance(
+        kinetic_energy=1.2,
+        potential_work=3.4,
+        thermodynamic_work=-0.7,
+        surface_work=0.05,
+    )
+
+
+def make_gravitational_moments():
+    return GravitationalMoments(
+        degrees=np.array([
+            0,
+            2,
+            4,
+            6,
+        ]),
+        values=np.array([
+            1.0,
+            -1.2e-2,
+            3.4e-4,
+            -5.6e-6,
+        ]),
+    )
+
+
+def assert_diagnostics_equal(actual, expected):
+    assert (
+        actual.virial_balance
+        == expected.virial_balance
+    )
+
+    actual_moments = actual.gravitational_moments
+    expected_moments = expected.gravitational_moments
+
+    if expected_moments is None:
+        assert actual_moments is None
+        return
+
+    np.testing.assert_array_equal(
+        actual_moments.degrees,
+        expected_moments.degrees,
+    )
+    np.testing.assert_array_equal(
+        actual_moments.values,
+        expected_moments.values,
+    )
+
+
+def test_hdf5_solver_options_round_trip(tmp_path):
+    path = tmp_path / "model.h5"
+    options = make_solver_options()
+
+    save_result(
+        path,
+        make_model(),
+        None,
+        make_info(),
+        solver_options=options,
+    )
+
+    assert load_solver_options(path) == options
+
+    with h5py.File(path, "r") as file:
+        assert "options" in file["solver"]
+        assert "diagnostics" not in file
+
+
+@pytest.mark.parametrize(
+    (
+        "with_virial",
+        "with_moments",
+    ),
+    [
+        (True, False),
+        (False, True),
+        (True, True),
+    ],
+)
+def test_hdf5_diagnostics_round_trip(
+    tmp_path,
+    with_virial,
+    with_moments,
+):
+    path = tmp_path / "model.h5"
+    diagnostics = ModelDiagnostics(
+        virial_balance=(
+            make_virial_balance()
+            if with_virial
+            else None
+        ),
+        gravitational_moments=(
+            make_gravitational_moments()
+            if with_moments
+            else None
+        ),
+    )
+
+    save_result(
+        path,
+        make_model(),
+        None,
+        make_info(),
+        diagnostics=diagnostics,
+    )
+    loaded = load_diagnostics(path)
+
+    assert_diagnostics_equal(
+        loaded,
+        diagnostics,
+    )
+
+    with h5py.File(path, "r") as file:
+        group = file["diagnostics"]
+
+        assert (
+            "virial_balance" in group
+        ) == with_virial
+        assert (
+            "gravitational_moments" in group
+        ) == with_moments
+
+
+def test_hdf5_optional_data_are_absent_by_default(tmp_path):
+    path = tmp_path / "model.h5"
+
+    save_result(
+        path,
+        make_model(),
+        None,
+        make_info(),
+    )
+
+    assert load_solver_options(path) is None
+    assert load_diagnostics(path) is None
+
+    with h5py.File(path, "r") as file:
+        assert "options" not in file["solver"]
+        assert "diagnostics" not in file
+
+
+def test_hdf5_empty_diagnostics_are_not_written(tmp_path):
+    path = tmp_path / "model.h5"
+
+    save_result(
+        path,
+        make_model(),
+        None,
+        make_info(),
+        diagnostics=ModelDiagnostics(),
+    )
+
+    assert load_diagnostics(path) is None
+
+    with h5py.File(path, "r") as file:
+        assert "diagnostics" not in file
