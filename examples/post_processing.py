@@ -13,13 +13,14 @@ from rubis.config import (
     SolverOptions,
 )
 from rubis.diagnostics import (
+    ModelDiagnostics,
     compute_gravitational_moments,
     compute_virial_balance,
     report_gravitational_moments,
     report_virial_balance,
 )
 from rubis.flux import compute_radiative_flux
-from rubis.io.legacy import write_deformed_model
+from rubis.io.hdf5 import save_result
 from rubis.rotation_profiles import solid
 
 
@@ -95,11 +96,15 @@ def main():
         exist_ok=True
     )
 
-    write_deformed_model(
-        "polytrope_n3_omega_0p9.txt",
+    save_result(
+        "models/polytrope_n3_omega_0p9.h5",
         model,
+        vacuum,
         info,
-        dimensional=False,
+        diagnostics=ModelDiagnostics(
+            virial_balance=balance,
+            gravitational_moments=moments,
+        )
     )
 
 

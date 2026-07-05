@@ -15,6 +15,7 @@ from .rotation_profiles import solid
 __all__ = [
     "CompositePolytropeConfig",
     "DeformationConfig",
+    "HDF5ModelConfig",
     "LegacyModelConfig",
     "ModelConfig",
     "PolytropeConfig",
@@ -27,7 +28,6 @@ __all__ = [
 
 
 RotationProfile: TypeAlias = Callable[..., object]
-
 SolverMethod: TypeAlias = Literal[
     "auto",
     "radial",
@@ -58,6 +58,7 @@ class _PolytropeConfigBase(ABC):
             f"{index:.1f}"
             for index in self.polytropic_indices
         )
+
         return f"poly_|{indices}|"
 
 
@@ -101,8 +102,10 @@ class LegacyModelConfig:
     @property
     def path(self) -> Path:
         directory = self.directory
+
         if directory is None:
             directory = Path(__file__).with_name("data")
+
         return directory / self.filename
 
     @property
@@ -110,10 +113,25 @@ class LegacyModelConfig:
         return Path(self.filename).stem
 
 
+@dataclass(kw_only=True)
+class HDF5ModelConfig:
+    """Configuration of a model stored in the native RUBIS format."""
+
+    path: str | Path
+
+    def __post_init__(self):
+        self.path = Path(self.path)
+
+    @property
+    def filename_stem(self) -> str:
+        return self.path.stem
+
+
 ModelConfig: TypeAlias = (
     PolytropeConfig
     | CompositePolytropeConfig
     | LegacyModelConfig
+    | HDF5ModelConfig
 )
 
 
@@ -133,19 +151,14 @@ class SolverOptions:
     """Numerical options controlling the deformation solver."""
 
     method: SolverMethod = "auto"
-
     max_degree: int = 101
     angular_resolution: int = 101
-
     full_rate: int = 3
     mapping_precision: float = 1.0e-10
-
     spline_order: int = 5
     lagrange_order: int = 3
-
     external_domain_res: int = 201
     rescale_ab: bool = True
-
     max_iterations: int = 200
     verbose: bool = False
 
@@ -156,7 +169,6 @@ class RadiativeFluxOptions:
 
     origin: float = 0.05
     n_lines: int = 15
-
     max_degree: int | None = None
     spline_order: int = 5
 
@@ -166,7 +178,6 @@ class DeformationConfig:
     """Complete configuration of a deformation calculation."""
 
     model: ModelConfig
-
     rotation: RotationConfig = field(
         default_factory=RotationConfig
     )
