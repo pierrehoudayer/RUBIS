@@ -1,4 +1,6 @@
-![RUBIS logo](misc/rubis-logo.png)
+<p align="center">
+  <img src="misc/rubis-logo.png" alt="RUBIS logo" width="300">
+</p>
 
 # RUBIS
 
