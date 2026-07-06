@@ -6,6 +6,7 @@ from .api import deform
 from .config import (
     CompositePolytropeConfig,
     DeformationConfig,
+    HDF5ModelConfig,
     LegacyModelConfig,
     PolytropeConfig,
     RadiativeFluxOptions,
@@ -15,14 +16,17 @@ from .config import (
 from .models import Model2D, VacuumModel2D
 from .results import SolverInfo, SolverOutput
 
+
 try:
     __version__ = version("rubis")
 except PackageNotFoundError:
     __version__ = "unknown"
 
+
 __all__ = [
     "CompositePolytropeConfig",
     "DeformationConfig",
+    "HDF5ModelConfig",
     "LegacyModelConfig",
     "Model2D",
     "PolytropeConfig",

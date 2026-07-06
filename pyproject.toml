@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rubis"
-version = "2.0.0"
+version = "2.1.0.dev0"
 description = "Compute rotating barotropic stellar and planetary models"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "scipy",
+    "h5py",
 ]
 
 [project.urls]
@@ -52,7 +53,7 @@ dev = [
 
 [tool.setuptools.package-data]
 rubis = [
-    "data/*.txt",
+    "data/*",
 ]
 
 [tool.pytest.ini_options]

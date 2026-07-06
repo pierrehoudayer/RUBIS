@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="misc/rubis-logo.png" alt="RUBIS logo" width="420">
+  <img src="misc/rubis-logo.png" alt="RUBIS logo" width="300">
 </p>
 
 # RUBIS
@@ -173,7 +173,7 @@ Further examples are available in [`examples/`](examples/).
 
 ## Input models
 
-RUBIS currently supports three kinds of spherical reference models.
+RUBIS supports four kinds of spherical reference models.
 
 ### Single polytropes
 
@@ -212,9 +212,25 @@ model = CompositePolytropeConfig(
 Such models are automatically assigned to the spheroidal solver when
 `method="auto"`.
 
-### Tabulated models
+### Native HDF5 models
 
-Models stored in the historical RUBIS text format can be loaded with:
+Dimensional tabulated models can be stored in the native, versioned
+RUBIS HDF5 format and selected directly from their path:
+
+```python
+from rubis import HDF5ModelConfig
+
+model = HDF5ModelConfig(path="model.h5")
+```
+
+The native format uses cgs units. RUBIS derives the model mass and
+radius from the radial coordinate and density, then normalises the
+model internally. Repeated adjacent radial coordinates represent
+density interfaces and are preserved as separate numerical domains.
+
+### Legacy tabulated models
+
+Models stored in the historical RUBIS text format remain supported:
 
 ```python
 from rubis import LegacyModelConfig
@@ -231,7 +247,8 @@ RUBIS distributes a discontinuous Jupiter model as package data:
 model = LegacyModelConfig(filename="Jupiter.txt")
 ```
 
-The corresponding source file is available at
+Native HDF5 and historical text copies are available at
+[`src/rubis/data/Jupiter.h5`](src/rubis/data/Jupiter.h5) and
 [`src/rubis/data/Jupiter.txt`](src/rubis/data/Jupiter.txt).
 
 ## Rotation laws
@@ -287,7 +304,7 @@ A converged material model can be used to compute:
 - gravitational mass moments;
 - the reconstructed surface radiative flux;
 - two-dimensional plots of the model;
-- output in the historical RUBIS format.
+- versioned HDF5 output and historical text output.
 
 For example:
 
@@ -313,6 +330,102 @@ flux = compute_radiative_flux(model)
 
 See [`examples/post_processing.py`](examples/post_processing.py) and
 [`examples/plotting.py`](examples/plotting.py) for complete examples.
+
+## HDF5 input and output
+
+### Creating native input models
+
+A dimensional one-dimensional model can be written without using
+`h5py` directly:
+
+```python
+from rubis.io import save_input_model
+
+save_input_model(
+    "model.h5",
+    r=r,
+    rho=rho,
+    surface_pressure=p_surface,
+    additional_variables=(temperature,),
+    names=("temperature",),
+    units=("K",),
+)
+```
+
+The required quantities use cgs units: `r` is expressed in cm, `rho`
+in g cm$^{-3}$ and `surface_pressure` in dyn cm$^{-2}$. Additional
+variables retain their numerical order; their names and units are
+stored as descriptive metadata.
+
+Existing files are not overwritten unless `overwrite=True` is passed.
+Datasets use gzip compression by default.
+
+### Converting historical inputs
+
+The historical text format can be converted through the same
+initialisation path used by RUBIS:
+
+```python
+from rubis.io import convert_legacy_model
+
+convert_legacy_model(
+    "model.txt",
+    "model.h5",
+    names=("temperature",),
+    units=("K",),
+)
+```
+
+This preserves the normalised model obtained from the historical input,
+including its surface-pressure convention.
+
+### Saving converged results
+
+The material model, optional vacuum solution and convergence
+information can be stored in a versioned HDF5 result:
+
+```python
+from rubis.diagnostics import ModelDiagnostics
+from rubis.io import save_result
+
+diagnostics = ModelDiagnostics(
+    virial_balance=virial,
+    gravitational_moments=moments,
+)
+
+save_result(
+    "result.h5",
+    model,
+    vacuum,
+    info,
+    solver_options=config.solver,
+    diagnostics=diagnostics,
+)
+```
+
+`solver_options` and `diagnostics` are optional and are written only
+when explicitly supplied. The basic workflow therefore remains:
+
+```python
+save_result("result.h5", model, vacuum, info)
+```
+
+A result is loaded with:
+
+```python
+from rubis.io import (
+    load_diagnostics,
+    load_result,
+    load_solver_options,
+)
+
+model, vacuum, info = load_result("result.h5")
+solver_options = load_solver_options("result.h5")
+diagnostics = load_diagnostics("result.h5")
+```
+
+The two optional loaders return `None` when the corresponding data were
+not stored.
 
 ## Scope and limitations
 

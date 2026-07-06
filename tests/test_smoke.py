@@ -22,7 +22,7 @@ def test_core_modules_import():
 def test_rubis_package_import():
     import rubis
 
-    assert rubis.__version__ == "2.0.0"
+    assert rubis.__version__ == "2.1.0.dev0"
 
 
 def test_public_api_is_exposed_from_package():

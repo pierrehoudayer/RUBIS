@@ -57,6 +57,14 @@ class GravitationalMoments:
     values: FloatArray
     
     
+@dataclass(frozen=True, kw_only=True)
+class ModelDiagnostics:
+    """Optional diagnostics computed from a converged model."""
+
+    virial_balance: VirialBalance | None = None
+    gravitational_moments: GravitationalMoments | None = None
+    
+    
 def compute_virial_balance(
     model: Model2D,
     *,
